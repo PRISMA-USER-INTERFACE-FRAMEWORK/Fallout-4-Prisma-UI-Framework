@@ -1,0 +1,49 @@
+{
+  "manifest_version": "0.2",
+  "name": "prisma-mcp",
+  "version": "1.0.0",
+  "description": "PrismaUI_F4 2.1.0 API, release metadata, guides, and plugin scaffolding for MCP-compatible assistants.",
+  "long_description": "Gives an MCP client access to the PrismaUI_F4 2.1.0 release identity, the public byte-pinned PrismaUI_F4_API.h mirror, method documentation, current developer guides, and plugin scaffolding. The public header mirror is verified against the exact public SDK Git blob so normal users do not need access to the private Prisma-Matrix implementation repository.",
+  "author": {
+    "name": "NomadsReach",
+    "url": "https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK"
+  },
+  "homepage": "https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Fallout-4-Prisma-UI-Framework/tree/main/mcp-server",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Fallout-4-Prisma-UI-Framework.git"
+  },
+  "license": "MIT",
+  "keywords": ["prismaui", "fallout4", "f4se", "mcp", "ultralight"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/index.js"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${user_config.github_token}"
+      }
+    }
+  },
+  "user_config": {
+    "github_token": {
+      "type": "string",
+      "title": "GitHub token (optional)",
+      "description": "Raises GitHub API rate limits for public Fallout-4-Prisma-UI-Framework lookups. Matrix access is not required.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "tools": [
+    { "name": "get_framework_release", "description": "Get the pinned PrismaUI_F4 2.1.0 release identity, backend, exact source commit, SDK blob, and supported/rejected Fallout runtime lines." },
+    { "name": "list_api_methods", "description": "List documented public PrismaUI_F4 API methods, optionally filtered by interface version." },
+    { "name": "get_api_method", "description": "Get full docs for one API method by name." },
+    { "name": "search_docs", "description": "Keyword search across method docs and developer guides." },
+    { "name": "get_guide", "description": "Get the full text of a current PrismaUI developer guide." },
+    { "name": "get_header", "description": "Get the public mirror of the exact released PrismaUI_F4_API.h after verifying its pinned Git blob SHA." },
+    { "name": "scaffold_plugin", "description": "Write a new consumer plugin project copied from the official example, with the verified released API header." }
+  ]
+}

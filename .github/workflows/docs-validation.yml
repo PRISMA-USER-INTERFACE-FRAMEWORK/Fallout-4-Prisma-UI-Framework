@@ -1,0 +1,125 @@
+name: PrismaUI docs and MCP validation
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "docs/**"
+      - "src/**"
+      - "scripts/**"
+      - "example-f4se-plugin/**"
+      - "mcp-server/**"
+      - "website/**"
+      - ".github/workflows/docs-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "README.md"
+      - "docs/**"
+      - "src/**"
+      - "scripts/**"
+      - "example-f4se-plugin/**"
+      - "mcp-server/**"
+      - "website/**"
+      - ".github/workflows/docs-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prisma-docs-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            mcp-server/package-lock.json
+            website/package-lock.json
+
+      - name: Verify SDK and Papyrus mirrors
+        shell: bash
+        run: |
+          set -euo pipefail
+          flat_expected="5c03467ce567921e1de86ef89157cd246e07c977"
+          vr_expected="8221eb7bd81694f604b6f188fc8b2c475200dbf0"
+          pex_expected="329b0895ef0c9a74ec4dc8b7150854ccc0bd287a"
+
+          verify_blob() {
+            local path="$1"
+            local expected="$2"
+            local actual
+            actual="$(git hash-object "$path")"
+            [[ "$actual" == "$expected" ]] || {
+              echo "$path drifted from the pinned public SDK snapshot" >&2
+              echo "expected blob: $expected" >&2
+              echo "actual blob:   $actual" >&2
+              exit 1
+            }
+          }
+
+          verify_blob src/PrismaUI_F4_API.h "$flat_expected"
+          verify_blob example-f4se-plugin/src/PrismaUI_F4_API.h "$flat_expected"
+          verify_blob src/PrismaUI_F4VR_API.h "$vr_expected"
+          verify_blob example-f4se-plugin/src/PrismaUI_F4VR_API.h "$vr_expected"
+          verify_blob scripts/PrismaUI.pex "$pex_expected"
+
+          grep -q 'class IVPrismaUI11 : public IVPrismaUI10' src/PrismaUI_F4_API.h
+          grep -q 'class IVPrismaUI12 : public IVPrismaUI11' src/PrismaUI_F4_API.h
+          grep -q 'InterfaceVersion::V12' src/PrismaUI_F4_API.h
+          [[ ! -e src/PrismaUI_F4_API_V11.h ]]
+          [[ ! -e src/PrismaUI_F4_API_V12.h ]]
+
+          grep -q 'Function Focus(string asName' scripts/Source/PrismaUI.psc
+          grep -q 'Function SetOffscreenSize(string asName' scripts/Source/PrismaUI.psc
+
+      - name: Reject retired public paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          legacy_repo='PRISMA-USER-INTERFACE-FRAMEWORK/Prisma''2.0'
+          if grep -RniI "$legacy_repo" \
+              --exclude-dir=.git --exclude='package-lock.json' .; then
+            echo "Old repository URL remains in the public snapshot" >&2
+            exit 1
+          fi
+          if grep -RniI 'views/Interface/' website/designer-docs website/src/pages/tools; then
+            echo "Retired Designer view path remains" >&2
+            exit 1
+          fi
+          if grep -RniI 'PrismaUI_F4_API_V1[12]\.h' \
+              --exclude-dir=.git \
+              --exclude='CHANGELOG.md' \
+              --exclude='docs-validation.yml' .; then
+            echo "Retired split V11/V12 SDK header reference remains" >&2
+            exit 1
+          fi
+
+      - name: Build and exercise prisma-mcp
+        working-directory: mcp-server
+        env:
+          PRISMA_DOCS_BRANCH: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high
+          npm run build
+          npm run verify:release
+
+      - name: Build Docusaurus website
+        working-directory: website
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          npm ci
+          npm run build
