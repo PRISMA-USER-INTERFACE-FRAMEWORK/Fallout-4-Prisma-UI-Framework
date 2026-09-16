@@ -2,7 +2,7 @@
 title: Clip Scanning
 ---
 
-# `--scan-clips` â€” find clips that play a missing animation
+# `--scan-clips` — find clips that play a missing animation
 
 ```bash
 BehaviourGraphStudio.exe --scan-clips "<MO2 instance>" [--json]
@@ -18,15 +18,15 @@ animation-DB or binding behavior.
 
 ## What it scans
 
-Only behaviours that come from an **enabled mod** are scanned â€” a behaviour that exists purely in
-the base game is skipped, because its clips reference base paths that are knownâ€‘good and would only
+Only behaviours that come from an **enabled mod** are scanned — a behaviour that exists purely in
+the base game is skipped, because its clips reference base paths that are known‑good and would only
 produce false positives. So this mode answers: "do the behaviours my mods add or override play any
 animation that isn't there?"
 
-Clip animation paths are resolved with the game's own rule: a clip names an authoringâ€‘time `.hkt`
+Clip animation paths are resolved with the game's own rule: a clip names an authoring‑time `.hkt`
 path; the scan strips the authoring root and matches the corresponding `.hkx` in the load order
 (loose files win over archives, in load order). Weapon subgraph clips are resolved through the
-perâ€‘weapon search prefixes the engine derives from the race records, with a fallback across the
+per‑weapon search prefixes the engine derives from the race records, with a fallback across the
 weapon folders present in the merged data.
 
 ## What it finds
@@ -66,4 +66,4 @@ done  18 winning behaviour file(s) checked, 1 with unresolved clip animations, 2
 A clip resolving to a present file means the animation **exists**, not that its payload is
 guaranteed decodable. The runtime RE pass did not establish an engine fault branch for an animation
 class unsupported by BGS's decoder, so this mode does not add a decoder-based finding; see issues
-#207â€”#209 for the evidence and scope decision.
+#207–#209 for the evidence and scope decision.
