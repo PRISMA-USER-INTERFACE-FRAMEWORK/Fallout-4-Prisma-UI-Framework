@@ -157,3 +157,9 @@ If a transition does not fire when expected:
 8. Check any **Held back** or **Stops** explanation.
 
 For animation inspection, continue with [Animation & Playback](animation-and-playback). For state-machine debugging, see [Compare & Simulation](compare-and-simulation).
+
+## Current symbol authoring coverage
+
+The Symbols view remains connected to authoring and simulation. Use it to inspect actual bounds, trace event and variable usage, rename supported symbols, and verify references before changing graph structure.
+
+Supported graph authoring includes variables, events, bindings, transition conditions, and supported arrays. After changing a symbol, run **Check graph**, inspect usage again, and compare against the original. External MCP can inspect bounded symbol and object data but cannot write symbols, variables, or events.

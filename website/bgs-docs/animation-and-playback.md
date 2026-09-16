@@ -142,3 +142,11 @@ Preview is extremely useful, but it is not the Fallout 4 runtime. The game still
 Use preview to catch obvious animation, skeleton, mesh, and timing problems early. Then validate the behaviour and perform an in-game test for the final result.
 
 Next, see [Compare & Simulation](compare-and-simulation) for testing state-machine logic and reviewing file differences.
+
+## Mesh matching and rest-pose validation
+
+Playback validates the skeleton and mesh relationship before displaying a skinned mesh. A mesh with incompatible bones can look deformed even when the animation is valid. If BGS reports bone mismatches or rest-pose drift, locate the matching actor mesh and skeleton instead of correcting the animation by eye.
+
+When several NIF candidates exist, BGS can refuse to guess. Confirm the mesh name, skeleton, bone compatibility, and drift summary before evaluating deformation.
+
+The physics inspector also exposes measured ragdoll bodies, shapes, constraints, frames, pivots, limits, centres of mass, and animation mappings. Drop/Recover is a constrained engineering preview, not a full simulation. Cloth is inspection and validation only; it does not simulate, deform, author, or save cloth data.

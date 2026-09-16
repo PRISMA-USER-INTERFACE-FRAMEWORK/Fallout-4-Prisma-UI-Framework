@@ -150,3 +150,9 @@ Before putting an edited behaviour into a mod release:
 9. The mod contains the file at the correct relative path.
 
 If something goes wrong, see [Troubleshooting & Tips](troubleshooting-and-tips).
+
+## Current save guarantees
+
+Across graph, animation, skeleton, skin, and structure authoring, BGS validates supported changes before publication, retains the original as a `.bak`, detects concurrent source changes, recovers interrupted BGS transactions, and refuses unsafe, stale, ambiguous, unsupported, or unverified writes. Saved output can be reopened and checked before in-game testing.
+
+Assistant and native-authoring previews do not weaken these guarantees. An Assistant clip proposal stays in the active document until explicit UI approval and is bound to the exact revision, object, old value, and new value. External MCP preview is always side-effect-free and cannot save.

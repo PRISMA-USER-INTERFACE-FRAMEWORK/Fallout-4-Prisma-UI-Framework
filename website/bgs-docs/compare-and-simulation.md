@@ -168,3 +168,9 @@ If the graph works differently after a change but you cannot see why:
 6. Undo or correct any unintended difference.
 
 For save checks and release preparation, continue with [Saving & Validating](saving-and-validating).
+
+## Deterministic comparison and batch preview
+
+The current release adds deterministic comparison output and native batch-authoring previews. Use Compare after each logical stage of a larger edit so intended graph changes stay separate from unrelated file differences.
+
+Batch authoring shows the proposed result, validation delta, and blocking findings before application. Previewing does not publish a file. If the document, source revision, or queued change changes afterward, BGS drops the pending result and requires a new preview. Headless archive, modlist, and clip scans are available for CI and mod validation; they do not reproduce every Fallout 4 runtime decision.

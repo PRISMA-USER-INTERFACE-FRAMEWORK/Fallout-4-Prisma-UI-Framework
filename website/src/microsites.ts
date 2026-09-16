@@ -33,13 +33,13 @@ export const MICROSITES: Microsite[] = [
     externalNavItems: [
       {label: 'Nexus', href: 'https://www.nexusmods.com/fallout4/mods/107691'},
       {label: 'Discord', href: 'https://discord.gg/cPmT8SmW4D'},
-      {label: 'GitHub', href: 'https://github.com/NomadsReach/BehaviorGraphStudio'},
+      {label: 'GitHub', href: 'https://github.com/G-A-R-D-E-N/BGS'},
     ],
     footerLinks: [
       {label: 'Guide', to: '/tools/behaviourgraphstudio/guide/getting-started'},
       {label: 'Nexus Mods', href: 'https://www.nexusmods.com/fallout4/mods/107691'},
       {label: 'Discord', href: 'https://discord.gg/cPmT8SmW4D'},
-      {label: 'GitHub', href: 'https://github.com/NomadsReach/BehaviorGraphStudio'},
+      {label: 'GitHub', href: 'https://github.com/G-A-R-D-E-N/BGS'},
     ],
     copyrightName: 'Behavior Graph Studio',
   },

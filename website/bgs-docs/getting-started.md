@@ -18,7 +18,7 @@ This guide assumes you are new to Fallout 4 behaviour graphs. You do not need to
 
 ## Download and run
 
-1. Download the latest release from [Nexus Mods](https://www.nexusmods.com/fallout4/mods/107691) or [GitHub](https://github.com/NomadsReach/BehaviorGraphStudio/releases).
+1. Download the latest release from [Nexus Mods](https://www.nexusmods.com/fallout4/mods/107691) or [GitHub](https://github.com/G-A-R-D-E-N/BGS/releases).
 2. Extract the archive to a normal folder you control, such as `C:\Modding\BehaviorGraphStudio` or `~/Tools/BehaviorGraphStudio`.
 3. Run `BehaviourGraphStudio.exe` on Windows or the Behaviour Graph Studio binary on Linux.
 
@@ -122,3 +122,9 @@ Small, testable steps make behaviour work much easier to debug.
 - Do not treat every validation warning as a fatal error. Some warnings describe unusual but valid graph layouts. Read the explanation and confirm whether it matches the design of the behaviour.
 
 Next, see [Tree & Graph View](tree-and-graph-view) for finding your way around a loaded behaviour.
+
+## Current BGS scope
+
+The current workspace includes the Bridge home surface, first-run tour, recent-file shortcuts, drag-and-drop opening, contextual Graph/Inspect/Animation/Project tools, and a right-side Assistant drawer. Headless archive, modlist, and clip scans are available for validation workflows. For external automation, see [MCP Integration](mcp); external MCP is read-only plus a side-effect-free preview.
+
+Ragdoll is measured inspection plus constrained engineering preview. Cloth is inspection and validation only. Neither replaces in-game testing or provides a full Havok solver.

@@ -232,7 +232,7 @@ This is usually faster than starting at the root and reading every object in ord
 
 ## Reporting a bug
 
-If the problem appears to be in Behavior Graph Studio itself, report it through [GitHub Issues](https://github.com/NomadsReach/BehaviorGraphStudio/issues).
+If the problem appears to be in Behavior Graph Studio itself, report it through [GitHub Issues](https://github.com/G-A-R-D-E-N/BGS/issues).
 
 Include as much of this as you can:
 
@@ -246,3 +246,13 @@ Include as much of this as you can:
 - A minimal test file when you are allowed to share it.
 
 For the full save workflow, return to [Saving & Validating](saving-and-validating).
+
+## A mesh looks deformed
+
+Check the mesh/skeleton pairing before changing the animation. Bone mismatch or rest-pose drift means the NIF is not compatible with the resolved rig. Select the matching actor mesh, confirm the skeleton and drift summary, and use skeleton-only playback to separate animation problems from skinning problems.
+
+The resolver is deterministic and fail-closed. If multiple candidates are equally plausible, BGS may show no mesh rather than display the wrong one.
+
+## Ragdoll, cloth, MCP, and Assistant boundaries
+
+Ragdoll provides measured inspection and constrained Drop/Recover engineering preview, not body-collision solving, full Havok dynamics, or complete authoring. Cloth provides bounded inspection and validation only. External MCP exposes bounded reads and side-effect-free preview with no write-capable tool, shell access, process control, or arbitrary filesystem write. In-app Assistant changes require explicit UI approval and exact revision/value binding. See [MCP Integration](mcp) and [MCP API Reference](mcp-api).

@@ -175,3 +175,9 @@ For any edit that changes graph shape, use this checklist:
 8. The edited file is being saved from a writable mod workspace, not a temporary archive copy.
 
 For symbol editing, continue with [Symbols & Variables](symbols-and-variables). For writing the final file, see [Saving & Validating](saving-and-validating).
+
+## Current authoring surfaces
+
+The current release groups authoring into Graph tools for fields, references, transitions, subtree copy/paste, and templates; Native authoring for verified state-machine and batch changes; and the Assistant for bounded inspection and a proposed clip change.
+
+Supported structure authoring includes transition conditions, enter and exit notify events, global events, and non-empty state-machine creation and attachment. These operations still use validation and save/reopen checks. The Assistant is not an external write API: its clip proposal stays pending until a person approves it in BGS and is bound to the exact document revision, object, old value, and new value.

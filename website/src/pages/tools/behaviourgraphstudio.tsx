@@ -104,6 +104,22 @@ export default function BehaviorGraphStudio(): JSX.Element {
                 className={styles.showcaseImg}
               />
             </div>
+            <div className={styles.cardGrid} style={{marginTop: 24}}>
+              <div className={styles.showcaseImgWrap}>
+                <img
+                  src={useBaseUrl('/img/bgs-bridge.png')}
+                  alt="Behavior Graph Studio Bridge home screen"
+                  className={styles.showcaseImg}
+                />
+              </div>
+              <div className={styles.showcaseImgWrap}>
+                <img
+                  src={useBaseUrl('/img/bgs-assistant.png')}
+                  alt="Behavior Graph Studio Assistant drawer"
+                  className={styles.showcaseImg}
+                />
+              </div>
+            </div>
           </div>
         </section>
 
@@ -134,6 +150,13 @@ export default function BehaviorGraphStudio(): JSX.Element {
               save pipeline, and saving keeps the previous file as a <code>.bak</code>. If an edit
               cannot be represented safely, the application refuses the save instead of replacing
               the source file. Keep your backup until the edited behaviour has been tested in game.
+            </div>
+            <div className={styles.callout}>
+              <strong>Automation:</strong> BGS also includes a bounded external stdio MCP server for
+              inspection and side-effect-free previews. See the <Link to="/tools/behaviourgraphstudio/guide/mcp">MCP integration guide</Link> and <Link to="/tools/behaviourgraphstudio/guide/mcp-api">API reference</Link>.
+            </div>
+            <div className={styles.callout}>
+              <strong>Release scope:</strong> Review the <Link to="/tools/behaviourgraphstudio/guide/release-notes">full release notes</Link> for the month&apos;s workspace, authoring, animation, ragdoll, cloth, diagnostics, Assistant, MCP, and save-safety work, including what remains intentionally limited.
             </div>
           </div>
         </section>

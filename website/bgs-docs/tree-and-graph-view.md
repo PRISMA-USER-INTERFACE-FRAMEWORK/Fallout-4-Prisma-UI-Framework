@@ -134,3 +134,9 @@ Instead:
 - Use Tree view for exact object lookup and Graph view for relationships.
 
 Once you have found the object you need, continue with [Editing Nodes](editing-nodes).
+
+## Current workspace navigation
+
+The Bridge collects open, inspect, validate, preview, compare, and recent-file actions in one home surface. The left activity rail keeps Home, Graph, Inspect, Animation, and Project available while the secondary tabs change with the active activity.
+
+For large projects, combine Bridge search, Inspect → Tree filtering, Graph path highlighting, and Project → Project search. The command bar keeps **Check graph**, **Check project**, **Undo**, **Redo**, and **Save to .hkx** available from the main workflow.
