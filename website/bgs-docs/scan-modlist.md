@@ -2,7 +2,7 @@
 title: MO2 Modlist Scanning
 ---
 
-# `--scan-modlist` â€” find missing declared animations
+# `--scan-modlist` — find missing declared animations
 
 ```bash
 BehaviourGraphStudio.exe --scan-modlist "<MO2 instance>" [--json]
@@ -11,11 +11,11 @@ BehaviourGraphStudio.exe --scan-modlist "<MO2 instance>" [--json]
 Opens a [Mod Organizer 2 instance](scanning#mo2-instance-setup), layers the enabled mods over the
 base game the way the engine loads them, and for every **character** file provided by an enabled mod
 or the overwrite folder, checks that each animation the character *declares* still resolves to a file
-somewhere in the merged load order â€” including baseâ€‘game `Data`.
+somewhere in the merged load order — including base‑game `Data`.
 
 A character file (`hkbCharacterStringData`) lists the animation set it expects. If a mod removes or
 replaces a file so that one of those declared animations no longer resolves, the game is missing an
-animation it believes it has â€” this mode catches that before you launch.
+animation it believes it has — this mode catches that before you launch.
 
 ## What it finds
 
@@ -39,18 +39,18 @@ done  40 winning character file(s) checked, 1 with missing animations, 3 missing
 ```
 
 - The header line shows the resolved profile, how many mod roots are active, and the `Data` folder
-  used â€” check these match the load order you meant to scan.
+  used — check these match the load order you meant to scan.
 - `[loose:MyMod]` / `[Archive.ba2]` after the path is **where the winning copy came from**.
 - `(3 of 250)` means 3 of the 250 animations the file declares are missing. Human output lists up
   to 40 missing paths per file; `--json` carries the full list in `details`.
 
 ## What is scanned
 
-`--scan-modlist` scans the character files supplied by your enabled mods and the overwrite folder â€”
-not pure baseâ€‘game character files. Each scanned file's *declared* animations are then resolved
-against the **full merged view**, baseâ€‘game `Data` included, so a mod that removes or replaces a
+`--scan-modlist` scans the character files supplied by your enabled mods and the overwrite folder —
+not pure base‑game character files. Each scanned file's *declared* animations are then resolved
+against the **full merged view**, base‑game `Data` included, so a mod that removes or replaces a
 file a character depends on is caught even when the character itself is a base file overridden by a
-mod. (Same principle as `--scan-clips`, which likewise scans mod/overwriteâ€‘provided behaviours.)
+mod. (Same principle as `--scan-clips`, which likewise scans mod/overwrite‑provided behaviours.)
 
 ## JSON summary and findings
 
