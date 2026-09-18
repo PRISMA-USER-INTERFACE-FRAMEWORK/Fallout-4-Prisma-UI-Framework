@@ -52,7 +52,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          flat_expected="5c03467ce567921e1de86ef89157cd246e07c977"
+          flat_expected="23755e874f311a4294e662d3f6dc332547de5142"
+          modern_expected="99f4a9c7906c357aeaec13940dd121787efb10fe"
           vr_expected="8221eb7bd81694f604b6f188fc8b2c475200dbf0"
           pex_expected="329b0895ef0c9a74ec4dc8b7150854ccc0bd287a"
 
@@ -71,6 +72,8 @@ jobs:
 
           verify_blob src/PrismaUI_F4_API.h "$flat_expected"
           verify_blob example-f4se-plugin/src/PrismaUI_F4_API.h "$flat_expected"
+          verify_blob src/PrismaUI_F4_Modern_API.h "$modern_expected"
+          verify_blob example-f4se-plugin/src/PrismaUI_F4_Modern_API.h "$modern_expected"
           verify_blob src/PrismaUI_F4VR_API.h "$vr_expected"
           verify_blob example-f4se-plugin/src/PrismaUI_F4VR_API.h "$vr_expected"
           verify_blob scripts/PrismaUI.pex "$pex_expected"

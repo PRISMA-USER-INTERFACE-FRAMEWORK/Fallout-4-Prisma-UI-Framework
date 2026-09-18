@@ -24,7 +24,10 @@ namespace PRISMA_UI_API {
     constexpr const auto PrismaUIPluginName = "PrismaUI_F4";
 
     // Available PrismaUI interface versions
-    enum class InterfaceVersion : uint8_t { V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12 };
+    enum class InterfaceVersion : uint8_t {
+        V1, V2, V3, V4, V5, V6, V7, V8,
+        V9 = 136, V10 = 137, V11 = 138, V12 = 139
+    };
 
     inline constexpr InterfaceVersion PrismaUIInterfaceV11 = InterfaceVersion::V11;
     inline constexpr InterfaceVersion PrismaUIInterfaceV12 = InterfaceVersion::V12;
@@ -233,9 +236,10 @@ namespace PRISMA_UI_API {
         virtual int  GetControllerStyle() noexcept = 0;
         virtual void SetControllerStyle(int style) noexcept = 0;
 
-        // Feed an input-device observation (0 = keyboard, 1 = mouse, 2 = gamepad) from a plugin's own
-        // input sink. The framework self-tracks menu-context input; a plugin that also handles GAMEPLAY
-        // input (e.g. a crosshair looter) should call this so the device stays correct out in the world.
+        // Compatibility escape hatch for an input observation (0 = keyboard, 1 = mouse, 2 = gamepad)
+        // seen outside PrismaUI's normal menu/gameplay input chains. The framework now self-tracks
+        // ordinary input on both chains and emits `prisma-input-device-change` only when device/style
+        // actually changes, so consumers should not call this once per normal key/button event.
         virtual void NoteInputDevice(int device) noexcept = 0;
 
         // Prompt token for a vanilla ControlMap user event ("Activate", "Ready Weapon", ...) on the
@@ -334,6 +338,13 @@ namespace PRISMA_UI_API {
     using GameThreadTaskCallback = void (*)(void* userdata);
     using GameThreadUIEventCallback = void (*)(const char* argument, void* userdata);
 
+    // Additive extension surface, intentionally outside every existing virtual interface so V1-V12
+    // keep their exact layout. Feature detection is the exported-function lookup performed below.
+    enum class CursorPolicy : uint32_t {
+        Default = 0,
+        Hidden = 1,
+    };
+
     class IVPrismaUI11 : public IVPrismaUI10 {
     protected:
         ~IVPrismaUI11() = default;
@@ -345,15 +356,36 @@ namespace PRISMA_UI_API {
                                            GameThreadUIEventCallback callback, void* userdata) noexcept = 0;
     };
 
+    enum class ControllerActionBridgeState : uint8_t {
+        Missing = 0,
+        Pending = 1,
+        Ready = 2,
+        Failed = 3,
+    };
+
+    // V12 is authoritative and ABI-frozen after release; new virtuals require a new interface version.
     class IVPrismaUI12 : public IVPrismaUI11 {
     protected:
         ~IVPrismaUI12() = default;
 
     public:
+        // true means the mapping was accepted and immediately owns matching focused physical input.
+        // JS delivery is installed asynchronously per view; Pending still owns input and therefore
+        // never falls through into legacy synthetic navigation or Fallout.
         virtual bool BindControllerAction(PrismaView view, const char* canonicalButton,
                                           const char* action) noexcept = 0;
         virtual bool UnbindControllerAction(PrismaView view, const char* canonicalButton) noexcept = 0;
         virtual void ClearControllerActions(PrismaView view) noexcept = 0;
+
+        virtual ControllerActionBridgeState GetControllerActionBridgeState(PrismaView view) noexcept = 0;
+
+        // Register an unfocused controller gesture for a visible kPanel. PrismaUI admits the callback
+        // to its verified Fallout game/window-thread dispatcher before consuming the physical event.
+        // If admission fails, Fallout keeps the event. Once admitted, PrismaUI owns that physical
+        // sequence through release or until the target becomes focused.
+        virtual bool BindControllerFocusEntry(PrismaView view, const char* canonicalButton,
+                                              GameThreadTaskCallback callback, void* userdata) noexcept = 0;
+        virtual bool UnbindControllerFocusEntry(PrismaView view, const char* canonicalButton) noexcept = 0;
     };
 
     // Maps an interface type to its version, so you can only ask for one that exists.
@@ -422,6 +454,8 @@ namespace PRISMA_UI_API {
 
     typedef void* (*RequestPluginAPIFunc)(InterfaceVersion interfaceVersion);
     typedef uint64_t (*GetPrismaCapabilitiesFunc)();
+    typedef bool (*SetViewCursorPolicyFunc)(PrismaView view, CursorPolicy policy);
+    typedef CursorPolicy (*GetViewCursorPolicyFunc)(PrismaView view);
 
     /// The one place that knows what the provider DLL is called.
     ///
@@ -444,7 +478,26 @@ namespace PRISMA_UI_API {
         return GetModuleHandleW(L"PrismaUI_F4VR.dll");
     }
 
-    [[nodiscard]] inline void* RequestPluginAPI(InterfaceVersion a_interfaceVersion = InterfaceVersion::V1) {
+    // Controls only Prisma's software/compositor cursor. It does not release capture or reveal the
+    // Fallout cursor. The setter accepts only the current focus owner and resets on handoff/unfocus.
+    [[nodiscard]] inline bool SetViewCursorPolicy(PrismaView view, CursorPolicy policy) noexcept {
+        auto pluginHandle = GetPrismaProviderModule();
+        if (!pluginHandle) return false;
+        auto fn = reinterpret_cast<SetViewCursorPolicyFunc>(
+            GetProcAddress(pluginHandle, "PrismaUI_F4_SetViewCursorPolicy"));
+        return fn ? fn(view, policy) : false;
+    }
+
+    [[nodiscard]] inline CursorPolicy GetViewCursorPolicy(PrismaView view) noexcept {
+        auto pluginHandle = GetPrismaProviderModule();
+        if (!pluginHandle) return CursorPolicy::Default;
+        auto fn = reinterpret_cast<GetViewCursorPolicyFunc>(
+            GetProcAddress(pluginHandle, "PrismaUI_F4_GetViewCursorPolicy"));
+        return fn ? fn(view) : CursorPolicy::Default;
+    }
+
+    [[nodiscard]] inline void* RequestPluginAPI(
+        InterfaceVersion a_interfaceVersion = InterfaceVersion::V1) {
         auto pluginHandle = GetPrismaProviderModule();
         if (!pluginHandle) {
             return nullptr;
