@@ -2,7 +2,7 @@
 
 `prisma-mcp` gives an MCP-compatible client structured access to the current **PrismaUI_F4 2.1.0** developer surface.
 
-The current framework uses **Ultralight 1.4.0 in-process**. The desktop API is exposed through one canonical `PrismaUI_F4_API.h` SDK header containing **V1 through V12**. Desktop support covers OG 1.10.163 plus AE 1.11.137+ with matching Address Library data; the intermediate 1.10.980-1.10.984 line is deliberately unsupported.
+The current framework uses **Ultralight 1.4.0 in-process**. Existing consumers keep the frozen `PrismaUI_F4_API.h` V1-V12 compatibility ABI, while new code can use `PrismaUI_F4_Modern_API.h` for independently versioned Core, Controller, and GameThread feature tables. Desktop support covers OG 1.10.163 plus AE 1.11.137+ with matching Address Library data; the intermediate 1.10.980-1.10.984 line is deliberately unsupported.
 
 ## Requirements
 
@@ -16,9 +16,10 @@ The implementation repository, Prisma-Matrix, is private. Public MCP users do **
 The public contract is:
 
 - **Fallout-4-Prisma-UI-Framework `main`** for guides, method documentation, examples, and distributable SDK mirrors.
-- `src/PrismaUI_F4_API.h` is the single desktop SDK header and contains `IVPrismaUI1` through `IVPrismaUI12`.
-- The current canonical desktop SDK header is Git blob `5c03467ce567921e1de86ef89157cd246e07c977`.
-- Its maintainer-side API source is Prisma-Matrix commit `c2892083329db9f255191a052c3b8b922c4e27b1`.
+- `src/PrismaUI_F4_API.h` is the frozen desktop compatibility SDK and contains `IVPrismaUI1` through `IVPrismaUI12`.
+- `src/PrismaUI_F4_Modern_API.h` is the additive feature-table SDK for new integrations.
+- The current canonical desktop SDK header is Git blob `23755e874f311a4294e662d3f6dc332547de5142`.
+- Its maintainer-side API source is Prisma-Matrix commit `61848ed3fa65f41f4fb0f2d169f995a41951f62f`.
 - The original 2.1.0 release source remains `061f699864500cd754c9aac854eb047093a161ea`; MCP reports release provenance and current SDK provenance separately.
 - The VR header mirror remains Git blob `8221eb7bd81694f604b6f188fc8b2c475200dbf0`.
 - Repository CI checks the public SDK blob identities before documentation changes can merge.
@@ -68,7 +69,7 @@ Call this first when version, backend, renderer, Fallout runtime support, or com
 
 ### `get_header`
 
-Returns the public mirror of the canonical `PrismaUI_F4_API.h` after verifying its Git blob SHA. Use it before writing or reviewing native API calls. This one header contains V1-V12.
+Returns the public mirror of the canonical `PrismaUI_F4_API.h` after verifying its Git blob SHA. Use it before writing or reviewing native API calls. This compatibility header contains V1-V12. The modern feature-table header is mirrored beside it for new integrations.
 
 ### `list_api_methods`
 
@@ -96,7 +97,7 @@ For a new PrismaUI task:
 
 1. call `get_framework_release`;
 2. call `get_header` before generating C++;
-3. include `PrismaUI_F4_API.h` for desktop code;
+3. use `PrismaUI_F4_Modern_API.h` for new feature-table integrations, or `PrismaUI_F4_API.h` for the frozen V1-V12 compatibility ABI;
 4. request the lowest interface version containing the needed feature;
 5. search or fetch the relevant guide;
 6. use `get_api_method` for methods with lifecycle/runtime caveats;

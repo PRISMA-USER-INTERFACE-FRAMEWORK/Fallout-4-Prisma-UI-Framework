@@ -38,11 +38,11 @@ Data/
 
 Do not install retired CEF/browser-host/subprocess components for the current framework.
 
-## API header
+## API headers
 
-`src/PrismaUI_F4_API.h` in this example is the canonical desktop SDK header and must stay byte-identical to the public repository copy. It contains `IVPrismaUI1` through `IVPrismaUI12` in one file. Repository CI verifies both copies against the pinned canonical Git blob.
+`src/PrismaUI_F4_API.h` in this example is the canonical frozen desktop compatibility SDK and must stay byte-identical to the public repository copy. It contains `IVPrismaUI1` through `IVPrismaUI12` in one file. Repository CI verifies both copies against the pinned canonical Git blob.
 
-For new code, request the lowest interface version you need. V10 provides panel coordination and selective input. V11 adds verified Fallout window-thread dispatch. V12 adds focused controller actions.
+Existing plugins should request the lowest legacy interface version they need. New plugins may instead use `src/PrismaUI_F4_Modern_API.h` to discover Core, Controller, and GameThread feature tables independently.
 
 ```cpp
 #include "PrismaUI_F4_API.h"
@@ -61,6 +61,7 @@ Request V11 or V12 only when your plugin actually uses their methods.
 example-f4se-plugin/
 ├── src/
 │   ├── PrismaUI_F4_API.h
+│   ├── PrismaUI_F4_Modern_API.h
 │   ├── main.cpp
 │   ├── keyhandler/
 │   └── PCH.h
