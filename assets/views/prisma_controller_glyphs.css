@@ -1,0 +1,26 @@
+/* Shared controller button-art styles (see controller_glyphs.js). */
+.cg{
+  display:inline-flex;align-items:center;justify-content:center;
+  vertical-align:middle;line-height:1;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+/* Real button art (PNG). Rendered at a small fixed size; the source art is 128x128 with its own
+   padding, so it sits cleanly inline without an extra chip background. */
+.cg-img{
+  width:22px;height:22px;object-fit:contain;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+}
+/* Shoulders / triggers / sticks / d-pad / menu: labelled pill. */
+.cg-pill{
+  height:20px;min-width:20px;padding:0 6px;border-radius:5px;
+  background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.22);
+  color:rgba(235,239,248,0.95);font-size:11px;font-weight:700;
+  box-shadow:0 1px 2px rgba(0,0,0,0.4);
+}
+/* Keyboard key: the plain keycap look, so a KB+M prompt still reads as a key. */
+.cg-key{
+  height:20px;min-width:20px;padding:0 6px;border-radius:4px;
+  background:rgba(20,22,28,0.6);border:1px solid rgba(255,255,255,0.32);
+  color:rgba(255,255,255,0.95);font-size:11px;font-weight:600;
+  box-shadow:0 1px 3px rgba(0,0,0,0.6);
+}
