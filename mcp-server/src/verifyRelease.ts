@@ -2,13 +2,16 @@ import {
   fetchFrameworkReleaseInfo,
   fetchReleasedFrameworkHeader,
   fetchReleasedModernFrameworkHeader,
+  fetchReleasedVrFrameworkHeader,
 } from "./github.js";
 import { getGuide } from "./tools/getGuide.js";
+import { parseModernFeatures } from "./tools/modernApi.js";
 import {
   FRAMEWORK_API_SOURCE_COMMIT,
   FRAMEWORK_HEADER_BLOB_SHA,
   FRAMEWORK_RELEASE_SOURCE_COMMIT,
   FRAMEWORK_VERSION,
+  FRAMEWORK_VR_HEADER_BLOB_SHA,
 } from "./types.js";
 
 async function main(): Promise<void> {
@@ -21,8 +24,24 @@ async function main(): Promise<void> {
   }
 
   const modernHeader = await fetchReleasedModernFrameworkHeader();
-  if (!modernHeader.includes("enum class ApiFeature") || !modernHeader.includes("LocalizationApiVersion")) {
-    throw new Error("Verified modern SDK mirror does not expose the expected feature-table contract");
+  const modernFeatures = parseModernFeatures(modernHeader);
+  const requiredFeatures = ["Core", "Controller", "GameThread", "Meta", "View", "Interop", "Localization", "Render", "Input", "Menu"];
+  if (requiredFeatures.some((name) => !modernFeatures.some((feature) => feature.name === name))) {
+    throw new Error("Verified modern SDK mirror does not expose all released feature tables");
+  }
+  const controller = modernFeatures.find((feature) => feature.name === "Controller");
+  const localization = modernFeatures.find((feature) => feature.name === "Localization");
+  if (!controller?.methods.some((method) => method.name === "SetNativeGamepad") ||
+      !controller.methods.some((method) => method.name === "GetControllerActionBridgeState") ||
+      !localization?.methods.some((method) => method.name === "RegisterTranslationsV4")) {
+    throw new Error("Verified modern SDK mirror is missing released controller or localization methods");
+  }
+
+  const vrHeader = await fetchReleasedVrFrameworkHeader();
+  if (!vrHeader.includes("class IVPrismaUIVR1") ||
+      !vrHeader.includes("SubmitSpatialPointerUpdate") ||
+      !vrHeader.includes("GetSpatialCapabilities")) {
+    throw new Error("Verified VR SDK mirror is missing released spatial API contracts");
   }
 
   const translationsGuide = await getGuide("translations");
@@ -47,6 +66,13 @@ async function main(): Promise<void> {
   }
   if (release.apiHeaderBlob !== FRAMEWORK_HEADER_BLOB_SHA) {
     throw new Error(`Framework SDK blob mismatch: ${release.apiHeaderBlob}`);
+  }
+  if (release.vrApiHeaderBlob !== FRAMEWORK_VR_HEADER_BLOB_SHA) {
+    throw new Error(`Framework VR SDK blob mismatch: ${release.vrApiHeaderBlob}`);
+  }
+  if (!release.controllerRuntimes.includes("Fallout 4 AE 1.11.240") ||
+      !release.modernFeatures.includes("Localization")) {
+    throw new Error("Framework release metadata is missing current controller or modern-feature boundaries");
   }
 
   console.log(
