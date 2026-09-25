@@ -9,7 +9,7 @@ sidebar_position: 8
 
 PrismaUI_F4 exposes native APIs for suppressing selected vanilla HUD widgets and menus. These APIs operate on Fallout's existing UI objects; they are separate from the Ultralight web runtime used to render Prisma views.
 
-This page documents only methods present in the released **PrismaUI_F4 2.1.0** public header.
+This page documents only methods present in the current **PrismaUI_F4** public header.
 
 ## Full-menu suppression
 
@@ -30,7 +30,7 @@ g_api->SuppressVanillaMenu("PipboyMenu", false);
 
 Suppression is reapplied when that menu is created/opened again for as long as the framework's suppression state remains enabled for the name.
 
-The public API does **not** expose an `IsMenuSuppressed` method in 2.1.0. Keep your own plugin state if you need to know whether your code requested suppression.
+The public API does **not** expose an `IsMenuSuppressed` method in the current numbered API. Keep your own plugin state if you need to know whether your code requested suppression.
 
 ### `CloseVanillaMenu`
 
@@ -93,7 +93,7 @@ if (!g_api->SuppressHUDWidget("HUDCompass", true)) {
 
 ### Runtime support
 
-The released 2.1.0 implementation supports its guarded HUD-widget path on:
+The current implementation supports its guarded HUD-widget path on:
 
 - OG `1.10.163`
 - AE `1.11.137+` when the required Address Library authority resolves
@@ -157,12 +157,12 @@ virtual bool TriggerActivateChoice(
     uint32_t buttonIndex) noexcept = 0;
 ```
 
-### Actual 2.1.0 semantics
+### Current semantics
 
 Do **not** describe this as a working generic “filter the vanilla button strip” API.
 
 - `EnableActivateChoiceFilter` enables the capture path used by `GetActivateChoiceLabel` / `TriggerActivateChoice`.
-- `dropDefaultTake` is retained in the ABI but is ignored in 2.1.0.
+- `dropDefaultTake` is retained in the ABI but is ignored.
 - `SuppressActivateChoicePerk` is an ABI placeholder; it logs/returns without implementing perk-row suppression.
 - `GetActivateChoiceLabel` and `TriggerActivateChoice` operate on captured choices when capture is available.
 
@@ -176,7 +176,7 @@ Keep replacement state in your plugin rather than assuming suppression eliminate
 
 ## Runtime/version guidance
 
-PrismaUI_F4 2.1.0 supports desktop:
+The current desktop provider supports:
 
 - OG `1.10.163`
 - AE `1.11.137+` with matching Address Library data
