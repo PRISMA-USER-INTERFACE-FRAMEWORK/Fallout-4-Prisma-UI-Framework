@@ -4,6 +4,27 @@ Release history for the Fallout 4 Prisma UI Framework. Newest first.
 
 ---
 
+# PrismaUI_F4 2.2.0
+
+**Release date:** 2026-09-22
+
+- Framework-owned controller-action bridge recovery with bounded retries per view generation.
+- Stale controller bridge work is invalidated on reload, clear, and destroy.
+- Existing V1-V12 ABI remains compatible.
+- New integrations should prefer the modern feature-table API when explicit capability discovery is useful.
+
+# PrismaUI_F4 2.1.1
+
+**Release date:** 2026-09-20
+
+- Native controller support for Fallout 4 1.10.163 and Anniversary Edition 1.11.240.
+- Native Gamepad mode for live stick and trigger state.
+- V4 JSON localization through Fallout resources with loose/BA2 support, locale detection, English fallback, dotted keys, and interpolation.
+- Added the preferred `PrismaUI_F4_Modern_API.h` discovery surface with Core, Controller, GameThread, Meta, View, Interop, Localization, Render, Input, and Menu tables.
+- Restored in-game Ultralight DevTools on F12.
+- Added per-view cursor ownership.
+- Hardened graphics-hook coexistence, focus recovery, input subclass installation, packaging, and release provenance.
+
 # PrismaUI_F4 2.1.0
 
 **Release date:** 2026-08-31
