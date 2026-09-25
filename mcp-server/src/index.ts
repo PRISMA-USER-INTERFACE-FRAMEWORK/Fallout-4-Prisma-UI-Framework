@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getApiMethodDoc } from "./tools/getApiMethod.js";
 import { getFrameworkRelease } from "./tools/getFrameworkRelease.js";
 import { getGuide, GUIDE_NAMES } from "./tools/getGuide.js";
-import { getHeader } from "./tools/getHeader.js";
+import { getHeader, getModernHeader } from "./tools/getHeader.js";
 import { listApiMethods } from "./tools/listApiMethods.js";
 import { scaffoldPlugin } from "./tools/scaffoldPlugin.js";
 import { searchDocs } from "./tools/searchDocs.js";
@@ -27,8 +27,8 @@ server.tool(
   "get_framework_release",
   "Get the pinned PrismaUI_F4 2.2.0 release and current SDK contract targeted by this MCP server: version, " +
     "release tag, original release source commit, current API source commit, rendering backend, supported desktop Fallout " +
-    "runtimes, rejected runtime line, public download URL, maintainer provenance URL, and verified V1-V12 " +
-    "API-header mirror. Call this before generating setup or compatibility guidance.",
+    "runtimes, rejected runtime line, public download URL, maintainer provenance URL, and verified modern plus V1-V12 " +
+    "API-header mirrors. Call this before generating setup or compatibility guidance.",
   {},
   async () => {
     try {
@@ -110,6 +110,21 @@ server.tool(
   async () => {
     try {
       return textResult(await getHeader());
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "get_modern_header",
+  "Get the preferred PrismaUI_F4 modern feature-table header after verifying its pinned Git blob. " +
+    "Use this for new integrations that should discover only the Core, Controller, GameThread, Meta, View, Interop, " +
+    "Localization, Render, Input, or Menu feature tables they require.",
+  {},
+  async () => {
+    try {
+      return textResult(await getModernHeader());
     } catch (err) {
       return errorResult(err instanceof Error ? err.message : String(err));
     }
