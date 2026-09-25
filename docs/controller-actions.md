@@ -4,6 +4,12 @@
 
 > **Availability:** include the canonical `PrismaUI_F4_API.h` SDK header and request `IVPrismaUI12` at runtime. Always null-check the request. Older installed providers may expose only earlier interface versions.
 
+## Runtime boundary
+
+Native flat-provider controller conversion is validated for Fallout 4 **1.10.163** and Anniversary Edition **1.11.240**. Unsupported or unverified controller runtimes fail closed instead of installing guessed conversion hooks.
+
+This controller-specific boundary is narrower than some other PrismaUI features. Do not infer native-controller support solely from general desktop-provider compatibility.
+
 ## Public API
 
 ```cpp
