@@ -40,7 +40,25 @@ static void ClosePanel()
 
 static void OnDomReady(PrismaView view)
 {
+    g_interop.RegisterConsoleCallback(view, [](PrismaView, ConsoleMessageLevel level, const char* message) {
+        switch (level) {
+        case ConsoleMessageLevel::Error:
+            REX::CRITICAL("[JS] {}", message ? message : "");
+            break;
+        case ConsoleMessageLevel::Warning:
+            REX::WARN("[JS] {}", message ? message : "");
+            break;
+        default:
+            REX::INFO("[JS] {}", message ? message : "");
+            break;
+        }
+    });
+
     g_interop.RegisterJSListener(view, "requestClose", [](const char*) { ClosePanel(); });
+    g_interop.RegisterJSListener(view, "sendDataToF4SE", [](const char* data) {
+        REX::INFO("JS->C++: {}", data ? data : "");
+    });
+
     g_controller.BindControllerAction(view, "B", "panel.close");
     g_interop.Invoke(view, "window.init && window.init()", nullptr);
 }
@@ -64,6 +82,7 @@ static void Toggle()
     if (g_visible) {
         g_viewApi.Show(g_view);
         g_viewApi.Focus(g_view, false, false);
+        g_interop.Invoke(g_view, "window.updateFocusLabel && window.updateFocusLabel('Focused. Press F3 to close.')", nullptr);
     } else {
         ClosePanel();
     }
@@ -187,6 +206,19 @@ export async function scaffoldPlugin(
       destPath: resolve(absTarget, MODERN_HEADER_PATH),
       content: modernHeader,
     });
+
+    const scriptPath = resolve(absTarget, "view", "script.js");
+    const scriptIndex = files.findIndex((file) => file.destPath === scriptPath);
+    if (scriptIndex >= 0) {
+      files[scriptIndex] = {
+        ...files[scriptIndex],
+        content:
+          files[scriptIndex].content +
+          "\nwindow.addEventListener('prisma-controller-action', function(event) {\n" +
+          "    if (event.detail && event.detail.action === 'panel.close' && event.detail.state === 'pressed') closePanel();\n" +
+          "});\n",
+      };
+    }
   }
 
   const filesWritten: string[] = [];
