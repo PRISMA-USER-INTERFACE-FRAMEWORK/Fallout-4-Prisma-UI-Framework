@@ -1,7 +1,7 @@
 {
   "name": "prisma-mcp",
   "version": "1.0.0",
-  "description": "MCP server exposing the PrismaUI_F4 2.1.0 API reference, guides, release identity, and plugin scaffolding from the public Fallout-4-Prisma-UI-Framework developer mirror.",
+  "description": "MCP server exposing the PrismaUI_F4 2.2.0 API reference, guides, release identity, and plugin scaffolding from the public Fallout-4-Prisma-UI-Framework developer mirror.",
   "type": "module",
   "bin": {
     "prisma-mcp": "dist/index.js"
