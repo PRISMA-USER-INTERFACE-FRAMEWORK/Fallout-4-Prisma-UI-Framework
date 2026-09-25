@@ -48,7 +48,7 @@ PrismaView view = api->CreateView(
     });
 ```
 
-PrismaUI_F4 2.1.0 does not require an extra `Interface` subdirectory under the views root.
+Current PrismaUI_F4 does not require an extra `Interface` subdirectory under the views root.
 
 The export dialog also has a **C++ Code** tab. It prints the `CreateView` and
 `RegisterJSListener` calls for the listeners configured in the design.
