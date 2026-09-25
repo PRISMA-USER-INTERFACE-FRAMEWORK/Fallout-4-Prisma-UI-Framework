@@ -27,7 +27,7 @@ This repository contains the public PrismaUI_F4 developer surface:
 - Docusaurus documentation website
 - CI that validates SDK/Papyrus mirrors, MCP dependencies, and the website build
 
-Always request and null-check the exact interface version your mod needs. Older installed providers may expose only an earlier API version. The SDK ships as one header; request the lowest interface containing the feature you need.
+For new integrations, prefer `PrismaUI_F4_Modern_API.h` and discover only the feature tables you need. Existing numbered-interface consumers should keep using `PrismaUI_F4_API.h` and request the lowest V1-V12 interface containing the required feature.
 
 ## Public download
 
