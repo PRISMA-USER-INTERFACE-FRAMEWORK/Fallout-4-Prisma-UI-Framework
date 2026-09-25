@@ -65,7 +65,7 @@ module.exports = function llmsTxtPlugin(context) {
         '> Intermediate 1.10.980-1.10.984 Next-Gen runtimes are deliberately unsupported.',
         '> Public C++ API: preferred feature tables plus the stable IVPrismaUI1 through IVPrismaUI12 compatibility ABI.',
         '> ModelPreview bridge is `window.__prismaUI_modelPreview` API v4 and accepts NIF paths.',
-        '> Current builds include the packaged in-game Ultralight DevTools inspector on F12 when enabled.
+        '> Current builds include the packaged in-game Ultralight DevTools inspector on F12 when enabled.',
         '> Required web dependencies should be bundled locally with consumer mods.',
         '> prisma-mcp is built from this public repository; do not assume an npm package is published.',
         '> In prisma-mcp, call `get_framework_release` and `get_header` before generating integration code.',
