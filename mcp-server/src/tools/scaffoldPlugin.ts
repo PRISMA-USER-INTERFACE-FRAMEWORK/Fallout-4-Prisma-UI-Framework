@@ -1,12 +1,13 @@
 import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fetchRawFile, listPathsUnder } from "../github.js";
-import { getHeader, getModernHeader } from "./getHeader.js";
+import { getHeader, getModernHeader, getVrHeader } from "./getHeader.js";
 
 const EXAMPLE_PREFIX = "example-f4se-plugin/";
 const EXAMPLE_TOKEN = "PrismaUI-F4-Example";
 const LEGACY_HEADER_PATH = "src/PrismaUI_F4_API.h";
 const MODERN_HEADER_PATH = "src/PrismaUI_F4_Modern_API.h";
+const VR_HEADER_PATH = "src/PrismaUI_F4VR_API.h";
 const PLUGIN_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
 
 export type ScaffoldApiStyle = "modern" | "legacy";
@@ -156,7 +157,7 @@ export async function scaffoldPlugin(
   const sourcePaths = await listPathsUnder(EXAMPLE_PREFIX);
   if (sourcePaths.length === 0) throw new Error('Found no files under "' + EXAMPLE_PREFIX + '".');
 
-  const [legacyHeader, modernHeader] = await Promise.all([getHeader(), getModernHeader()]);
+  const [legacyHeader, modernHeader, vrHeader] = await Promise.all([getHeader(), getModernHeader(), getVrHeader()]);
   const files = await Promise.all(
     sourcePaths.map(async (sourcePath) => {
       const relativePath = sourcePath.slice(EXAMPLE_PREFIX.length);
@@ -167,6 +168,7 @@ export async function scaffoldPlugin(
 
       let rawContent: string;
       if (relativePath === LEGACY_HEADER_PATH) rawContent = legacyHeader;
+      else if (relativePath === VR_HEADER_PATH) rawContent = vrHeader;
       else if (apiStyle === "modern" && relativePath === "src/main.cpp") rawContent = MODERN_MAIN;
       else if (apiStyle === "modern" && relativePath === "README.md") rawContent = MODERN_README;
       else rawContent = await fetchRawFile(sourcePath);
