@@ -1,6 +1,6 @@
 # View Lifecycle
 
-This page describes the public lifecycle contract for **PrismaUI_F4 2.1.0**. The production backend is in-process **Ultralight 1.4.0**. Older legacy-runtime shell, subprocess, and external-DevTools behavior does not apply to this release.
+This page describes the current public lifecycle contract. The production backend is in-process **Ultralight 1.4.0**. Older legacy-runtime shell and subprocess behavior does not apply.
 
 ## States
 
@@ -79,7 +79,7 @@ static void OnDomReady(PrismaView view)
     g_api->RegisterJSListener(view, "onClose", OnClose);
     g_api->RegisterJSListener(view, "requestData", OnDataRequest);
 
-    // RegisterTranslations injects into the current live document in 2.1.0.
+    // Legacy RegisterTranslations injects into the current live document.
     g_api->RegisterTranslations(view, "MyPlugin_F4");
 
     // Run translation/listener-dependent page initialization after registration.
@@ -91,13 +91,13 @@ The framework queues `OnDomReadyCallback` onto the **main game thread**.
 
 For consumer code, registering page-facing listeners in `OnDomReady` is the safest pattern because the document and JS environment are known to exist. The runtime accepts listener registration for a valid view, but registering after DOM readiness avoids depending on backend timing.
 
-`RegisterTranslations` belongs here as well. In 2.1.0 it builds the translation helper script and sends it to the current document through `Invoke`; it is not a pre-document injection hook.
+`RegisterTranslations` belongs here as well. The legacy path builds the translation helper script and sends it to the current document through `Invoke`; it is not a pre-document injection hook.
 
 Do not depend on `Invoke()` succeeding before the page has a live JavaScript context.
 
 ## Callback threading
 
-In 2.1.0 the public callback paths are marshalled to the game thread:
+The public callback paths are marshalled through the verified framework callback path:
 
 - `OnDomReadyCallback`
 - `JSCallback` returned by `Invoke`
@@ -215,7 +215,7 @@ Only enable this on a view that actually handles Escape.
 
 ## Multiple views
 
-Each Prisma view has its own handle and page state. Do not use the retired shared-legacy-runtime-shell model to reason about 2.1.0.
+Each Prisma view has its own handle and page state. Do not use the retired shared-legacy-runtime-shell model to reason about current PrismaUI.
 
 Ordering is controlled with `SetOrder` / `GetOrder`:
 
@@ -232,7 +232,7 @@ For most plugins, prefer one view with internal routing for related screens. Use
 
 Use `SetViewOffscreen(view, true)` and the related V5/V8 APIs only when you specifically need an offscreen texture. Do not confuse offscreen mode with an ordinary hidden panel.
 
-The public 2.1.0 default remains `bMeshBinding=0`; on-mesh behavior should be treated as an explicit advanced integration rather than a requirement for ordinary HTML overlays.
+Mesh binding remains an explicit advanced integration; on-mesh behavior should be treated as an explicit advanced integration rather than a requirement for ordinary HTML overlays.
 
 ## Health and recovery
 
@@ -250,20 +250,15 @@ Use it when you need diagnostics or a bounded recovery policy. If a consumer dec
 
 ## Inspector compatibility methods
 
-The V1 inspector methods remain in the ABI, but **the Ultralight 2.1.0 backend does not implement an inspector UI**.
+Current builds ship a packaged in-game Ultralight inspector opened with **F12** when DevTools are enabled.
 
-Current behavior:
+The V1 inspector methods remain in the ABI for compatibility and are not the control surface for the current F12 DevTools workflow. Do not use retired remote-debugging-port or external legacy-runtime instructions.
 
-- `CreateInspectorView` logs that the operation is unsupported.
-- `SetInspectorVisibility` logs that the operation is unsupported.
-- `IsInspectorVisible` returns false.
-- `SetInspectorBounds` is unsupported/no-op.
-
-Do not tell users to enable a legacy-runtime remote-debugging port or expect DevTools to open in an external browser. For 2.1.0 debugging, use `RegisterConsoleCallback`, `PrismaUI_F4.log`, view-health diagnostics, and normal browser development outside the game.
+For diagnostics, combine the F12 inspector with `RegisterConsoleCallback`, `PrismaUI_F4.log`, and view-health reporting.
 
 ## Scrolling-size compatibility methods
 
-`GetScrollingPixelSize` and `SetScrollingPixelSize` remain in the V1 ABI but are **not implemented by the 2.1.0 Ultralight backend**.
+`GetScrollingPixelSize` and `SetScrollingPixelSize` remain in the V1 ABI but remain compatibility methods and should not be used as a primary layout API.
 
 - `GetScrollingPixelSize` returns `0` and logs a warning.
 - `SetScrollingPixelSize` leaves the view unchanged and logs a warning.
