@@ -5,7 +5,7 @@ sidebar_label: Troubleshooting
 sidebar_position: 99
 ---
 
-# Troubleshooting PrismaUI_F4 2.1.0
+# Troubleshooting PrismaUI_F4 2.2.0
 
 Start with:
 
@@ -75,9 +75,9 @@ if (!api) {
 }
 ```
 
-Compile against the current public 2.1.0 header. Do not mix an old copied header with assumptions about newer vtable methods.
+Compile against the current public SDK headers. Do not mix an old copied header with assumptions about newer vtable methods or feature tables.
 
-The docs-repo header is mirrored from the release, and `prisma-mcp get_header` reads the exact 2.1.0 header directly from the released Prisma-Matrix source commit.
+The public legacy and modern SDK headers are mirrored from the canonical Prisma-Matrix provider source.
 
 ## The UI is blank or unstyled
 
@@ -88,29 +88,31 @@ Bundle required assets with the mod and use document-relative paths:
 <script src="app.js"></script>
 ```
 
-Do not depend on CDN JavaScript, Google Fonts, or other remote resources for the production 2.1.0 UI path. The shipping Ultralight security model is intentionally restrictive.
+Do not depend on CDN JavaScript, Google Fonts, or other remote resources for the production Ultralight UI path. The shipping Ultralight security model is intentionally restrictive.
 
 If a remote dependency worked under an old legacy-runtime build and fails now, move it into your mod.
 
 See [Networking](networking).
 
-## DevTools / inspector instructions from old guides do not work
+## DevTools / inspector
 
-PrismaUI_F4 2.1.0 no longer ships the legacy-runtime host/subprocess or the old external previous browser runtime DevTools workflow.
+Do not use old instructions for an external legacy-runtime host or Chrome remote-debugging session.
 
-Use:
+Current PrismaUI builds package an in-game Ultralight inspector. Press **F12** when DevTools are enabled. The inspector provides Elements, Sources, Console, Network, Timelines, Storage, Graphics, Layers, and Audit panels.
+
+Also use:
 
 - `PrismaUI_F4.log`;
-- your plugin log;
+- your plugin's F4SE log;
 - `RegisterConsoleCallback`;
 - `GetViewHealth`;
-- normal browser/front-end testing outside the game.
+- `Invoke` error results.
 
-The old inspector entry points remain in the ABI for compatibility, but do not build your development workflow around legacy-runtime remote debugging or `retired host component`.
+The V1 inspector ABI methods are not the control surface for the current F12 workflow.
 
 ## The installation contains old legacy-runtime files
 
-A current 2.1.0 install should not require:
+A current install should not require:
 
 ```text
 retired host component
@@ -119,18 +121,18 @@ retired runtime library
 retired runtime directory/
 ```
 
-If you upgraded from an old development build and still have mixed runtime generations, reinstall the current PrismaUI_F4 2.1.0 package cleanly rather than trying to combine them.
+If you upgraded from an old development build and still have mixed runtime generations, reinstall the current PrismaUI_F4 package cleanly rather than trying to combine them.
 
-Do **not** delete the current Ultralight libraries. `AppCore.dll`, `Ultralight.dll`, `UltralightCore.dll`, and `WebCore.dll` are part of the 2.1.0 runtime.
+Do **not** delete the current Ultralight libraries. `AppCore.dll`, `Ultralight.dll`, `UltralightCore.dll`, and `WebCore.dll` are part of the current Ultralight runtime.
 
 ## HUD suppression does not work
 
-`SuppressHUDWidget` in 2.1.0 supports:
+`SuppressHUDWidget` supports:
 
 - OG 1.10.163;
 - AE 1.11.137+ when matching Address Library data is available.
 
-The intermediate 1.10.980-1.10.984 Next-Gen runtime line is not supported by PrismaUI_F4 2.1.0.
+The intermediate 1.10.980-1.10.984 Next-Gen runtime line is not supported by the current PrismaUI_F4 desktop line.
 
 The call can also return `false` for an unknown widget class or when the required runtime authority cannot be safely resolved. Check the return value and the framework log.
 
@@ -138,7 +140,7 @@ The call can also return `false` for an unknown widget class or when the require
 
 The released V7 behavior is intentionally narrower than older documentation claimed:
 
-- `EnableActivateChoiceFilter(true, dropDefaultTake)` enables activate-choice **capture**. `dropDefaultTake` is ignored in 2.1.0.
+- `EnableActivateChoiceFilter(true, dropDefaultTake)` enables activate-choice **capture**. `dropDefaultTake` is ignored.
 - `SuppressActivateChoicePerk` is an ABI placeholder and does not remove perk rows.
 - Use V8 `GetActivateChoiceLabel` and `TriggerActivateChoice` for the supported capture/read/trigger path.
 
@@ -160,7 +162,7 @@ For offscreen/on-mesh views:
 - rebind if Fallout rebuilds that geometry;
 - unbind while the original geometry is still valid;
 - do not `Release()` the framework-owned SRV;
-- remember that public 2.1.0 ships with `bMeshBinding=0` by default.
+- remember that mesh binding remains an explicit advanced integration rather than a requirement for normal overlays.
 
 ## Runtime/version confusion
 
@@ -173,7 +175,7 @@ Do not treat 1.10.980-1.10.984 as a supported middle runtime just because older 
 
 When reporting a bug, include:
 
-- PrismaUI_F4 version (`2.1.0` for this documentation set);
+- PrismaUI_F4 version;
 - Fallout executable version;
 - F4SE version;
 - Address Library version when relevant;

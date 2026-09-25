@@ -1,6 +1,6 @@
 # Current flat-provider API extensions
 
-`PrismaUI_F4_API.h` is the complete desktop SDK header. It contains the frozen V1-V10 ABI plus additive `IVPrismaUI11` and `IVPrismaUI12` interfaces in the same file. Newer interfaces derive from the previous one and append methods so existing vtable prefixes do not move.
+`PrismaUI_F4_API.h` remains the stable numbered desktop ABI. New integrations may instead use `PrismaUI_F4_Modern_API.h`, which discovers independently versioned feature tables without extending the legacy vtable. The numbered header still contains the frozen V1-V10 ABI plus additive `IVPrismaUI11` and `IVPrismaUI12` interfaces.
 
 ## Header
 
@@ -11,6 +11,23 @@
 That one header contains V1 through V12. Request the lowest interface version that provides the feature your mod needs.
 
 > Always request and null-check the exact interface at runtime. An older installed provider may expose only an earlier version.
+
+## Preferred modern discovery
+
+For new code that does not need the numbered vtable, include `PrismaUI_F4_Modern_API.h` and discover the smallest feature table required by the plugin.
+
+```cpp
+#include "PrismaUI_F4_Modern_API.h"
+
+using namespace PRISMA_UI_FLAT_API;
+
+ControllerAPI controller{};
+if (!Discover<ApiFeature::Controller>(ControllerApiVersion, controller)) {
+    return;
+}
+```
+
+See [Modern API](modern-api.md) for the complete feature map. The modern surface and V1-V12 compatibility surface coexist.
 
 ## Requesting V12
 

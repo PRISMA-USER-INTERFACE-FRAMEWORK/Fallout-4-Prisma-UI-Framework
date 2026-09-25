@@ -1,10 +1,10 @@
 # PrismaUI Example Plugin
 
-This is the reference consumer project for **PrismaUI_F4 2.1.0**. It demonstrates how an F4SE plugin requests the Prisma API, creates an HTML/CSS/JS view, exchanges data with JavaScript, and handles input/lifecycle events.
+This is the reference consumer project for **PrismaUI_F4 2.2.0**. It demonstrates how an F4SE plugin requests the Prisma API, creates an HTML/CSS/JS view, exchanges data with JavaScript, and handles input/lifecycle events.
 
 ## Supported desktop runtimes
 
-PrismaUI_F4 2.1.0 supports:
+The current PrismaUI_F4 desktop provider supports:
 
 - Fallout 4 `1.10.163` (OG)
 - Fallout 4 `1.11.137+` (AE) when matching Address Library data is available

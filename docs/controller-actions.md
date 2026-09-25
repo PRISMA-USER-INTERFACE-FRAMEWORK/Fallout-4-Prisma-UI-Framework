@@ -4,6 +4,12 @@
 
 > **Availability:** include the canonical `PrismaUI_F4_API.h` SDK header and request `IVPrismaUI12` at runtime. Always null-check the request. Older installed providers may expose only earlier interface versions.
 
+## Runtime boundary
+
+Native flat-provider controller conversion is validated for Fallout 4 **1.10.163** and Anniversary Edition **1.11.240**. Unsupported or unverified controller runtimes fail closed instead of installing guessed conversion hooks.
+
+This controller-specific boundary is narrower than some other PrismaUI features. Do not infer native-controller support solely from general desktop-provider compatibility.
+
 ## Public API
 
 ```cpp
@@ -22,6 +28,14 @@ virtual void ClearControllerActions(PrismaView view) noexcept = 0;
 `BindControllerAction` replaces the mapping for that view and button. It returns `false` until the target view is DOM-ready. `UnbindControllerAction` removes one mapping. `ClearControllerActions` removes every controller mapping owned by the view.
 
 Action identifiers are copied into framework storage and must contain 1-64 ASCII letters, digits, `_`, `-`, `.`, or `:`.
+
+## Bridge recovery in PrismaUI 2.2.0
+
+PrismaUI owns controller-action bridge installation and recovery. If the JavaScript bridge fails to install, the framework retries through the deferred Ultralight queue with a maximum of three attempts for the current view generation.
+
+Reloading, clearing, or destroying a view invalidates stale retry state. A completion from an older generation cannot mark a newer view as ready.
+
+Consumer mods should not add their own unbounded retry loop. Bind the semantic actions you need and treat `GetControllerActionBridgeState` as diagnostics/state reporting.
 
 ## Canonical buttons
 
@@ -143,6 +157,12 @@ This avoids trigger drift creating noisy press/release edges. Trigger state is r
 
 `LS` and `RS` refer to the stick-click buttons. Thumbstick movement itself is outside this API.
 
+## Native Gamepad mode
+
+The modern Controller feature table also exposes `SetNativeGamepad(view, enabled)`. Use it when the focused page needs live stick or trigger state through `navigator.getGamepads()`.
+
+Semantic menu actions should still use `BindControllerAction`. Native Gamepad mode is for continuous analog state, not a replacement for framework-owned action routing.
+
 ## Lifecycle
 
 Mappings are owned per `PrismaView`.
@@ -177,7 +197,7 @@ if (g_prisma->GetButtonPrompt("Activate", prompt, sizeof(prompt))) {
 }
 ```
 
-For a direct gamepad code, `GetGamepadButtonName()` returns the same canonical naming family used by V12.
+For a direct gamepad code, `GetGamepadButtonName()` returns the same canonical naming family used by V12. Shared controller glyphs are constrained to the framework prompt size so missing consumer CSS does not allow the source artwork to render at its full dimensions.
 
 ## Migrating an existing mod
 

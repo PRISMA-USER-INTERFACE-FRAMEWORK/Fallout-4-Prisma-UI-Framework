@@ -14,11 +14,11 @@ virtual void SetInspectorBounds(
 
 Retained for V1 ABI/source compatibility.
 
-## PrismaUI_F4 2.1.0 behavior
+## Current behavior
 
-The Ultralight backend has no inspector UI, so these bounds have nothing to position. The parameters are ignored and the call has no presentation effect.
+This V1 compatibility method is not the layout control for the current packaged DevTools inspector.
 
-Do not use this as evidence that an inspector exists. Use console capture and framework logging for 2.1.0 debugging.
+Current builds open the in-game Ultralight inspector with **F12** when DevTools are enabled. Use the inspector's own UI rather than this legacy bounds method.
 
 ## See also
 

@@ -5,14 +5,15 @@ import { z } from "zod";
 import { getApiMethodDoc } from "./tools/getApiMethod.js";
 import { getFrameworkRelease } from "./tools/getFrameworkRelease.js";
 import { getGuide, GUIDE_NAMES } from "./tools/getGuide.js";
-import { getHeader } from "./tools/getHeader.js";
+import { getHeader, getModernHeader, getVrHeader } from "./tools/getHeader.js";
 import { listApiMethods } from "./tools/listApiMethods.js";
+import { getModernFeature, listModernFeatures } from "./tools/modernApi.js";
 import { scaffoldPlugin } from "./tools/scaffoldPlugin.js";
 import { searchDocs } from "./tools/searchDocs.js";
 
 const server = new McpServer({
   name: "prisma-mcp",
-  version: "1.0.0",
+  version: "1.1.0",
 });
 
 function textResult(text: string) {
@@ -25,10 +26,9 @@ function errorResult(message: string) {
 
 server.tool(
   "get_framework_release",
-  "Get the pinned PrismaUI_F4 2.1.0 release and current SDK contract targeted by this MCP server: version, " +
-    "release tag, original release source commit, current API source commit, rendering backend, supported desktop Fallout " +
-    "runtimes, rejected runtime line, public download URL, maintainer provenance URL, and verified V1-V12 " +
-    "API-header mirror. Call this before generating setup or compatibility guidance.",
+  "Get the pinned PrismaUI_F4 2.2.0 release contract: version, source commit, renderer, general desktop runtimes, " +
+    "native-controller runtimes, rejected runtime line, released modern feature tables, and verified " +
+    "modern, V1-V12 compatibility, and VR SDK provenance. Call this before setup or compatibility guidance.",
   {},
   async () => {
     try {
@@ -41,7 +41,7 @@ server.tool(
 
 server.tool(
   "list_api_methods",
-  "List every documented public PrismaUI_F4 API method (name, interface version, one-line summary). " +
+  "List every documented numbered V1-V12 compatibility API method with its interface version and summary. " +
     "Optionally filter to methods added in a specific interface version (e.g. \"V12\").",
   { sinceVersion: z.string().optional().describe('Interface version filter, e.g. "V12" or "12".') },
   async ({ sinceVersion }) => {
@@ -56,9 +56,9 @@ server.tool(
 
 server.tool(
   "get_api_method",
-  "Get the full documentation for one PrismaUI_F4 API method by name (for example CreateView, " +
-    "BindViewToGeometry, DispatchToGameThread, or BindControllerAction): signature, parameters, return value, " +
-    "threading notes, call-order requirements, and a usage example.",
+  "Get the full documentation for one numbered V1-V12 compatibility API method by name (for example CreateView, " +
+    "BindViewToGeometry, DispatchToGameThread, or BindControllerAction). For modern feature-table members, use " +
+    "get_modern_feature instead.",
   { name: z.string().describe('Exact method name, e.g. "CreateView".') },
   async ({ name }) => {
     try {
@@ -72,9 +72,8 @@ server.tool(
 
 server.tool(
   "search_docs",
-  "Keyword search across every API method doc and guide. Use this when you do not know the exact " +
-    "method name, or when checking runtime/backend guidance such as Ultralight, AE, networking, " +
-    "input regions, controller actions, or panel focus.",
+  "Keyword search across compatibility method docs, current guides, and verified modern/VR SDK contracts. Use this " +
+    "for modern-only methods, VR spatial APIs, runtime/backend guidance, networking, controller actions, or panel focus.",
   { query: z.string().describe("Search term or short phrase.") },
   async ({ query }) => {
     try {
@@ -105,7 +104,7 @@ server.tool(
   "Get the public Fallout-4-Prisma-UI-Framework mirror of the canonical PrismaUI_F4 desktop API header. " +
     "The server recomputes its Git blob SHA and fails closed unless the bytes match the pinned V1-V12 SDK header. " +
     "Use it before writing or checking C++ signatures, parameter order, defaults, capabilities, or interface versions. " +
-    "The SDK uses one PrismaUI_F4_API.h file for V1 through V12. No access to the private implementation repository is required.",
+    "The compatibility SDK uses one PrismaUI_F4_API.h file for V1 through V12.",
   {},
   async () => {
     try {
@@ -117,11 +116,66 @@ server.tool(
 );
 
 server.tool(
+  "get_modern_header",
+  "Get the preferred PrismaUI_F4 modern feature-table header after verifying its pinned Git blob. " +
+    "Use this for new integrations that should discover only the Core, Controller, GameThread, Meta, View, Interop, " +
+    "Localization, Render, Input, or Menu feature tables they require.",
+  {},
+  async () => {
+    try {
+      return textResult(await getModernHeader());
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "list_modern_features",
+  "List every modern PrismaUI feature table from the verified PrismaUI_F4_Modern_API.h header, including feature ID, " +
+    "table version, member names, typedef names, and resolved function-pointer signatures.",
+  {},
+  async () => {
+    try {
+      return textResult(JSON.stringify(await listModernFeatures(), null, 2));
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "get_modern_feature",
+  "Get one modern PrismaUI feature table by name, such as Controller, Localization, GameThread, View, Render, Input, or Menu.",
+  { name: z.string().describe('Feature name, e.g. "Controller" or "Localization".') },
+  async ({ name }) => {
+    try {
+      return textResult(JSON.stringify(await getModernFeature(name), null, 2));
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "get_vr_header",
+  "Get the released PrismaUI_F4VR_API.h mirror after verifying its pinned Git blob. Use it for VR spatial, pointer, " +
+    "network-policy, capability, and provider integration work.",
+  {},
+  async () => {
+    try {
+      return textResult(await getVrHeader());
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
   "scaffold_plugin",
-  "Create a new F4SE consumer project at a local path by copying and renaming PrismaUI_F4's " +
-    "example plugin. Writes real files under targetPath; call this only after the user confirms the " +
-    "target path and plugin name. The scaffold replaces its desktop API header with the verified canonical " +
-    "V1-V12 public mirror before writing the project.",
+  "Create a new F4SE consumer project at a local path. Modern is the default and generates a feature-table " +
+    "consumer with verified modern and V1-V12 headers; legacy preserves the numbered-interface example. " +
+    "Writes real files under targetPath, so call this only after the user confirms the target path and plugin name.",
   {
     pluginName: z
       .string()
@@ -131,12 +185,16 @@ server.tool(
       .boolean()
       .optional()
       .describe("Write into targetPath even if it already exists and is non-empty. Default false."),
+    apiStyle: z
+      .enum(["modern", "legacy"])
+      .optional()
+      .describe("API style for generated native code. Default modern."),
   },
-  async ({ pluginName, targetPath, overwrite }) => {
+  async ({ pluginName, targetPath, overwrite, apiStyle }) => {
     try {
-      const result = await scaffoldPlugin(pluginName, targetPath, overwrite ?? false);
+      const result = await scaffoldPlugin(pluginName, targetPath, overwrite ?? false, apiStyle ?? "modern");
       return textResult(
-        `Scaffolded "${pluginName}" at ${result.targetPath}\n\n` +
+        `Scaffolded "${pluginName}" at ${result.targetPath} using the ${result.apiStyle} API style\n\n` +
           `Files written (${result.filesWritten.length}):\n` +
           result.filesWritten.map((f) => `  ${f}`).join("\n")
       );

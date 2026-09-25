@@ -5,13 +5,13 @@ sidebar_label: Networking
 sidebar_position: 10
 ---
 
-# Networking in PrismaUI_F4 2.1.0
+# Networking in PrismaUI_F4 2.2.0
 
-PrismaUI_F4 2.1.0 uses an in-process **Ultralight 1.4.0** backend with a deliberately restrictive content-security policy. A Prisma view should be treated as a **local UI document**, not as a general-purpose web client.
+PrismaUI_F4 2.2.0 uses an in-process **Ultralight 1.4.0** backend with a deliberately restrictive content-security policy. A Prisma view should be treated as a **local UI document**, not as a general-purpose web client.
 
 If your mod needs HTTP, WebSocket, server push, authentication, or other real network behavior, do that work in native C++ and pass the result into the view through `InteropCall`, `Invoke`, or your registered bridge callbacks.
 
-## Shipping 2.1.0 rule
+## Shipping rule
 
 For the production Ultralight path, required application assets should be shipped with the mod.
 
@@ -32,7 +32,7 @@ Do **not** build a required UI path around:
 - arbitrary `file://` URLs
 - localhost, LAN, router, or other private-network access
 
-Older earlier-runtime documentation described a remote-domain allowlist. That is **not the production Ultralight 2.1.0 contract**. The Ultralight CSP is intentionally stricter and does not add those external hosts to the shipping transport policy.
+Older earlier-runtime documentation described a remote-domain allowlist. That is **not the production Ultralight contract**. The Ultralight CSP is intentionally stricter and does not add those external hosts to the shipping transport policy.
 
 ## Why the restriction exists
 
@@ -117,7 +117,7 @@ Then reference them with document-relative URLs:
 }
 ```
 
-This is more reliable for players, works offline, avoids third-party availability changes, and matches the 2.1.0 security model.
+This is more reliable for players, works offline, avoids third-party availability changes, and matches the current security model.
 
 ## Private/local network protection
 
@@ -151,7 +151,7 @@ For release-quality PrismaUI content, an offline machine should still be able to
 
 ## Summary
 
-- PrismaUI_F4 2.1.0 views are local UI documents.
+- PrismaUI_F4 views are local UI documents.
 - Self-host required HTML, CSS, JS, fonts, and images with the mod.
 - Do external HTTP/WebSocket work in C++.
 - Push validated results into the view through the Prisma bridge.

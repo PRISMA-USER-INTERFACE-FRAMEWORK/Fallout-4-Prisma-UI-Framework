@@ -3,7 +3,7 @@ title: 'Modern Frameworks'
 ---
 # Modern Frameworks
 
-React, Vue, Svelte, Solid, and similar frameworks can be used with **PrismaUI_F4 2.1.0** when you ship the result as compatible local HTML/CSS/JavaScript assets.
+React, Vue, Svelte, Solid, and similar frameworks can be used with **PrismaUI_F4 2.2.0** when you ship the result as compatible local HTML/CSS/JavaScript assets.
 
 The in-game runtime is **Ultralight 1.4.0**, not previous browser runtime. Test the actual production bundle under PrismaUI and avoid making required UI behavior depend on a browser feature you have only tested in Chrome.
 
@@ -76,7 +76,7 @@ static void OnDomReady(PrismaView view)
 
 ## JavaScript to C++
 
-Register page-facing listeners from the DOM-ready path. Prisma-delivered JS listener callbacks are marshalled to the game thread in 2.1.0.
+Register page-facing listeners from the DOM-ready path. Prisma-delivered JS listener callbacks are marshalled through the verified framework callback path.
 
 ```cpp
 static void SaveSettingsFromJS(const char* json)
@@ -116,7 +116,7 @@ declare global {
 
 ## Translations with a framework app
 
-`RegisterTranslations` is a runtime `Invoke` in 2.1.0. It does **not** make `window.t` available before your bundle's module-level code executes.
+Legacy `RegisterTranslations` is a runtime `Invoke` path. It does **not** make `window.t` available before your bundle's module-level code executes.
 
 Register translations in DOM-ready, then call an application hook that reads them:
 
@@ -191,10 +191,10 @@ For V10 projects:
 |---|---|
 | Expose C++-called `window.*` functions at module load | They exist before components mount |
 | Register Prisma JS listeners at DOM-ready | Avoid view/context timing ambiguity |
-| Register translations at DOM-ready before translation-dependent init | 2.1.0 injects them through `Invoke` |
+| Register translations at DOM-ready before translation-dependent init | The legacy path injects them through `Invoke` |
 | Use `InteropCall` for normal named C++ -> JS messages | Simple structured bridge path |
 | Use JSON strings for structured payloads | Stable language boundary |
-| Bundle required web dependencies locally | Matches the 2.1.0 sandbox and offline mod packaging |
+| Bundle required web dependencies locally | Matches the current sandbox and offline mod packaging |
 | Test the built bundle in Ultralight | Chrome/Vite success is not runtime proof |
 
 See [Translations](translations), [HTML Views](html-views), [Networking](networking), [View Lifecycle](view-lifecycle), and [API Reference](api-reference).

@@ -7,7 +7,7 @@ sidebar_position: 9
 
 # View Health & Watchdog
 
-`IVPrismaUI8::GetViewHealth` exposes framework-observed health for a Prisma view. In **PrismaUI_F4 2.1.0** those observations come from the in-process **Ultralight 1.4.0** backend, not from a legacy-runtime renderer subprocess.
+`IVPrismaUI8::GetViewHealth` exposes framework-observed health for a Prisma view. In current PrismaUI builds those observations come from the in-process **Ultralight 1.4.0** backend, not from a legacy-runtime renderer subprocess.
 
 Use view health for diagnostics and bounded recovery. Do not treat it as a substitute for `IsValid()` or build an infinite recreate loop around it.
 
@@ -38,7 +38,7 @@ Check `IsValid(view)` separately when the distinction matters.
 
 The view has been admitted/created but has not yet reached the DOM-ready/live state.
 
-Do not focus a view in this state. The 2.1.0 focus path rejects a view unless its health is `kDomReady` or `kLive`.
+Do not focus a view in this state. The focus path rejects a view unless its health is `kDomReady` or `kLive`.
 
 ### `kDomReady`
 
@@ -66,7 +66,7 @@ If it is reported, capture console/log evidence and recreate only with a bounded
 
 Retained in the public health ABI for an unresponsive view condition.
 
-Do **not** interpret this as “the legacy-runtime subprocess crashed.” PrismaUI 2.1.0 is in-process Ultralight. Log the state and collect framework diagnostics before deciding whether to recreate.
+Do **not** interpret this as “the legacy-runtime subprocess crashed.” PrismaUI is in-process Ultralight. Log the state and collect framework diagnostics before deciding whether to recreate.
 
 ### `kJsError`
 
@@ -135,7 +135,7 @@ g_api->RegisterConsoleCallback(g_view,
     });
 ```
 
-Console callbacks are delivered on the game thread in 2.1.0.
+Console callbacks are delivered through the framework's verified callback path.
 
 Also inspect:
 
@@ -144,6 +144,12 @@ Documents\My Games\Fallout4\F4SE\PrismaUI_F4.log
 ```
 
 The framework records rejected navigation, runtime preflight failures, JS errors, focus failures, and other lifecycle diagnostics there.
+
+## Focus watchdog behavior
+
+A focused static view does not need fake animation or periodic pixel changes to stay focused. The presentation heartbeat is refreshed only when the currently focused view is present in the committed view set after a successful draw.
+
+Emergency focus release is reserved for a genuine whole-frame presentation stall. Reusing a committed frame from a different view does not keep an unpresented focused view alive indefinitely.
 
 ## Recovery pattern
 
@@ -171,13 +177,13 @@ void RecreateView()
 
 Do not immediately recreate forever on every update. A bad HTML path, missing asset, blocked navigation, or repeatable JS startup error will simply reproduce the same failure.
 
-## Important 2.1.0 differences from older watchdog docs
+## Important differences from older watchdog docs
 
 - There is no production legacy-runtime renderer subprocess to diagnose.
 - Do not tell users to inspect legacy-runtime crash logs.
 - Do not describe every view as an iframe in a shared legacy-runtime shell.
-- Do not rely on external previous browser runtime DevTools. The V1 inspector API is unsupported under Ultralight 2.1.0.
-- Use framework logs, `RegisterConsoleCallback`, `Invoke` errors, `IsValid`, and `GetViewHealth` instead.
+- Do not rely on the retired external browser debugging workflow. Current builds provide the packaged F12 Ultralight inspector.
+- Keep framework logs, `RegisterConsoleCallback`, `Invoke` errors, `IsValid`, and `GetViewHealth` in the diagnostic path.
 
 ## Related pages
 

@@ -52,8 +52,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          flat_expected="5c03467ce567921e1de86ef89157cd246e07c977"
-          vr_expected="8221eb7bd81694f604b6f188fc8b2c475200dbf0"
+          flat_expected="02f6584829063ca59662d135c6910cc87d5bb2ee"
+          modern_expected="9784daab39bf66bb179e6ef12bba63c75e50d3b7"
+          vr_expected="012f810a98bfa274563c9eb8102881549ab2c9c6"
           pex_expected="329b0895ef0c9a74ec4dc8b7150854ccc0bd287a"
 
           verify_blob() {
@@ -71,6 +72,7 @@ jobs:
 
           verify_blob src/PrismaUI_F4_API.h "$flat_expected"
           verify_blob example-f4se-plugin/src/PrismaUI_F4_API.h "$flat_expected"
+          verify_blob src/PrismaUI_F4_Modern_API.h "$modern_expected"
           verify_blob src/PrismaUI_F4VR_API.h "$vr_expected"
           verify_blob example-f4se-plugin/src/PrismaUI_F4VR_API.h "$vr_expected"
           verify_blob scripts/PrismaUI.pex "$pex_expected"
@@ -81,7 +83,7 @@ jobs:
           [[ ! -e src/PrismaUI_F4_API_V11.h ]]
           [[ ! -e src/PrismaUI_F4_API_V12.h ]]
 
-          grep -q 'Function Focus(string asName' scripts/Source/PrismaUI.psc
+          grep -q 'bool Function Focus(string asName' scripts/Source/PrismaUI.psc
           grep -q 'Function SetOffscreenSize(string asName' scripts/Source/PrismaUI.psc
 
       - name: Reject retired public paths

@@ -8,13 +8,11 @@ virtual void SetInspectorVisibility(PrismaView view, bool visible) noexcept = 0;
 
 Retained for V1 ABI/source compatibility.
 
-## PrismaUI_F4 2.1.0 behavior
+## Current behavior
 
-The Ultralight 1.4.0 backend does not expose the old inspector/DevTools UI. This call clears any compatibility visibility bookkeeping, logs that inspector visibility is unsupported, and does not open an external browser or in-game inspector.
+This V1 method is retained for ABI compatibility and should not be used to control the current DevTools session.
 
-There is no `[DevTools] bEnabled=1` setup for the released 2.1.0 backend.
-
-Use `RegisterConsoleCallback`, `GetViewHealth`, `Invoke` error results, and framework logs for debugging.
+Current PrismaUI builds package an in-game Ultralight inspector opened with **F12** when DevTools are enabled. That F12 workflow is separate from the historical inspector visibility API.
 
 ## See also
 

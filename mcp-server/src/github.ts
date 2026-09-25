@@ -3,8 +3,12 @@ import {
   FRAMEWORK_API_SOURCE_COMMIT,
   FRAMEWORK_HEADER_BLOB_SHA,
   FRAMEWORK_HEADER_PATH,
+  FRAMEWORK_MODERN_HEADER_BLOB_SHA,
+  FRAMEWORK_MODERN_HEADER_PATH,
   FRAMEWORK_PUBLIC_DOWNLOAD_URL,
   FRAMEWORK_RELEASE_SOURCE_COMMIT,
+  FRAMEWORK_VR_HEADER_BLOB_SHA,
+  FRAMEWORK_VR_HEADER_PATH,
   FRAMEWORK_RELEASE_TAG,
   FRAMEWORK_REPO,
   FRAMEWORK_VERSION,
@@ -82,18 +86,25 @@ export async function fetchRawFile(path: string): Promise<string> {
   return fetchText(url, `docs:${path}`);
 }
 
-export async function fetchReleasedFrameworkHeader(): Promise<string> {
-  // Prisma-Matrix is the private implementation repository. Public MCP users should not need
-  // access to it just to obtain the SDK. Fallout-4-Prisma-UI-Framework mirrors the canonical
-  // desktop V1-V12 SDK header, and CI pins that mirror to its exact Git blob.
-  const header = await fetchRawFile(FRAMEWORK_HEADER_PATH);
+async function fetchVerifiedHeader(path: string, expectedBlob: string): Promise<string> {
+  const header = await fetchRawFile(path);
   const actualBlob = gitBlobSha(header);
-  if (actualBlob !== FRAMEWORK_HEADER_BLOB_SHA) {
-    throw new Error(
-      `Public PrismaUI_F4_API.h mirror drift: expected ${FRAMEWORK_HEADER_BLOB_SHA}, got ${actualBlob}`
-    );
+  if (actualBlob !== expectedBlob) {
+    throw new Error(`Public ${path} mirror drift: expected ${expectedBlob}, got ${actualBlob}`);
   }
   return header;
+}
+
+export async function fetchReleasedFrameworkHeader(): Promise<string> {
+  return fetchVerifiedHeader(FRAMEWORK_HEADER_PATH, FRAMEWORK_HEADER_BLOB_SHA);
+}
+
+export async function fetchReleasedModernFrameworkHeader(): Promise<string> {
+  return fetchVerifiedHeader(FRAMEWORK_MODERN_HEADER_PATH, FRAMEWORK_MODERN_HEADER_BLOB_SHA);
+}
+
+export async function fetchReleasedVrFrameworkHeader(): Promise<string> {
+  return fetchVerifiedHeader(FRAMEWORK_VR_HEADER_PATH, FRAMEWORK_VR_HEADER_BLOB_SHA);
 }
 
 export async function fetchFrameworkReleaseInfo(): Promise<FrameworkReleaseInfo> {
@@ -101,10 +112,11 @@ export async function fetchFrameworkReleaseInfo(): Promise<FrameworkReleaseInfo>
   const cached = getCached<FrameworkReleaseInfo>(cacheKey);
   if (cached !== undefined) return cached;
 
-  // Verify the current public SDK snapshot before returning contract metadata. sourceCommit remains
-  // the original 2.1.0 release source, while apiSourceCommit identifies the canonical unified V1-V12
-  // SDK source used by the public developer mirror.
-  await fetchReleasedFrameworkHeader();
+  await Promise.all([
+    fetchReleasedFrameworkHeader(),
+    fetchReleasedModernFrameworkHeader(),
+    fetchReleasedVrFrameworkHeader(),
+  ]);
 
   const info: FrameworkReleaseInfo = {
     version: FRAMEWORK_VERSION,
@@ -114,11 +126,17 @@ export async function fetchFrameworkReleaseInfo(): Promise<FrameworkReleaseInfo>
     backend: "Ultralight 1.4.0 in-process",
     renderer: "D3D11 GPU-accelerated presentation with controlled CPU BitmapSurface fallback",
     desktopRuntimes: ["Fallout 4 OG 1.10.163", "Fallout 4 AE 1.11.137+ with matching Address Library data"],
+    controllerRuntimes: ["Fallout 4 OG 1.10.163", "Fallout 4 AE 1.11.240"],
     rejectedRuntimes: ["Fallout 4 1.10.980-1.10.984 intermediate Next-Gen line"],
+    modernFeatures: ["Core", "Controller", "GameThread", "Meta", "View", "Interop", "Localization", "Render", "Input", "Menu"],
     releaseUrl: FRAMEWORK_PUBLIC_DOWNLOAD_URL,
     maintainerProvenanceUrl: `https://github.com/${REPO_OWNER}/${FRAMEWORK_REPO}/releases/tag/${FRAMEWORK_RELEASE_TAG}`,
     apiHeaderSource: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/${FRAMEWORK_HEADER_PATH}`,
     apiHeaderBlob: FRAMEWORK_HEADER_BLOB_SHA,
+    modernApiHeaderSource: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/${FRAMEWORK_MODERN_HEADER_PATH}`,
+    modernApiHeaderBlob: FRAMEWORK_MODERN_HEADER_BLOB_SHA,
+    vrApiHeaderSource: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/${FRAMEWORK_VR_HEADER_PATH}`,
+    vrApiHeaderBlob: FRAMEWORK_VR_HEADER_BLOB_SHA,
   };
   setCached(cacheKey, info);
   return info;

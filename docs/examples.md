@@ -1,8 +1,8 @@
-# PrismaUI_F4 2.1.0 Examples
+# PrismaUI_F4 2.2.0 Examples
 
-These examples target the released **PrismaUI_F4 2.1.0** public API and the in-process **Ultralight 1.4.0** backend.
+These examples target the current **PrismaUI_F4 2.2.0** public API and the in-process **Ultralight 1.4.0** backend.
 
-They intentionally avoid the retired legacy-runtime host, previous browser runtime DevTools, remote-CDN dependencies, and unsupported Next-Gen runtime claims.
+They intentionally avoid the retired legacy-runtime host, remote-CDN dependencies, and unsupported Next-Gen runtime claims.
 
 ## 1. Minimal cooperative panel
 
@@ -99,7 +99,7 @@ document.querySelectorAll('[data-formid]').forEach((row) => {
 });
 ```
 
-Prisma-delivered listener callbacks are marshalled onto the game thread in 2.1.0.
+Prisma-delivered listener callbacks are marshalled through the verified framework callback path.
 
 ## 4. Capture JavaScript console output
 
@@ -119,11 +119,11 @@ static void OnConsole(
 g_api->RegisterConsoleCallback(g_view, OnConsole);
 ```
 
-This is the supported in-game debugging path. The V1 inspector methods remain in the ABI but are unsupported by the 2.1.0 Ultralight backend.
+Current builds also provide the packaged F12 Ultralight inspector when DevTools are enabled. Keep console callbacks and framework logs in the debugging path.
 
 ## 5. Translations
 
-`RegisterTranslations` is a runtime JavaScript injection in 2.1.0. Call it from DOM-ready before invoking page code that needs `window.t`.
+`RegisterTranslations` is the legacy runtime JavaScript-injection path. Call it from DOM-ready before invoking page code that needs `window.t`.
 
 ```cpp
 static void OnDomReady(PrismaView view)
@@ -311,7 +311,7 @@ if (!g_api->SuppressHUDWidget("HUDCompass", true)) {
 }
 ```
 
-The 2.1.0 implementation has guarded support on OG `1.10.163` and AE `1.11.137+` where the required Address Library authority resolves.
+The current implementation has guarded support on OG `1.10.163` and AE `1.11.137+` where the required Address Library authority resolves.
 
 ## 13. Do not use these old examples
 
@@ -328,7 +328,7 @@ Do not copy older examples that tell you to:
 - use `window.prismaModelPreview` / `window.onModelPreviewStatus` or a FormID-based ModelPreview request;
 - assume `RegisterTranslations` makes `window.t` available before DOM-ready.
 
-Those are stale assumptions, not the PrismaUI_F4 2.1.0 contract.
+Those are stale assumptions, not the current PrismaUI_F4 contract.
 
 ## Related pages
 

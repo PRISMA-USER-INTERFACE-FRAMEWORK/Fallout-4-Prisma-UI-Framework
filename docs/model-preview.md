@@ -7,9 +7,9 @@ sidebar_position: 11
 
 # Model Preview (3D Rendering)
 
-PrismaUI_F4 2.1.0 can composite native D3D11 model previews over a Prisma view. The released JavaScript bridge is **ModelPreview API v4**.
+PrismaUI_F4 2.2.0 can composite native D3D11 model previews over a Prisma view. The released JavaScript bridge is **ModelPreview API v4**.
 
-This page documents the actual 2.1.0 bridge. Older examples that use `window.prismaModelPreview`, `formId`, `pluginName`, or `destLeft`/`destRight` belong to an earlier design and do not match the released API.
+This page documents the current bridge. Older examples that use `window.prismaModelPreview`, `formId`, `pluginName`, or `destLeft`/`destRight` belong to an earlier design and do not match the released API.
 
 ## Availability
 
@@ -126,7 +126,7 @@ Use only what your UI needs and test the exact mesh/material combination in game
 
 `formType` is a presentation hint used by the native pose logic.
 
-Known 2.1.0 handling includes:
+Current handling includes:
 
 | `formType` | Native pose behavior |
 |---|---|
@@ -241,10 +241,10 @@ if (preview) {
 
 ModelPreview is not an Ultralight `<canvas>` or `<img>` feature. PrismaUI loads/parses the NIF and creates native D3D11 render resources, then the compositor places that texture over the requested view rectangle.
 
-Important 2.1.0 behavior:
+Important current behavior:
 
 - Model parsing/GPU work can run on a worker pool.
-- Bethesda/engine-backed file reads are marshalled to the engine/render thread.
+- Bethesda/engine-backed file reads are serviced through the verified game-thread dispatcher after the active Present stack unwinds, so blocking reads do not execute inside Present.
 - Engine file reads are budgeted per servicing pass so a large catalog does not drain an unbounded number of synchronous archive reads in one frame.
 - Resident previews have a configured ceiling to bound resource growth.
 - Hidden/inactive views are cheaper eviction candidates.
@@ -280,7 +280,7 @@ The ModelPreview listeners/API object are installed by PrismaUI's DOM-ready setu
 
 ## Do not use the old contract
 
-For PrismaUI_F4 2.1.0, do not copy examples based on:
+For current PrismaUI_F4, do not copy examples based on:
 
 ```js
 window.prismaModelPreview

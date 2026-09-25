@@ -11,7 +11,7 @@ Click **Export HTML** to open the generated view. You can copy it to the clipboa
 
 ## What the export contains
 
-The output is a self-contained HTML view intended for **PrismaUI_F4 2.1.0 / Ultralight 1.4.0**:
+The output is a self-contained HTML view intended for **PrismaUI_F4 2.2.0 / Ultralight 1.4.0**:
 
 - element positions are absolute pixel coordinates;
 - colors, fonts, borders, and shadows are inline styles;
@@ -103,6 +103,6 @@ Designer exports are deliberately self-contained. Keep that property when extend
 - do not add required CDN/Google Fonts dependencies;
 - put required HTTP/WebSocket/server work in C++ and bridge the data into the view.
 
-For current framework behavior see the main [PrismaUI_F4 2.1.0 docs](/docs/prisma-2-1-release), [API reference](/docs/api-reference), and [view lifecycle](/docs/view-lifecycle).
+For current framework behavior see the main [PrismaUI_F4 2.2.0 docs](/docs/2.2.0-release), [API reference](/docs/api-reference), and [view lifecycle](/docs/view-lifecycle).
 
 For the Designer Bridge and live preview workflow, see [Live Game Preview with PrismaDesignerBridge](./live-game-preview).

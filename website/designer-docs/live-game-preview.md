@@ -9,7 +9,7 @@ description: Preview a Prisma Designer layout inside a running Fallout 4 game.
 
 PrismaDesignerBridge is an optional F4SE companion plugin. It connects the browser editor to a running Fallout 4 game so you can preview the current view without restarting the game.
 
-The Bridge's WebSocket connection is **Designer tooling**, not the networking model available to ordinary PrismaUI_F4 2.1.0 views.
+The Bridge's WebSocket connection is **Designer tooling**, not the networking model available to ordinary PrismaUI_F4 views.
 
 ## Setup
 
