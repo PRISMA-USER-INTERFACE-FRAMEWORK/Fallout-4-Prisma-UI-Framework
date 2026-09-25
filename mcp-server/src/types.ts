@@ -68,8 +68,6 @@ export interface FrameworkReleaseInfo {
   modernFeatures: string[];
   releaseUrl: string;
   maintainerProvenanceUrl: string;
-  flatReleaseArtifactUrl: string;
-  vrReleaseArtifactUrl: string;
   apiHeaderSource: string;
   apiHeaderBlob: string;
   modernApiHeaderSource: string;

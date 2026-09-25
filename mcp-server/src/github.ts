@@ -131,8 +131,6 @@ export async function fetchFrameworkReleaseInfo(): Promise<FrameworkReleaseInfo>
     modernFeatures: ["Core", "Controller", "GameThread", "Meta", "View", "Interop", "Localization", "Render", "Input", "Menu"],
     releaseUrl: FRAMEWORK_PUBLIC_DOWNLOAD_URL,
     maintainerProvenanceUrl: `https://github.com/${REPO_OWNER}/${FRAMEWORK_REPO}/releases/tag/${FRAMEWORK_RELEASE_TAG}`,
-    flatReleaseArtifactUrl: `https://github.com/${REPO_OWNER}/${FRAMEWORK_REPO}/releases/download/${FRAMEWORK_RELEASE_TAG}/PrismaUI_F4-${FRAMEWORK_VERSION}-Fallout4-OG-AE.zip`,
-    vrReleaseArtifactUrl: `https://github.com/${REPO_OWNER}/${FRAMEWORK_REPO}/releases/download/${FRAMEWORK_RELEASE_TAG}/PrismaUI_F4-${FRAMEWORK_VERSION}-Fallout4-VR.zip`,
     apiHeaderSource: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/${FRAMEWORK_HEADER_PATH}`,
     apiHeaderBlob: FRAMEWORK_HEADER_BLOB_SHA,
     modernApiHeaderSource: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/${FRAMEWORK_MODERN_HEADER_PATH}`,

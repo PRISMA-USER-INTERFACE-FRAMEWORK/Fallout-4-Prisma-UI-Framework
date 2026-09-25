@@ -733,7 +733,7 @@ That work established or expanded many systems that survived into later versions
 
 The browser backend itself was later replaced again in 2.1.0 after the multiprocess runtime proved heavier and more failure-prone than needed for local Fallout UI.
 
-Current users and developers should follow the 2.1.0 Ultralight documentation rather than historical 2.0 CEF setup instructions.
+Current users and developers should follow the current Ultralight documentation rather than historical 2.0 CEF setup instructions.
 
 </details>
 

@@ -78,6 +78,10 @@ async function main(): Promise<void> {
       !release.modernFeatures.includes("Localization")) {
     throw new Error("Framework release metadata is missing current controller or modern-feature boundaries");
   }
+  if (Object.values(release).some((value) =>
+      typeof value === "string" && value.includes("/Prisma-Matrix/releases/download/"))) {
+    throw new Error("Public release metadata exposes private Prisma-Matrix release artifacts");
+  }
 
   const scaffoldRoot = await mkdtemp(join(tmpdir(), "prisma-mcp-"));
   try {

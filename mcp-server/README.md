@@ -27,7 +27,7 @@ The public contract is:
 
 `get_modern_header`, `get_header`, and `get_vr_header` download the preferred modern, V1-V12 compatibility, and VR SDK mirrors and recompute their Git blob SHAs locally. All fail closed on drift.
 
-`get_framework_release` verifies all three SDK snapshots before returning the 2.2.0 release identity, renderer, general desktop runtimes, narrower native-controller runtimes, modern feature list, flat/VR release artifacts, and SDK provenance.
+`get_framework_release` verifies all three SDK snapshots before returning the 2.2.0 release identity, renderer, general desktop runtimes, narrower native-controller runtimes, modern feature list, public download URL, and SDK provenance.
 
 Public framework download:
 
@@ -69,7 +69,6 @@ Call this first when version, backend, renderer, Fallout runtime support, or com
 - preferred modern, compatibility, and VR API-header mirror URLs and pinned Git blob SHAs;
 - native-controller runtime boundary for OG 1.10.163 and AE 1.11.240;
 - released modern feature tables;
-- flat and VR release artifact URLs.
 
 ### `get_modern_header`
 
