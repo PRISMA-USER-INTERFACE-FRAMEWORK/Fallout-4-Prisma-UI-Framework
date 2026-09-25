@@ -167,7 +167,7 @@ Use:
 - the packaged F12 Ultralight inspector when DevTools are enabled;
 - `PrismaUI_F4.log`;
 - your plugin log;
-- `InteropAPI::RegisterConsoleCallback`;
+- `RegisterConsoleCallback` from the discovered `InteropAPI` table;
 - `ViewAPI::GetViewHealth`.
 
 ## Before you ship
