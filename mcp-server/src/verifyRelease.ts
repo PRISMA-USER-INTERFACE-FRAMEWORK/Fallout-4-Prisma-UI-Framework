@@ -11,7 +11,7 @@ async function main(): Promise<void> {
   if (!header.includes("class IVPrismaUI12")) {
     throw new Error("Verified SDK mirror does not contain IVPrismaUI12");
   }
-  if (!header.includes("enum class InterfaceVersion") || !header.includes("V11, V12")) {
+  if (!header.includes("enum class InterfaceVersion") || !header.includes("V11 = 138") || !header.includes("V12 = 139")) {
     throw new Error("Verified SDK mirror does not advertise V11/V12");
   }
 
