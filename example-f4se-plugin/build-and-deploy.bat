@@ -2,16 +2,16 @@
 setlocal enabledelayedexpansion
 
 echo ========================================
-echo   PrismaUI_F4 2.1.0 Example Plugin
+echo   PrismaUI_F4 2.2.0 Example Plugin
 echo   Build and Deploy
 echo ========================================
 echo.
 
 echo Framework requirement:
-echo   PrismaUI_F4 2.1.0 must already be installed separately.
-echo   Release: https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Prisma-Matrix/releases/tag/framework-v2.1.0
+echo   PrismaUI_F4 2.2.0 must already be installed separately.
+echo   Release: https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Prisma-Matrix/releases/tag/framework-v2.2.0
 echo   Supported desktop runtime families: Fallout 4 1.10.163 OG and 1.11.137+ AE.
-echo   Fallout 4 1.10.980-1.10.984 is not supported by PrismaUI_F4 2.1.0.
+echo   Fallout 4 1.10.980-1.10.984 is not supported by PrismaUI_F4 2.2.0.
 echo.
 
 REM --- Set up Visual Studio environment if not already done ---
@@ -143,6 +143,6 @@ echo View:
 echo   !DEPLOY_PATH!\PrismaUI_F4\views\PrismaUI-F4-Example\
 echo.
 echo This script does not install or replace the PrismaUI_F4 framework runtime.
-echo Install PrismaUI_F4 2.1.0 separately from the official framework release.
+echo Install PrismaUI_F4 2.2.0 separately from the official framework release.
 echo.
 pause
