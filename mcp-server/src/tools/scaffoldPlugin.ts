@@ -17,7 +17,7 @@ export interface ScaffoldResult {
   apiStyle: ScaffoldApiStyle;
 }
 
-const MODERN_MAIN = \`#include "PCH.h"
+const MODERN_MAIN = `#include "PCH.h"
 #include "PrismaUI_F4_Modern_API.h"
 #include "keyhandler/keyhandler.h"
 
@@ -41,13 +41,13 @@ static void OnDomReady(PrismaView view)
 {
     g_interop.RegisterJSListener(view, "requestClose", [](const char*) { ClosePanel(); });
     g_controller.BindControllerAction(view, "B", "panel.close");
-    g_interop.Invoke(view, "init && init()", nullptr);
+    g_interop.Invoke(view, "window.init && window.init()", nullptr);
 }
 
 static void CreateView()
 {
     if (g_view && g_viewApi.IsValid(g_view)) return;
-    g_view = g_viewApi.CreateView("\${EXAMPLE_TOKEN}/index.html", OnDomReady);
+    g_view = g_viewApi.CreateView("${EXAMPLE_TOKEN}/index.html", OnDomReady);
     if (!g_view) {
         REX::CRITICAL("PrismaUI_F4 CreateView failed");
         return;
@@ -100,27 +100,29 @@ F4SE_PLUGIN_LOAD(const F4SE::LoadInterface* intfc)
     F4SE::GetMessagingInterface()->RegisterListener(OnMessage);
     return true;
 }
-\`;
+`;
 
-const MODERN_README = \`# \${EXAMPLE_TOKEN}
-
-This scaffold uses the preferred PrismaUI_F4 2.2.0 modern feature-table API.
-
-It discovers View, Interop, and Controller independently through \\\`PrismaUI_F4_Modern_API.h\\\`. Add other tables only when needed:
-
-- Localization for V4 JSON translations
-- GameThread for verified Fallout-thread dispatch
-- Render for offscreen and geometry binding
-- Input for selective input regions
-- Menu for vanilla HUD/menu integration
-- Meta for capability discovery
-
-The stable V1-V12 compatibility header is also included for code that still needs numbered interfaces.
-
-Place web assets under \\\`Data/PrismaUI_F4/views/\${EXAMPLE_TOKEN}/\\\` and deploy the DLL under \\\`Data/F4SE/Plugins/\\\`.
-
-See the repository Modern API, Controller Actions, Translations, and Getting Started guides for the released contracts.
-\`;
+const MODERN_README = [
+  "# " + EXAMPLE_TOKEN,
+  "",
+  "This scaffold uses the preferred PrismaUI_F4 2.2.0 modern feature-table API.",
+  "",
+  "It discovers View, Interop, and Controller independently through PrismaUI_F4_Modern_API.h. Add other tables only when needed:",
+  "",
+  "- Localization for V4 JSON translations",
+  "- GameThread for verified Fallout-thread dispatch",
+  "- Render for offscreen and geometry binding",
+  "- Input for selective input regions",
+  "- Menu for vanilla HUD/menu integration",
+  "- Meta for capability discovery",
+  "",
+  "The stable V1-V12 compatibility header is also included for code that still needs numbered interfaces.",
+  "",
+  "Place web assets under Data/PrismaUI_F4/views/" + EXAMPLE_TOKEN + "/ and deploy the DLL under Data/F4SE/Plugins/.",
+  "",
+  "See the repository Modern API, Controller Actions, Translations, and Getting Started guides for the released contracts.",
+  "",
+].join("\n");
 
 async function assertWritableTarget(absTarget: string, overwrite: boolean): Promise<void> {
   let stats;
@@ -129,10 +131,10 @@ async function assertWritableTarget(absTarget: string, overwrite: boolean): Prom
   } catch {
     return;
   }
-  if (!stats.isDirectory()) throw new Error(\`"\${absTarget}" already exists and is not a directory.\`);
+  if (!stats.isDirectory()) throw new Error('"' + absTarget + '" already exists and is not a directory.');
   if (overwrite) return;
   if ((await readdir(absTarget)).length > 0) {
-    throw new Error(\`"\${absTarget}" already exists and is not empty. Pass overwrite=true to write into it.\`);
+    throw new Error('"' + absTarget + '" already exists and is not empty. Pass overwrite=true to write into it.');
   }
 }
 
@@ -144,7 +146,7 @@ export async function scaffoldPlugin(
 ): Promise<ScaffoldResult> {
   if (!PLUGIN_NAME_PATTERN.test(pluginName)) {
     throw new Error(
-      \`Invalid plugin name "\${pluginName}". Use letters, digits, hyphens, and underscores, starting with a letter.\`
+      'Invalid plugin name "' + pluginName + '". Use letters, digits, hyphens, and underscores, starting with a letter.'
     );
   }
 
@@ -152,7 +154,7 @@ export async function scaffoldPlugin(
   await assertWritableTarget(absTarget, overwrite);
 
   const sourcePaths = await listPathsUnder(EXAMPLE_PREFIX);
-  if (sourcePaths.length === 0) throw new Error(\`Found no files under "\${EXAMPLE_PREFIX}".\`);
+  if (sourcePaths.length === 0) throw new Error('Found no files under "' + EXAMPLE_PREFIX + '".');
 
   const [legacyHeader, modernHeader] = await Promise.all([getHeader(), getModernHeader()]);
   const files = await Promise.all(
@@ -160,7 +162,7 @@ export async function scaffoldPlugin(
       const relativePath = sourcePath.slice(EXAMPLE_PREFIX.length);
       const destPath = resolve(absTarget, relativePath);
       if (relative(absTarget, destPath).startsWith("..")) {
-        throw new Error(\`Refusing to write outside the target directory: \${relativePath}\`);
+        throw new Error("Refusing to write outside the target directory: " + relativePath);
       }
 
       let rawContent: string;
