@@ -7,55 +7,57 @@ sidebar_position: 2
 
 # Quick Start
 
-This is the shortest path from an existing F4SE plugin to a current PrismaUI panel using the flat V12 API.
+This is the shortest path from an existing F4SE plugin to a current PrismaUI panel using the preferred modern feature-table API.
 
-## 1. Copy/include the API header
+## 1. Include the modern header
 
 ```cpp
-#include "PrismaUI_F4_API.h"
+#include "PrismaUI_F4_Modern_API.h"
+
+using namespace PRISMA_UI_FLAT_API;
 ```
 
-`PrismaUI_F4_API.h` is the complete desktop SDK header and contains V1 through V12.
+The modern header exposes independently versioned feature tables. Existing plugins built against `PrismaUI_F4_API.h` V1-V12 remain supported.
 
-## 2. Request V12
+## 2. Discover only what you need
 
 ```cpp
-static PRISMA_UI_API::IVPrismaUI12* g_api = nullptr;
+static ViewAPI g_viewApi{};
+static ControllerAPI g_controller{};
 static PrismaView g_view = 0;
 
-// During/after kGameDataReady:
-g_api = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI12>();
-if (!g_api) {
-    logger::warn("PrismaUI V12 unavailable");
-    return;
+bool LoadPrisma()
+{
+    return Discover<ApiFeature::View>(ViewApiVersion, g_viewApi) &&
+           Discover<ApiFeature::Controller>(ControllerApiVersion, g_controller);
 }
 ```
 
-If your mod does not use V11/V12 features, request the lowest older interface it actually needs.
+Call `LoadPrisma()` during or after `kGameDataReady`. If discovery fails, do not call through that table.
 
 ## 3. Create the view
 
 ```cpp
 static void OnDomReady(PrismaView view)
 {
-    g_api->BindControllerAction(view, "X", "panel.secondary");
-    g_api->BindControllerAction(view, "LB", "panel.previous");
-    g_api->BindControllerAction(view, "RB", "panel.next");
+    g_controller.BindControllerAction(view, "X", "panel.secondary");
+    g_controller.BindControllerAction(view, "LB", "panel.previous");
+    g_controller.BindControllerAction(view, "RB", "panel.next");
 }
 
 void EnsureView()
 {
-    if (!g_api || (g_view && g_api->IsValid(g_view))) return;
+    if (g_view && g_viewApi.IsValid(g_view)) return;
 
-    g_view = g_api->CreateView("MyPlugin/index.html", OnDomReady);
+    g_view = g_viewApi.CreateView("MyPlugin/index.html", OnDomReady);
     if (g_view) {
-        g_api->SetViewRole(g_view, PRISMA_UI_API::ViewRole::kPanel);
-        g_api->Hide(g_view);
+        g_controller.SetViewRole(g_view, ViewRole::kPanel);
+        g_viewApi.Hide(g_view);
     }
 }
 ```
 
-V12 bindings are registered after DOM-ready. Binding before the final document is ready returns false.
+Controller bindings are registered after DOM-ready. PrismaUI owns bridge installation and bounded recovery.
 
 ## 4. Handle controller actions
 
@@ -76,22 +78,29 @@ The framework routes mapped controller events only to the exact focused live vie
 ```cpp
 void OpenPanel()
 {
-    if (!g_api || !g_api->IsValid(g_view)) return;
-    g_api->Show(g_view);
-    g_api->Focus(g_view, false, false);
+    if (!g_viewApi.IsValid(g_view)) return;
+    g_viewApi.Show(g_view);
+    g_viewApi.Focus(g_view, false, false);
 }
 
 void ClosePanel()
 {
-    if (!g_api || !g_api->IsValid(g_view)) return;
-    g_api->Unfocus(g_view);
-    g_api->Hide(g_view);
+    if (!g_viewApi.IsValid(g_view)) return;
+    g_viewApi.Unfocus(g_view);
+    g_viewApi.Hide(g_view);
 }
 ```
 
-## 6. Engine mutations use V11
+## 6. Add features as needed
 
-If JavaScript needs to mutate Fallout state, expose a V11 `BindGameThreadUIEvent` callback or use `DispatchToGameThread`. Do not treat the Ultralight JavaScript context as an engine thread.
+Discover additional tables only when the plugin needs them:
+
+- `InteropAPI` for `Invoke`, JS listeners, UI events, and console callbacks;
+- `GameThreadAPI` for verified Fallout-thread dispatch and UI event callbacks;
+- `LocalizationAPI` for V4 JSON localization;
+- `RenderAPI`, `InputAPI`, or `MenuAPI` for their focused contracts.
+
+Do not infer feature support from the framework version when a feature-table query is available.
 
 ## 7. Deploy
 
@@ -102,17 +111,15 @@ Data/PrismaUI_F4/views/MyPlugin/index.html
 
 Bundle all required web assets locally.
 
-## Controller button names
+## Compatibility API
 
-`A`, `B`, `X`, `Y`, `LB`, `RB`, `LT`, `RT`, `LS`, `RS`, `Back`, `Start`, `DUp`, `DDown`, `DLeft`, `DRight`.
-
-LT/RT use 0.55 press and 0.45 release hysteresis. Mapping A/B/D-pad explicitly replaces that button's legacy Enter/Escape/Arrow delivery rather than duplicating it.
+Existing numbered-interface integrations can continue using `PrismaUI_F4_API.h` V1-V12. See [API Reference V1-V12](api-reference) and [Current API Extensions](api-extensions) when maintaining that ABI.
 
 ## Next
 
+- [Modern API](modern-api)
 - [Getting Started](getting-started)
 - [Controller Actions](controller-actions)
-- [API Reference V1-V12](api-reference)
-- [Current API Extensions](api-extensions)
+- [Translations](translations)
 - [View Lifecycle](view-lifecycle)
 - [Troubleshooting](troubleshooting)
