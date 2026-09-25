@@ -1,6 +1,6 @@
 # prisma-mcp
 
-`prisma-mcp` gives an MCP-compatible client structured access to the current **PrismaUI_F4 2.2.0** developer surface.
+`prisma-mcp` 1.1 gives an MCP-compatible client structured access to the current **PrismaUI_F4 2.2.0** modern, compatibility, and VR developer surfaces.
 
 The current framework uses **Ultralight 1.4.0 in-process**. New desktop integrations should prefer the `PrismaUI_F4_Modern_API.h` feature-table surface; the canonical `PrismaUI_F4_API.h` V1-V12 header remains the compatibility ABI. Desktop support covers OG 1.10.163 plus AE 1.11.137+ with matching Address Library data; the intermediate 1.10.980-1.10.984 line is deliberately unsupported.
 
@@ -25,9 +25,9 @@ The public contract is:
 - The VR header mirror remains Git blob `012f810a98bfa274563c9eb8102881549ab2c9c6`.
 - Repository CI checks the public SDK blob identities before documentation changes can merge.
 
-`get_modern_header` and `get_header` download the preferred modern and compatibility SDK mirrors and recompute their Git blob SHAs locally. Both fail closed on drift.
+`get_modern_header`, `get_header`, and `get_vr_header` download the preferred modern, V1-V12 compatibility, and VR SDK mirrors and recompute their Git blob SHAs locally. All fail closed on drift.
 
-`get_framework_release` verifies both desktop SDK snapshots before returning the 2.2.0 release identity, backend, renderer, supported runtime matrix, source commit, and SDK provenance.
+`get_framework_release` verifies all three SDK snapshots before returning the 2.2.0 release identity, renderer, general desktop runtimes, narrower native-controller runtimes, modern feature list, flat/VR release artifacts, and SDK provenance.
 
 Public framework download:
 
@@ -66,27 +66,42 @@ Call this first when version, backend, renderer, Fallout runtime support, or com
 - supported desktop runtime families;
 - deliberately rejected runtime line;
 - public release URL plus maintainer provenance;
-- preferred modern and compatibility API-header mirror URLs and pinned Git blob SHAs.
+- preferred modern, compatibility, and VR API-header mirror URLs and pinned Git blob SHAs;
+- native-controller runtime boundary for OG 1.10.163 and AE 1.11.240;
+- released modern feature tables;
+- flat and VR release artifact URLs.
 
 ### `get_modern_header`
 
 Returns the verified `PrismaUI_F4_Modern_API.h` feature-table header. Use this first for new integrations.
 
+### `list_modern_features`
+
+Parses the verified modern header and returns every released feature table with its numeric feature ID, table version, members, typedef names, and resolved function-pointer signatures.
+
+### `get_modern_feature`
+
+Returns one modern feature table by name. Use this for exact signatures and membership before generating feature-table integration code.
+
 ### `get_header`
 
 Returns the verified `PrismaUI_F4_API.h` V1-V12 compatibility header. Use it when maintaining numbered-interface integrations.
 
+### `get_vr_header`
+
+Returns the verified `PrismaUI_F4VR_API.h` release header for spatial presentation, pointer routing, network policy, capabilities, and VR provider integration.
+
 ### `list_api_methods`
 
-Lists documented API methods and their interface versions. The optional `sinceVersion` filter accepts values such as `V10`, `V11`, or `V12`.
+Lists documented numbered V1-V12 compatibility API methods and their interface versions. The optional `sinceVersion` filter accepts values such as `V10`, `V11`, or `V12`.
 
 ### `get_api_method`
 
-Returns the detailed documentation page for one method, including signatures, parameters, lifecycle/threading notes, and examples where documented.
+Returns the detailed documentation page for one numbered compatibility method. Use `get_modern_feature` for modern-only members such as `RegisterTranslationsV4` or `SetNativeGamepad`.
 
 ### `search_docs`
 
-Searches API method documentation and guides by keyword.
+Searches compatibility method docs, current guides, and the verified modern and VR SDK contracts by keyword.
 
 ### `get_guide`
 
@@ -94,7 +109,7 @@ Returns one current guide. The guide catalog includes setup, networking, transla
 
 ### `scaffold_plugin`
 
-Copies and renames the official example consumer plugin into a user-confirmed local path. The scaffold replaces its desktop API header with the same verified canonical V1-V12 mirror before writing the project.
+Creates a consumer project in a user-confirmed local path. `apiStyle=modern` is the default and generates native code using View, Interop, and Controller feature tables with verified modern and compatibility headers. `apiStyle=legacy` preserves the numbered-interface example.
 
 ## Recommended agent workflow
 
@@ -102,12 +117,13 @@ For a new PrismaUI task:
 
 1. call `get_framework_release`;
 2. call `get_modern_header` for new integrations;
-3. discover only the feature tables the integration needs;
-4. use `get_header` only for numbered V1-V12 compatibility work;
-5. search or fetch the relevant guide, including `translations` for V4 localization;
-6. use `get_api_method` for legacy methods with lifecycle/runtime caveats;
-7. scaffold only after the user confirms the destination path;
-8. do not invent retired CEF/subprocess setup, unsupported NG compatibility, or remote browser features.
+3. call `list_modern_features` or `get_modern_feature` for exact modern table membership and signatures;
+4. call `get_vr_header` for VR spatial/provider work;
+5. use `get_header` only for numbered V1-V12 compatibility work;
+6. search or fetch the relevant guide, including `translations` for V4 localization;
+7. use `get_api_method` for legacy methods with lifecycle/runtime caveats;
+8. scaffold only after the user confirms the destination path and prefer the default modern style;
+9. do not invent retired CEF/subprocess setup, unsupported NG compatibility, or remote browser features.
 
 ## Development
 
