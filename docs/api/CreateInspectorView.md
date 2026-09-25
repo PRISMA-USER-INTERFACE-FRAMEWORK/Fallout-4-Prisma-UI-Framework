@@ -8,13 +8,13 @@ virtual void CreateInspectorView(PrismaView view) noexcept = 0;
 
 Retained for V1 ABI/source compatibility.
 
-## PrismaUI_F4 2.1.0 behavior
+## Current behavior
 
-The production **Ultralight 1.4.0** backend does not implement an inspector UI. This call logs that the operation is unsupported and does not create Chrome DevTools, an external browser session, or an in-game inspector.
+The numbered V1 method remains a compatibility entry point and is not the control surface for the current packaged DevTools workflow.
 
-For 2.1.0 debugging, use `RegisterConsoleCallback`, `GetViewHealth`, `Invoke` error results, your plugin log, and `PrismaUI_F4.log`.
+Current PrismaUI builds provide an in-game Ultralight inspector opened with **F12** when DevTools are enabled. Use that inspector for live page inspection, and keep `RegisterConsoleCallback`, `GetViewHealth`, framework logs, and `Invoke` error results available for diagnostics.
 
-Existing code may leave this compatibility call in place, but new code should not depend on it.
+The retired external Chrome/legacy-runtime debugging workflow does not apply.
 
 ## See also
 
