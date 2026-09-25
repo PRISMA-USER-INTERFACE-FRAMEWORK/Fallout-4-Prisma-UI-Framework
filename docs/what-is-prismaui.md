@@ -49,13 +49,13 @@ The current desktop provider supports:
 
 The intermediate **1.10.980-1.10.984 Next-Gen line is deliberately rejected** by the framework. Do not advertise it as a supported runtime.
 
-Fallout 4 VR uses a separate provider DLL and separate validation/release path. It is not part of the public desktop package.
+Fallout 4 VR uses a separate provider DLL and separate release artifact. PrismaUI_F4 2.2.0 publishes a dedicated VR package; VR features remain capability-gated and are not implied by desktop API availability.
 
 ## What you get
 
 ### Versioned C++ API
 
-The public header exposes `IVPrismaUI1` through `IVPrismaUI10`. Request the lowest interface that has the methods you need.
+For new integrations, the preferred `PrismaUI_F4_Modern_API.h` surface exposes independently versioned Core, Controller, GameThread, Meta, View, Interop, Localization, Render, Input, and Menu tables. The stable compatibility header continues to expose `IVPrismaUI1` through `IVPrismaUI12`.
 
 ```cpp
 auto* api = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>();
@@ -64,7 +64,7 @@ if (!api) {
 }
 ```
 
-The current header also exposes capability discovery. For optional V10 input-region behavior, check the capability before depending on it:
+Existing numbered-interface consumers can continue using capability discovery where provided. For optional V10 input-region behavior, check the capability before depending on it:
 
 ```cpp
 if (PRISMA_UI_API::HasPrismaCapability(PRISMA_UI_API::PrismaCapability::InputRegions)) {
@@ -117,4 +117,4 @@ See [Networking](networking) and [Limitations](limitations).
 
 ## Start here
 
-[Getting Started](getting-started) walks through creating and deploying a consumer plugin. The [API Reference](api-reference) documents the current interface surface, and the [current API header](https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Fallout-4-Prisma-UI-Framework/blob/main/src/PrismaUI_F4_API.h) is the exact header mod authors should compile against.
+[Getting Started](getting-started) walks through creating and deploying a consumer plugin. New integrations should start with the [Modern API](modern-api) and `PrismaUI_F4_Modern_API.h`; the [API Reference](api-reference) and `PrismaUI_F4_API.h` remain the V1-V12 compatibility path.
