@@ -25,7 +25,7 @@ function errorResult(message: string) {
 
 server.tool(
   "get_framework_release",
-  "Get the pinned PrismaUI_F4 2.1.0 release and current SDK contract targeted by this MCP server: version, " +
+  "Get the pinned PrismaUI_F4 2.2.0 release and current SDK contract targeted by this MCP server: version, " +
     "release tag, original release source commit, current API source commit, rendering backend, supported desktop Fallout " +
     "runtimes, rejected runtime line, public download URL, maintainer provenance URL, and verified V1-V12 " +
     "API-header mirror. Call this before generating setup or compatibility guidance.",
