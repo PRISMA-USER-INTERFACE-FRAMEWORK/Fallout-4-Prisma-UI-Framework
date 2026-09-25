@@ -52,8 +52,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          flat_expected="5c03467ce567921e1de86ef89157cd246e07c977"
-          vr_expected="8221eb7bd81694f604b6f188fc8b2c475200dbf0"
+          flat_expected="02f6584829063ca59662d135c6910cc87d5bb2ee"
+          vr_expected="012f810a98bfa274563c9eb8102881549ab2c9c6"
           pex_expected="329b0895ef0c9a74ec4dc8b7150854ccc0bd287a"
 
           verify_blob() {
