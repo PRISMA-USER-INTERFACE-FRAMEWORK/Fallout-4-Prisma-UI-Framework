@@ -1,8 +1,8 @@
-# Writing HTML Views for PrismaUI_F4 2.1.0
+# Writing HTML Views for PrismaUI_F4 2.2.0
 
 ## Runtime model
 
-PrismaUI_F4 2.1.0 renders views with **Ultralight 1.4.0 in-process**. It is not previous browser runtime/legacy-runtime, so do not assume that every API supported by a current desktop Chrome build exists in-game.
+PrismaUI_F4 2.2.0 renders views with **Ultralight 1.4.0 in-process**. It is not previous browser runtime/legacy-runtime, so do not assume that every API supported by a current desktop Chrome build exists in-game.
 
 Author views as portable HTML/CSS/JavaScript, bundle required dependencies locally, and feature-detect browser APIs that are not part of your tested baseline.
 
@@ -61,7 +61,7 @@ Do not make a required UI path depend on Google Fonts, jsDelivr, another CDN, or
 
 Normal page scripting is supported, including the DOM, events, timers, Promises, JSON, and the JavaScript features provided by Ultralight 1.4's JavaScript runtime.
 
-Do not document PrismaUI 2.1.0 as “full current previous browser runtime.” Feature-detect optional APIs:
+Do not document PrismaUI as a full current desktop browser. Feature-detect optional APIs:
 
 ```js
 if (typeof ResizeObserver !== 'undefined') {
@@ -76,7 +76,7 @@ Worker/network-oriented browser APIs are intentionally restricted by the framewo
 
 The page is not a general-purpose network client.
 
-In the shipping 2.1.0 policy:
+In the current shipping policy:
 
 - `WebSocket`, `EventSource`, `Worker`, `SharedWorker`, `WebTransport`, and `RTCPeerConnection` are blocked from normal view code;
 - `sendBeacon` and service-worker use are disabled;
@@ -134,7 +134,7 @@ document.querySelector('#close').addEventListener('click', () => {
 });
 ```
 
-In 2.1.0, callbacks delivered through both `RegisterJSListener` and `BindUIEvent` are marshalled onto the game thread. Choose between them for their API/event semantics, not for thread selection. Do not add another `F4SE::GetTaskInterface()->AddTask` solely because a Prisma callback originated in JavaScript.
+Callbacks delivered through both `RegisterJSListener` and `BindUIEvent` are marshalled onto the verified framework callback path. Choose between them for their API/event semantics, not for thread selection. Do not add another `F4SE::GetTaskInterface()->AddTask` solely because a Prisma callback originated in JavaScript.
 
 ## Console logging
 
@@ -160,7 +160,7 @@ static void OnConsole(
 api->RegisterConsoleCallback(view, OnConsole);
 ```
 
-The Ultralight 2.1.0 backend does **not** provide the old legacy-runtime inspector/Chrome DevTools workflow. The V1 inspector calls remain ABI compatibility methods but are unsupported.
+PrismaUI now ships an in-game Ultralight inspector. Press **F12** when DevTools are enabled to open the packaged inspector frontend. The old external legacy-runtime/Chrome remote-debugging workflow is still obsolete. Do not treat the V1 inspector compatibility methods as the DevTools control surface.
 
 ## Layout
 
@@ -213,7 +213,7 @@ Do not try to solve engine input capture purely with CSS `pointer-events`. Prism
 
 ## Performance on the shipping renderer
 
-The public 2.1.0 renderer uses the CPU BitmapSurface path. Performance therefore depends on how much content changes and how much surface area must be copied/composited.
+The current renderer can use PrismaUI's validated D3D11 GPU-accelerated Ultralight path and falls back to CPU BitmapSurface rendering when acceleration is not eligible. Performance still depends on repaint frequency, surface area, and the active graphics path.
 
 Good practices:
 
