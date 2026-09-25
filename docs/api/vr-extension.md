@@ -1,8 +1,8 @@
 # Fallout 4 VR extension (`IVPrismaUIVR1`)
 
-> **Status: preview, separate from the public desktop 2.1.0 release.**
+> **Status: released with PrismaUI_F4 2.2.0.**
 >
-> `PrismaUI_F4VR.dll` is a separate provider built against CommonLibF4VR. The VR provider and spatial API have compile/deterministic-test coverage, but the desktop `framework-v2.1.0` release does not constitute headset/runtime acceptance for Fallout 4 VR. Do not advertise VR support as released until the VR provider has its own acceptance and publication.
+> `PrismaUI_F4VR.dll` is a separate provider built against CommonLibF4VR. The `framework-v2.2.0` release publishes a dedicated `PrismaUI_F4-2.2.0-Fallout4-VR.zip` package. Treat optional spatial capabilities as capability-gated even when the VR provider is installed.
 
 ## Provider model
 
@@ -13,9 +13,9 @@ Fallout 4 desktop -> PrismaUI_F4.dll
 Fallout 4 VR      -> PrismaUI_F4VR.dll
 ```
 
-The shared header knows both provider names. The VR extension is additive and does not alter the desktop V1-V10 vtable layout.
+The shared header knows both provider names. The VR extension is additive and does not alter the desktop V1-V12 vtable layout.
 
-The current framework architecture is Ultralight-based. Do not apply the retired legacy-runtime Host/subprocess model to the VR preview.
+The current framework architecture is Ultralight-based. Do not apply the retired legacy-runtime Host/subprocess model to the current VR provider.
 
 ## Requesting the APIs
 
@@ -130,7 +130,7 @@ Important semantics:
 
 Do not repeat the old legacy-runtime note that `LocalOnly` is merely a one-way injected page script. The current policy contract is documented in the Matrix network-policy semantics and is intentionally backend-safe rather than legacy-runtime-specific.
 
-Because VR remains a preview, runtime verification of network-policy behavior is still part of the VR acceptance gate.
+VR network-policy behavior remains capability-gated and should be verified on the runtime families a mod claims to support.
 
 ## Results
 
@@ -138,11 +138,6 @@ Spatial methods return `SpatialResult`. Treat success/replacement, unsupported, 
 
 ## Release boundary
 
-The public desktop 2.1.0 package and its validation do **not** make these statements:
+PrismaUI_F4 2.2.0 publishes desktop and VR packages separately. The VR package establishes release availability of `PrismaUI_F4VR.dll`; it does not imply that every desktop feature exists in VR or that every optional spatial capability is available on every setup.
 
-- that `PrismaUI_F4VR.dll` is publicly released;
-- that headset interaction has been manually accepted;
-- that every desktop feature has been live-tested in Fallout 4 VR;
-- that desktop release hashes cover VR artifacts.
-
-Keep VR dependencies optional until the VR release is explicitly published.
+Keep VR-only dependencies conditional on the VR provider and query the specific capability before using it.
