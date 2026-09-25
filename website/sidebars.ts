@@ -6,7 +6,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Introduction',
       collapsed: false,
-      items: ['what-is-prismaui', 'quick-start', 'getting-started', 'ai-mcp'],
+      items: ['what-is-prismaui', 'quick-start', 'getting-started', 'modern-api', 'ai-mcp'],
     },
     {
       type: 'category',
@@ -31,7 +31,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Reference',
       collapsed: false,
-      items: ['api-reference', 'api-extensions', 'examples', 'limitations', 'changelog', 'troubleshooting'],
+      items: ['api-reference', 'api-extensions', '2.2.0-release', 'examples', 'limitations', 'changelog', 'troubleshooting'],
     },
   ],
   apiSidebar: [
