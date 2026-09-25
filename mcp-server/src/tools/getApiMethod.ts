@@ -15,7 +15,10 @@ function pathToName(path: string): string {
 
 export async function listApiMethodNames(): Promise<string[]> {
   const paths = await listPathsUnder(API_DOC_PREFIX);
-  return paths.filter((p) => p.endsWith(".md")).map(pathToName).sort();
+  return paths
+    .filter((p) => p.endsWith(".md") && p !== `${API_DOC_PREFIX}vr-extension.md`)
+    .map(pathToName)
+    .sort();
 }
 
 export async function getApiMethodDoc(name: string): Promise<ApiMethodDoc> {
