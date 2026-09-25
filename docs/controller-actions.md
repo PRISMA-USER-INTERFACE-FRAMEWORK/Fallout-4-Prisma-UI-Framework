@@ -197,7 +197,7 @@ if (g_prisma->GetButtonPrompt("Activate", prompt, sizeof(prompt))) {
 }
 ```
 
-For a direct gamepad code, `GetGamepadButtonName()` returns the same canonical naming family used by V12.
+For a direct gamepad code, `GetGamepadButtonName()` returns the same canonical naming family used by V12. Shared controller glyphs are constrained to the framework prompt size so missing consumer CSS does not allow the source artwork to render at its full dimensions.
 
 ## Migrating an existing mod
 
