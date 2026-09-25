@@ -122,6 +122,63 @@ F4SE_PLUGIN_LOAD(const F4SE::LoadInterface* intfc)
 }
 `;
 
+const MODERN_HTML = `<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PrismaUI Modern Example</title>
+    <style>
+        html, body { margin: 0; width: 100%; height: 100%; background: transparent; font-family: sans-serif; }
+        body { display: grid; place-items: center; }
+        main { width: 420px; padding: 20px; background: rgba(18, 18, 24, 0.96); color: white; border-radius: 8px; }
+        button, input { font: inherit; }
+        .row { display: flex; gap: 8px; margin-top: 12px; }
+        input { flex: 1; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>PrismaUI Modern Example</h1>
+    <p id="status">DOM ready</p>
+    <div class="row">
+        <input id="message" type="text" placeholder="Message to C++">
+        <button id="send">Send</button>
+    </div>
+    <div class="row">
+        <button id="close">Close</button>
+    </div>
+</main>
+<script src="script.js"></script>
+</body>
+</html>
+`;
+
+const MODERN_SCRIPT = `window.init = function() {
+    var status = document.getElementById("status");
+    if (status) status.textContent = "PrismaUI modern feature tables ready";
+};
+
+window.updateFocusLabel = function(message) {
+    var status = document.getElementById("status");
+    if (status) status.textContent = message;
+};
+
+document.getElementById("send").addEventListener("click", function() {
+    var input = document.getElementById("message");
+    if (window.sendDataToF4SE) window.sendDataToF4SE(input ? input.value : "");
+});
+
+document.getElementById("close").addEventListener("click", function() {
+    if (window.requestClose) window.requestClose();
+});
+
+window.addEventListener("prisma-controller-action", function(event) {
+    if (event.detail && event.detail.action === "panel.close" && event.detail.state === "pressed") {
+        if (window.requestClose) window.requestClose();
+    }
+});
+`;
+
 const MODERN_README = [
   "# " + EXAMPLE_TOKEN,
   "",
@@ -190,6 +247,8 @@ export async function scaffoldPlugin(
       else if (relativePath === VR_HEADER_PATH) rawContent = vrHeader;
       else if (apiStyle === "modern" && relativePath === "src/main.cpp") rawContent = MODERN_MAIN;
       else if (apiStyle === "modern" && relativePath === "README.md") rawContent = MODERN_README;
+      else if (apiStyle === "modern" && relativePath === "view/index.html") rawContent = MODERN_HTML;
+      else if (apiStyle === "modern" && relativePath === "view/script.js") rawContent = MODERN_SCRIPT;
       else rawContent = await fetchRawFile(sourcePath);
 
       return {
@@ -207,18 +266,6 @@ export async function scaffoldPlugin(
       content: modernHeader,
     });
 
-    const scriptPath = resolve(absTarget, "view", "script.js");
-    const scriptIndex = files.findIndex((file) => file.destPath === scriptPath);
-    if (scriptIndex >= 0) {
-      files[scriptIndex] = {
-        ...files[scriptIndex],
-        content:
-          files[scriptIndex].content +
-          "\nwindow.addEventListener('prisma-controller-action', function(event) {\n" +
-          "    if (event.detail && event.detail.action === 'panel.close' && event.detail.state === 'pressed') closePanel();\n" +
-          "});\n",
-      };
-    }
   }
 
   const filesWritten: string[] = [];
