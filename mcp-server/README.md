@@ -11,7 +11,7 @@ The current framework uses **Ultralight 1.4.0 in-process**. New desktop integrat
 
 ## Source of truth
 
-The implementation repository, Prisma-Matrix, is private. Public MCP users do **not** need Matrix credentials to read the SDK or developer docs.
+Prisma-Matrix is the maintainer source repository. Public MCP users do **not** need to read Matrix directly to use the SDK or developer docs because the public framework repository carries pinned SDK mirrors and current guides.
 
 The public contract is:
 
