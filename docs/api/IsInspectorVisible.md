@@ -8,11 +8,11 @@ virtual bool IsInspectorVisible(PrismaView view) noexcept = 0;
 
 Retained for V1 ABI/source compatibility.
 
-## PrismaUI_F4 2.1.0 behavior
+## Current behavior
 
-The Ultralight backend does not implement an inspector UI. For a normal valid 2.1.0 view this compatibility query remains `false`; there is no external Chrome DevTools window whose visibility it tracks.
+Do not use this V1 compatibility query as the authoritative state of the current F12 Ultralight inspector.
 
-Do not use this method as a development-mode or backend-health check.
+Current builds provide the packaged in-game inspector when DevTools are enabled. Treat this method as compatibility surface rather than a development-mode or backend-health check.
 
 ## See also
 
