@@ -63,11 +63,17 @@ export interface FrameworkReleaseInfo {
   backend: string;
   renderer: string;
   desktopRuntimes: string[];
+  controllerRuntimes: string[];
   rejectedRuntimes: string[];
+  modernFeatures: string[];
   releaseUrl: string;
   maintainerProvenanceUrl: string;
+  flatReleaseArtifactUrl: string;
+  vrReleaseArtifactUrl: string;
   apiHeaderSource: string;
   apiHeaderBlob: string;
   modernApiHeaderSource: string;
   modernApiHeaderBlob: string;
+  vrApiHeaderSource: string;
+  vrApiHeaderBlob: string;
 }
