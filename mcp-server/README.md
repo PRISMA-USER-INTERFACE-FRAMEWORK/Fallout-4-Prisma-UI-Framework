@@ -2,7 +2,7 @@
 
 `prisma-mcp` gives an MCP-compatible client structured access to the current **PrismaUI_F4 2.2.0** developer surface.
 
-The current framework uses **Ultralight 1.4.0 in-process**. The desktop API is exposed through one canonical `PrismaUI_F4_API.h` SDK header containing **V1 through V12**. Desktop support covers OG 1.10.163 plus AE 1.11.137+ with matching Address Library data; the intermediate 1.10.980-1.10.984 line is deliberately unsupported.
+The current framework uses **Ultralight 1.4.0 in-process**. New desktop integrations should prefer the `PrismaUI_F4_Modern_API.h` feature-table surface; the canonical `PrismaUI_F4_API.h` V1-V12 header remains the compatibility ABI. Desktop support covers OG 1.10.163 plus AE 1.11.137+ with matching Address Library data; the intermediate 1.10.980-1.10.984 line is deliberately unsupported.
 
 ## Requirements
 
@@ -16,16 +16,18 @@ The implementation repository, Prisma-Matrix, is private. Public MCP users do **
 The public contract is:
 
 - **Fallout-4-Prisma-UI-Framework `main`** for guides, method documentation, examples, and distributable SDK mirrors.
-- `src/PrismaUI_F4_API.h` is the single desktop SDK header and contains `IVPrismaUI1` through `IVPrismaUI12`.
-- The current canonical desktop SDK header is Git blob `02f6584829063ca59662d135c6910cc87d5bb2ee`.
+- `src/PrismaUI_F4_Modern_API.h` is the preferred feature-table header for new desktop integrations.
+- Its pinned Git blob is `9784daab39bf66bb179e6ef12bba63c75e50d3b7`.
+- `src/PrismaUI_F4_API.h` contains the stable `IVPrismaUI1` through `IVPrismaUI12` compatibility ABI.
+- Its pinned Git blob is `02f6584829063ca59662d135c6910cc87d5bb2ee`.
 - Its maintainer-side API source is Prisma-Matrix release commit `1b32eb1fef28802b35cc9d43ad44152d769bebd5`.
 - The 2.2.0 release source is `1b32eb1fef28802b35cc9d43ad44152d769bebd5`; the public SDK mirrors are pinned to that release contract.
 - The VR header mirror remains Git blob `012f810a98bfa274563c9eb8102881549ab2c9c6`.
 - Repository CI checks the public SDK blob identities before documentation changes can merge.
 
-`get_header` downloads the public `src/PrismaUI_F4_API.h` mirror and recomputes its Git blob SHA locally. It fails closed if the bytes do not match the canonical V1-V12 SDK header.
+`get_modern_header` and `get_header` download the preferred modern and compatibility SDK mirrors and recompute their Git blob SHAs locally. Both fail closed on drift.
 
-`get_framework_release` verifies that public SDK snapshot before returning the 2.2.0 release identity, backend, renderer, supported runtime matrix, original release source commit, current API source commit, and SDK blob.
+`get_framework_release` verifies both desktop SDK snapshots before returning the 2.2.0 release identity, backend, renderer, supported runtime matrix, source commit, and SDK provenance.
 
 Public framework download:
 
@@ -64,11 +66,15 @@ Call this first when version, backend, renderer, Fallout runtime support, or com
 - supported desktop runtime families;
 - deliberately rejected runtime line;
 - public release URL plus maintainer provenance;
-- public V1-V12 API-header mirror URL and pinned Git blob SHA.
+- preferred modern and compatibility API-header mirror URLs and pinned Git blob SHAs.
+
+### `get_modern_header`
+
+Returns the verified `PrismaUI_F4_Modern_API.h` feature-table header. Use this first for new integrations.
 
 ### `get_header`
 
-Returns the public mirror of the canonical `PrismaUI_F4_API.h` after verifying its Git blob SHA. Use it before writing or reviewing native API calls. This one header contains V1-V12.
+Returns the verified `PrismaUI_F4_API.h` V1-V12 compatibility header. Use it when maintaining numbered-interface integrations.
 
 ### `list_api_methods`
 
@@ -84,7 +90,7 @@ Searches API method documentation and guides by keyword.
 
 ### `get_guide`
 
-Returns one current guide. The guide catalog includes setup, networking, panel management, lifecycle, troubleshooting, ModelPreview, controller actions, API extensions, the API reference, the modern API guide, and the 2.2.0 release guide.
+Returns one current guide. The guide catalog includes setup, networking, translations, panel management, lifecycle, troubleshooting, ModelPreview, controller actions, API extensions, the API reference, the modern API guide, and the 2.2.0 release guide.
 
 ### `scaffold_plugin`
 
@@ -95,11 +101,11 @@ Copies and renames the official example consumer plugin into a user-confirmed lo
 For a new PrismaUI task:
 
 1. call `get_framework_release`;
-2. call `get_header` before generating C++;
-3. include `PrismaUI_F4_API.h` for desktop code;
-4. request the lowest interface version containing the needed feature;
-5. search or fetch the relevant guide;
-6. use `get_api_method` for methods with lifecycle/runtime caveats;
+2. call `get_modern_header` for new integrations;
+3. discover only the feature tables the integration needs;
+4. use `get_header` only for numbered V1-V12 compatibility work;
+5. search or fetch the relevant guide, including `translations` for V4 localization;
+6. use `get_api_method` for legacy methods with lifecycle/runtime caveats;
 7. scaffold only after the user confirms the destination path;
 8. do not invent retired CEF/subprocess setup, unsupported NG compatibility, or remote browser features.
 
