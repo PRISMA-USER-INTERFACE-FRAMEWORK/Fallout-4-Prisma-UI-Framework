@@ -301,20 +301,11 @@ namespace PRISMA_UI_VR_API
 
     using RequestPluginVRAPIFunc = void* (*)(InterfaceVersion version);
 
-// Provider resolution is Win32-only, matching PRISMA_UI_API's guard. The interface and type
-// declarations above stay portable so the VR policy tests build on a Linux CI runner.
 #ifdef _WIN32
     [[nodiscard]] inline void* RequestPluginVRAPI(
         InterfaceVersion version = InterfaceVersion::V1) noexcept
     {
-        // Shared with the base API on purpose -- see GetPrismaProviderModule. Looking up
-        // "PrismaUI_F4.dll" here made RequestPluginVRAPI return nullptr on the one game it exists
-        // for, and nullptr is the documented "not VR, fall back to screen-space" signal, so VR
-        // consumers mis-detected the platform silently instead of failing.
-        //
-        // On flat Fallout 4 this still returns nullptr, which is correct and is now decided by the
-        // export table rather than by the file name: the flat provider does not export
-        // RequestPluginVRAPI, so the GetProcAddress below fails.
+
         const auto module = PRISMA_UI_API::GetPrismaProviderModule();
         if (!module) {
             return nullptr;
@@ -331,5 +322,5 @@ namespace PRISMA_UI_VR_API
         return static_cast<Interface*>(
             RequestPluginVRAPI(InterfaceVersionMap<Interface>::version));
     }
-#endif  // _WIN32
+#endif
 }
