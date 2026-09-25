@@ -81,7 +81,7 @@ jobs:
           [[ ! -e src/PrismaUI_F4_API_V11.h ]]
           [[ ! -e src/PrismaUI_F4_API_V12.h ]]
 
-          grep -q 'Function Focus(string asName' scripts/Source/PrismaUI.psc
+          grep -q 'bool Function Focus(string asName' scripts/Source/PrismaUI.psc
           grep -q 'Function SetOffscreenSize(string asName' scripts/Source/PrismaUI.psc
 
       - name: Reject retired public paths
