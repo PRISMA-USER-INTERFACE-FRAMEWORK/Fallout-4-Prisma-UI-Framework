@@ -1,6 +1,7 @@
 import { fetchRawFile } from "../github.js";
 import { GUIDE_FILES } from "../types.js";
 import { listApiMethodNames } from "./getApiMethod.js";
+import { getModernHeader, getVrHeader } from "./getHeader.js";
 
 export interface SearchResult {
   source: string;
@@ -41,9 +42,17 @@ export async function searchDocs(query: string): Promise<SearchResult[]> {
 
   for (const target of contents) {
     const snippet = findSnippet(target.content, query);
-    if (snippet) {
-      results.push({ source: target.source, path: target.path, snippet });
-    }
+    if (snippet) results.push({ source: target.source, path: target.path, snippet });
+  }
+
+  const [modernHeader, vrHeader] = await Promise.all([getModernHeader(), getVrHeader()]);
+  const headerTargets = [
+    { source: "sdk/modern", path: "src/PrismaUI_F4_Modern_API.h", content: modernHeader },
+    { source: "sdk/vr", path: "src/PrismaUI_F4VR_API.h", content: vrHeader },
+  ];
+  for (const target of headerTargets) {
+    const snippet = findSnippet(target.content, query);
+    if (snippet) results.push({ source: target.source, path: target.path, snippet });
   }
 
   return results;
