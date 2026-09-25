@@ -23,6 +23,14 @@ virtual void ClearControllerActions(PrismaView view) noexcept = 0;
 
 Action identifiers are copied into framework storage and must contain 1-64 ASCII letters, digits, `_`, `-`, `.`, or `:`.
 
+## Bridge recovery in PrismaUI 2.2.0
+
+PrismaUI owns controller-action bridge installation and recovery. If the JavaScript bridge fails to install, the framework retries through the deferred Ultralight queue with a maximum of three attempts for the current view generation.
+
+Reloading, clearing, or destroying a view invalidates stale retry state. A completion from an older generation cannot mark a newer view as ready.
+
+Consumer mods should not add their own unbounded retry loop. Bind the semantic actions you need and treat `GetControllerActionBridgeState` as diagnostics/state reporting.
+
 ## Canonical buttons
 
 The accepted button names are:
@@ -142,6 +150,12 @@ Triggers are analog values, so V12 uses deterministic hysteresis:
 This avoids trigger drift creating noisy press/release edges. Trigger state is reset when focus is successfully acquired so returning to a view does not inherit stale trigger state.
 
 `LS` and `RS` refer to the stick-click buttons. Thumbstick movement itself is outside this API.
+
+## Native Gamepad mode
+
+The modern Controller feature table also exposes `SetNativeGamepad(view, enabled)`. Use it when the focused page needs live stick or trigger state through `navigator.getGamepads()`.
+
+Semantic menu actions should still use `BindControllerAction`. Native Gamepad mode is for continuous analog state, not a replacement for framework-owned action routing.
 
 ## Lifecycle
 
