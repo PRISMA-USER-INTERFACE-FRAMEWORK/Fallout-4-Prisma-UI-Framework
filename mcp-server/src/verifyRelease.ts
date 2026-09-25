@@ -85,11 +85,17 @@ async function main(): Promise<void> {
     const generatedMain = await readFile(join(scaffoldRoot, "src", "main.cpp"), "utf8");
     const generatedModernHeader = await readFile(join(scaffoldRoot, "src", "PrismaUI_F4_Modern_API.h"), "utf8");
     const generatedVrHeader = await readFile(join(scaffoldRoot, "src", "PrismaUI_F4VR_API.h"), "utf8");
+    const generatedScript = await readFile(join(scaffoldRoot, "view", "script.js"), "utf8");
     if (scaffold.apiStyle !== "modern" ||
         !generatedMain.includes("Discover<ApiFeature::View>") ||
+        !generatedMain.includes('RegisterJSListener(view, "requestClose"') ||
+        !generatedMain.includes('RegisterJSListener(view, "sendDataToF4SE"') ||
+        !generatedMain.includes("RegisterConsoleCallback") ||
+        !generatedScript.includes("prisma-controller-action") ||
+        !generatedScript.includes("panel.close") ||
         !generatedModernHeader.includes("RegisterTranslationsV4") ||
         !generatedVrHeader.includes("IVPrismaUIVR1")) {
-      throw new Error("Modern scaffold is missing modern or VR release contracts");
+      throw new Error("Modern scaffold is missing required bridge, controller, modern, or VR contracts");
     }
   } finally {
     await rm(scaffoldRoot, { recursive: true, force: true });
