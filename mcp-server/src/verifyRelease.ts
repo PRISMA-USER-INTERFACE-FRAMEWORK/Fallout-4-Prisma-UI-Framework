@@ -30,6 +30,11 @@ async function main(): Promise<void> {
     throw new Error("Translations guide is missing from the MCP guide catalog or lacks V4 localization");
   }
 
+  const release211Guide = await getGuide("2.1.1-release");
+  if (!release211Guide.includes("1.11.240") || !release211Guide.includes("Prisma Dock compatibility")) {
+    throw new Error("PrismaUI 2.1.1 guide is missing release-scope controller or Dock coverage");
+  }
+
   const release = await fetchFrameworkReleaseInfo();
   if (release.version !== FRAMEWORK_VERSION) {
     throw new Error(`Framework version mismatch: ${release.version}`);
