@@ -31,7 +31,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Reference',
       collapsed: false,
-      items: ['api-reference', 'api-extensions', '2.2.0-release', 'examples', 'limitations', 'changelog', 'troubleshooting'],
+      items: ['api-reference', 'api-extensions', '2.2.0-release', '2.1.1-release', 'examples', 'limitations', 'changelog', 'troubleshooting'],
     },
   ],
   apiSidebar: [
