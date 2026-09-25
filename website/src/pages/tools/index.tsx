@@ -13,7 +13,7 @@ export default function ToolsIndex(): JSX.Element {
     {
       id: 'prisma',
       name: 'PrismaUI F4',
-      tags: ['F4SE Framework', 'v2.1.0'],
+      tags: ['F4SE Framework', 'v2.2.0'],
       pitch: 'HTML, CSS, and JavaScript UI framework for Fallout 4, powered by in-process Ultralight 1.4.0.',
       href: '/',
       image: prismaLogo,
