@@ -145,6 +145,12 @@ Documents\My Games\Fallout4\F4SE\PrismaUI_F4.log
 
 The framework records rejected navigation, runtime preflight failures, JS errors, focus failures, and other lifecycle diagnostics there.
 
+## Focus watchdog behavior
+
+A focused static view does not need fake animation or periodic pixel changes to stay focused. The presentation heartbeat is refreshed only when the currently focused view is present in the committed view set after a successful draw.
+
+Emergency focus release is reserved for a genuine whole-frame presentation stall. Reusing a committed frame from a different view does not keep an unpresented focused view alive indefinitely.
+
 ## Recovery pattern
 
 A failed handle can be destroyed and recreated, but keep retries bounded:
