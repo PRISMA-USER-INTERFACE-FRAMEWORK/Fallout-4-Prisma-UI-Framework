@@ -14,7 +14,7 @@ export const FAQ_DATA: FaqEntry[] = [
     id: 'what-is-prismaui',
     question: 'What is PrismaUI F4?',
     answer:
-      'A native F4SE framework that lets Fallout 4 mods build UI with HTML, CSS, and JavaScript instead of editing Scaleform SWFs. PrismaUI_F4 2.1.0 uses Ultralight 1.4.0 in-process; the old legacy-runtime host and subprocess are retired.',
+      'A native F4SE framework that lets Fallout 4 mods build UI with HTML, CSS, and JavaScript instead of editing Scaleform SWFs. PrismaUI_F4 2.2.0 uses Ultralight 1.4.0 in-process; the old legacy-runtime host and subprocess are retired.',
     keywords: ['what', 'prismaui', 'framework', 'about', 'overview', 'ultralight'],
     link: '/docs/what-is-prismaui',
     linkLabel: 'What is PrismaUI F4?',
@@ -104,7 +104,7 @@ export const FAQ_DATA: FaqEntry[] = [
     id: 'looks-unstyled',
     question: 'My UI looks wrong or unstyled',
     answer:
-      'Bundle required CSS, JavaScript, fonts, and images with the mod and use local/document-relative URLs. Do not rely on CDN-hosted styles, Google Fonts, or other remote dependencies in the 2.1.0 Ultralight production path.',
+      'Bundle required CSS, JavaScript, fonts, and images with the mod and use local/document-relative URLs. Do not rely on CDN-hosted styles, Google Fonts, or other remote dependencies in the current Ultralight production path.',
     keywords: ['unstyled', 'css not loading', 'looks wrong', 'broken layout', 'font', 'cdn'],
     link: '/docs/networking',
     linkLabel: 'Networking and local assets',
@@ -113,7 +113,7 @@ export const FAQ_DATA: FaqEntry[] = [
     id: 'devtools-wont-open',
     question: 'Where did the old legacy-runtime DevTools workflow go?',
     answer:
-      'PrismaUI_F4 2.1.0 no longer runs the legacy-runtime host/subprocess, so do not rely on the old external previous browser runtime DevTools workflow. Use PrismaUI_F4.log, your plugin log, RegisterConsoleCallback, and normal front-end testing outside the game.',
+      'The retired external browser debugging workflow is gone. Current PrismaUI builds include a packaged in-game Ultralight inspector opened with F12 when DevTools are enabled. Keep PrismaUI_F4.log, your plugin log, and RegisterConsoleCallback in the debugging path as well.',
     keywords: ['devtools', 'inspector', 'debug', 'console', 'legacy-runtime'],
     link: '/docs/troubleshooting',
     linkLabel: 'Troubleshooting',
@@ -140,7 +140,7 @@ export const FAQ_DATA: FaqEntry[] = [
     id: 'hud-suppression-not-working',
     question: 'Vanilla HUD widget suppression is not working',
     answer:
-      'In 2.1.0 SuppressHUDWidget supports OG 1.10.163 and AE 1.11.137+ when matching Address Library data is available. Intermediate 1.10.980-1.10.984 Next-Gen is not a supported PrismaUI runtime.',
+      'SuppressHUDWidget supports OG 1.10.163 and AE 1.11.137+ when matching Address Library data is available. Intermediate 1.10.980-1.10.984 Next-Gen is not a supported PrismaUI runtime.',
     keywords: ['hud suppression', 'suppress hud', 'hide widget', 'og', 'ae', 'address library'],
     link: '/docs/vanilla-ui-suppression',
     linkLabel: 'Vanilla UI suppression',
@@ -165,9 +165,9 @@ export const FAQ_DATA: FaqEntry[] = [
   },
   {
     id: 'game-versions',
-    question: 'Which Fallout 4 versions does PrismaUI_F4 2.1.0 support?',
+    question: 'Which Fallout 4 versions does PrismaUI_F4 support?',
     answer:
-      'Desktop 2.1.0 supports OG 1.10.163 and the AE 1.11.137+ family when matching Address Library data is available. The intermediate 1.10.980-1.10.984 Next-Gen line is deliberately rejected.',
+      'The desktop provider supports OG 1.10.163 and the AE 1.11.137+ family when matching Address Library data is available. The intermediate 1.10.980-1.10.984 Next-Gen line is deliberately rejected.',
     keywords: ['next-gen', 'ng', 'ae', 'og', 'runtime', 'game version', '1.10.163', '1.11'],
     link: '/docs/1.0-vs-2.0',
     linkLabel: '1.0 vs current',
@@ -176,7 +176,7 @@ export const FAQ_DATA: FaqEntry[] = [
     id: 'networking-allowed',
     question: 'Can my UI make network requests?',
     answer:
-      'Do not design a 2.1.0 Prisma view around direct remote networking. Required assets should be local, worker-style browser APIs are blocked, and real HTTP/WebSocket work should live in your native plugin and be relayed to the view through the Prisma bridge.',
+      'Do not design a Prisma view around direct remote networking. Required assets should be local, worker-style browser APIs are blocked, and real HTTP/WebSocket work should live in your native plugin and be relayed to the view through the Prisma bridge.',
     keywords: ['network', 'fetch', 'websocket', 'xhr', 'cdn', 'sandbox'],
     link: '/docs/networking',
     linkLabel: 'Networking',
