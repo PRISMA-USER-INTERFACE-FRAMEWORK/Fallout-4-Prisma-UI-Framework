@@ -8,6 +8,7 @@ function extractTitle(content) {
 
 const GUIDES = [
   '2.2.0-release',
+  '2.1.1-release',
   'what-is-prismaui',
   'getting-started',
   'quick-start',
