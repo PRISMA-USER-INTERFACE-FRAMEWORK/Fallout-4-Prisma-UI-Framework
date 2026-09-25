@@ -7,6 +7,8 @@ import {
   FRAMEWORK_MODERN_HEADER_PATH,
   FRAMEWORK_PUBLIC_DOWNLOAD_URL,
   FRAMEWORK_RELEASE_SOURCE_COMMIT,
+  FRAMEWORK_VR_HEADER_BLOB_SHA,
+  FRAMEWORK_VR_HEADER_PATH,
   FRAMEWORK_RELEASE_TAG,
   FRAMEWORK_REPO,
   FRAMEWORK_VERSION,
@@ -101,12 +103,20 @@ export async function fetchReleasedModernFrameworkHeader(): Promise<string> {
   return fetchVerifiedHeader(FRAMEWORK_MODERN_HEADER_PATH, FRAMEWORK_MODERN_HEADER_BLOB_SHA);
 }
 
+export async function fetchReleasedVrFrameworkHeader(): Promise<string> {
+  return fetchVerifiedHeader(FRAMEWORK_VR_HEADER_PATH, FRAMEWORK_VR_HEADER_BLOB_SHA);
+}
+
 export async function fetchFrameworkReleaseInfo(): Promise<FrameworkReleaseInfo> {
   const cacheKey = `framework-release:${FRAMEWORK_RELEASE_TAG}`;
   const cached = getCached<FrameworkReleaseInfo>(cacheKey);
   if (cached !== undefined) return cached;
 
-  await Promise.all([fetchReleasedFrameworkHeader(), fetchReleasedModernFrameworkHeader()]);
+  await Promise.all([
+    fetchReleasedFrameworkHeader(),
+    fetchReleasedModernFrameworkHeader(),
+    fetchReleasedVrFrameworkHeader(),
+  ]);
 
   const info: FrameworkReleaseInfo = {
     version: FRAMEWORK_VERSION,
@@ -116,13 +126,19 @@ export async function fetchFrameworkReleaseInfo(): Promise<FrameworkReleaseInfo>
     backend: "Ultralight 1.4.0 in-process",
     renderer: "D3D11 GPU-accelerated presentation with controlled CPU BitmapSurface fallback",
     desktopRuntimes: ["Fallout 4 OG 1.10.163", "Fallout 4 AE 1.11.137+ with matching Address Library data"],
+    controllerRuntimes: ["Fallout 4 OG 1.10.163", "Fallout 4 AE 1.11.240"],
     rejectedRuntimes: ["Fallout 4 1.10.980-1.10.984 intermediate Next-Gen line"],
+    modernFeatures: ["Core", "Controller", "GameThread", "Meta", "View", "Interop", "Localization", "Render", "Input", "Menu"],
     releaseUrl: FRAMEWORK_PUBLIC_DOWNLOAD_URL,
     maintainerProvenanceUrl: `https://github.com/${REPO_OWNER}/${FRAMEWORK_REPO}/releases/tag/${FRAMEWORK_RELEASE_TAG}`,
+    flatReleaseArtifactUrl: `https://github.com/${REPO_OWNER}/${FRAMEWORK_REPO}/releases/download/${FRAMEWORK_RELEASE_TAG}/PrismaUI_F4-${FRAMEWORK_VERSION}-Fallout4-OG-AE.zip`,
+    vrReleaseArtifactUrl: `https://github.com/${REPO_OWNER}/${FRAMEWORK_REPO}/releases/download/${FRAMEWORK_RELEASE_TAG}/PrismaUI_F4-${FRAMEWORK_VERSION}-Fallout4-VR.zip`,
     apiHeaderSource: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/${FRAMEWORK_HEADER_PATH}`,
     apiHeaderBlob: FRAMEWORK_HEADER_BLOB_SHA,
     modernApiHeaderSource: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/${FRAMEWORK_MODERN_HEADER_PATH}`,
     modernApiHeaderBlob: FRAMEWORK_MODERN_HEADER_BLOB_SHA,
+    vrApiHeaderSource: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/${FRAMEWORK_VR_HEADER_PATH}`,
+    vrApiHeaderBlob: FRAMEWORK_VR_HEADER_BLOB_SHA,
   };
   setCached(cacheKey, info);
   return info;
