@@ -3,7 +3,7 @@ title: 'Limitations'
 ---
 # Limitations
 
-PrismaUI_F4 2.1.0 uses **Ultralight 1.4.0 in-process**. The retired legacy-runtime host/subprocess architecture is not the production runtime, so previous browser runtime-specific guarantees from older documentation do not apply.
+PrismaUI_F4 2.2.0 uses **Ultralight 1.4.0 in-process**. The retired legacy-runtime host/subprocess architecture is not the production runtime, so previous browser runtime-specific guarantees from older documentation do not apply.
 
 The safest rule for consumer mods is simple: use ordinary HTML/CSS/JavaScript, bundle required assets locally, and test every browser feature your UI depends on against Ultralight 1.4.0.
 
@@ -27,7 +27,7 @@ React, Vue, Svelte, Tailwind, and similar stacks are usable when their **built o
 
 A Prisma view is intended to be a local UI document, not an unrestricted network client.
 
-For the shipping 2.1.0 policy:
+For the current shipping policy:
 
 - bundle required JS, CSS, fonts, images, and other assets with the mod;
 - do not depend on CDNs or remote fonts;
@@ -39,16 +39,9 @@ See [Networking](networking).
 
 ## Rendering
 
-The public 2.1.0 configuration uses the **CPU BitmapSurface presentation path**. Accelerated Ultralight rendering remains internal/deferred and should not be assumed by consumer mods.
+PrismaUI can use the validated D3D11 GPU-accelerated Ultralight path when the graphics environment is eligible. CPU BitmapSurface rendering remains a controlled fallback.
 
-Practical consequences:
-
-- large areas that repaint continuously cost more than mostly-static UI;
-- avoid unnecessary full-screen animation and expensive effects when a smaller animated region will do;
-- hidden/offscreen views can still incur work depending on how you configure them;
-- performance-sensitive on-mesh views should use an appropriate offscreen size rather than rendering far above the target surface resolution.
-
-Consumer code must not depend on the internal accelerated renderer being enabled.
+Consumer mods should not assume which path is active. Keep repaint regions bounded, avoid unnecessary full-screen animation, and test with the graphics wrappers your mod supports.
 
 ## Offscreen and on-mesh rendering
 
@@ -66,23 +59,17 @@ For a view used offscreen:
 
 ## Inspector / DevTools
 
-Do not follow earlier-runtime instructions that expect an external previous browser runtime DevTools session or a `retired host component` inspector window.
+The old external legacy-runtime/Chrome debugging workflow is retired.
 
-The older inspector entry points remain in the ABI for compatibility, but 2.1.0 consumer debugging should primarily use:
+Current PrismaUI builds include a packaged in-game Ultralight inspector opened with **F12** when DevTools are enabled. Use it for Elements, Sources, Console, Network, Timelines, Storage, Graphics, Layers, and Audit inspection.
 
-- `PrismaUI_F4.log`;
-- your plugin's F4SE log;
-- `RegisterConsoleCallback`;
-- `GetViewHealth`;
-- normal browser/front-end testing outside the game.
-
-`SetInspectorBounds` should not be treated as a meaningful 2.1.0 layout API.
+The V1 inspector methods are compatibility ABI and should not be treated as the control surface for the current F12 DevTools workflow. Keep framework logs and `RegisterConsoleCallback` in your debugging workflow as well.
 
 ## Runtime-specific Fallout features
 
 Not every Fallout-facing helper has identical implementation requirements across game versions.
 
-Desktop 2.1.0 supports:
+The current desktop line supports:
 
 - OG 1.10.163;
 - AE 1.11.137+ when matching Address Library data is available.
@@ -93,10 +80,10 @@ For example, `SuppressHUDWidget` uses validated runtime/address authorities and 
 
 ## Activate-choice compatibility calls
 
-Two older V7 methods need special attention in 2.1.0:
+Two older V7 methods need special attention:
 
 - `EnableActivateChoiceFilter(enable, dropDefaultTake)` enables the capture path used by the V8 read/trigger APIs. `dropDefaultTake` is retained for ABI compatibility and ignored.
-- `SuppressActivateChoicePerk(...)` is an ABI placeholder. Perk-row filtering is not implemented in 2.1.0.
+- `SuppressActivateChoicePerk(...)` is an ABI placeholder. Perk-row filtering is not implemented.
 
 Do not build gameplay behavior around the older filtering description.
 
@@ -147,7 +134,7 @@ Test it against bright and dark game backgrounds and at the resolutions your mod
 
 ## Removed legacy-runtime architecture
 
-The following are historical and should not appear in a 2.1.0 installation guide or troubleshooting checklist:
+The following are historical and should not appear in a current installation guide or troubleshooting checklist:
 
 - `retired host component`;
 - `retired subprocess`;
@@ -156,4 +143,4 @@ The following are historical and should not appear in a 2.1.0 installation guide
 - shared legacy-runtime-shell deployment steps;
 - shim/host ABI mismatch troubleshooting.
 
-If a player's installation contains a mixture of retired legacy-runtime files and current Ultralight files, reinstall the current 2.1.0 package cleanly rather than trying to combine the two runtime generations.
+If a player's installation contains a mixture of retired legacy-runtime files and current Ultralight files, reinstall the current PrismaUI package cleanly rather than trying to combine the two runtime generations.
