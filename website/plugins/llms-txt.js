@@ -68,7 +68,7 @@ module.exports = function llmsTxtPlugin(context) {
         '> Current builds include the packaged in-game Ultralight DevTools inspector on F12 when enabled.',
         '> Required web dependencies should be bundled locally with consumer mods.',
         '> prisma-mcp is built from this public repository; do not assume an npm package is published.',
-        '> In prisma-mcp, call `get_framework_release` and `get_header` before generating integration code.',
+        '> In prisma-mcp, call `get_framework_release` and `get_modern_header` for new integrations; use `get_header` for V1-V12 compatibility work.',
         '',
         '## Guides',
         '',
