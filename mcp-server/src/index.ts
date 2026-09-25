@@ -26,10 +26,9 @@ function errorResult(message: string) {
 
 server.tool(
   "get_framework_release",
-  "Get the pinned PrismaUI_F4 2.2.0 release and current SDK contract targeted by this MCP server: version, " +
-    "release tag, original release source commit, current API source commit, rendering backend, supported desktop Fallout " +
-    "runtimes, rejected runtime line, public download URL, maintainer provenance URL, and verified modern plus V1-V12 " +
-    "API-header mirrors. Call this before generating setup or compatibility guidance.",
+  "Get the pinned PrismaUI_F4 2.2.0 release contract: version, source commit, renderer, general desktop runtimes, " +
+    "native-controller runtimes, rejected runtime line, released modern feature tables, flat/VR artifacts, and verified " +
+    "modern, V1-V12 compatibility, and VR SDK provenance. Call this before setup or compatibility guidance.",
   {},
   async () => {
     try {
@@ -42,7 +41,7 @@ server.tool(
 
 server.tool(
   "list_api_methods",
-  "List every documented public PrismaUI_F4 API method (name, interface version, one-line summary). " +
+  "List every documented numbered V1-V12 compatibility API method with its interface version and summary. " +
     "Optionally filter to methods added in a specific interface version (e.g. \"V12\").",
   { sinceVersion: z.string().optional().describe('Interface version filter, e.g. "V12" or "12".') },
   async ({ sinceVersion }) => {
@@ -73,9 +72,8 @@ server.tool(
 
 server.tool(
   "search_docs",
-  "Keyword search across every API method doc and guide. Use this when you do not know the exact " +
-    "method name, or when checking runtime/backend guidance such as Ultralight, AE, networking, " +
-    "input regions, controller actions, or panel focus.",
+  "Keyword search across compatibility method docs, current guides, and verified modern/VR SDK contracts. Use this " +
+    "for modern-only methods, VR spatial APIs, runtime/backend guidance, networking, controller actions, or panel focus.",
   { query: z.string().describe("Search term or short phrase.") },
   async ({ query }) => {
     try {
