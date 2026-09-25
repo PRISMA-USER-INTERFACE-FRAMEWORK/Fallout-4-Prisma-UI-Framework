@@ -3,7 +3,7 @@ title: 'Papyrus Bridge'
 ---
 # Papyrus Bridge
 
-PrismaUI_F4 2.1.0 injects `window.prisma` into each Prisma view immediately before the framework dispatches that view's `OnDomReadyCallback`. The bridge lets page JavaScript read selected Fallout/Papyrus values, write values owned by the view's plugin, and emit a named PrismaUI Papyrus event.
+PrismaUI_F4 injects `window.prisma` into each Prisma view immediately before the framework dispatches that view's `OnDomReadyCallback`. The bridge lets page JavaScript read selected Fallout/Papyrus values, write values owned by the view's plugin, and emit a named PrismaUI Papyrus event.
 
 The bridge is **not unrestricted cross-mod access**. PrismaUI associates every view with the F4SE plugin that created it and enforces an ESP ownership policy on bridge requests.
 
@@ -116,7 +116,7 @@ window.prisma.setProperty(
 );
 ```
 
-The 2.1.0 request parser supports numeric and boolean scalar values for this write path. **Do not pass strings expecting automatic conversion.** Strings and arrays are not a supported property-write contract.
+The current request parser supports numeric and boolean scalar values for this write path. **Do not pass strings expecting automatic conversion.** Strings and arrays are not a supported property-write contract.
 
 Writes are fire-and-forget and update the backing attached property value directly. They do not call custom Papyrus getter/setter functions or synthesize your script's own events.
 
