@@ -1,0 +1,215 @@
+#!/usr/bin/env node
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { getApiMethodDoc } from "./tools/getApiMethod.js";
+import { getFrameworkRelease } from "./tools/getFrameworkRelease.js";
+import { getGuide, GUIDE_NAMES } from "./tools/getGuide.js";
+import { getHeader, getModernHeader, getVrHeader } from "./tools/getHeader.js";
+import { listApiMethods } from "./tools/listApiMethods.js";
+import { getModernFeature, listModernFeatures } from "./tools/modernApi.js";
+import { scaffoldPlugin } from "./tools/scaffoldPlugin.js";
+import { searchDocs } from "./tools/searchDocs.js";
+
+const server = new McpServer({
+  name: "prisma-mcp",
+  version: "1.1.0",
+});
+
+function textResult(text: string) {
+  return { content: [{ type: "text" as const, text }] };
+}
+
+function errorResult(message: string) {
+  return { content: [{ type: "text" as const, text: message }], isError: true };
+}
+
+server.tool(
+  "get_framework_release",
+  "Get the pinned PrismaUI_F4 2.2.0 release contract: version, source commit, renderer, general desktop runtimes, " +
+    "native-controller runtimes, rejected runtime line, released modern feature tables, and verified " +
+    "modern, V1-V12 compatibility, and VR SDK provenance. Call this before setup or compatibility guidance.",
+  {},
+  async () => {
+    try {
+      return textResult(await getFrameworkRelease());
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "list_api_methods",
+  "List every documented numbered V1-V12 compatibility API method with its interface version and summary. " +
+    "Optionally filter to methods added in a specific interface version (e.g. \"V12\").",
+  { sinceVersion: z.string().optional().describe('Interface version filter, e.g. "V12" or "12".') },
+  async ({ sinceVersion }) => {
+    try {
+      const entries = await listApiMethods(sinceVersion);
+      return textResult(JSON.stringify(entries, null, 2));
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "get_api_method",
+  "Get the full documentation for one numbered V1-V12 compatibility API method by name (for example CreateView, " +
+    "BindViewToGeometry, DispatchToGameThread, or BindControllerAction). For modern feature-table members, use " +
+    "get_modern_feature instead.",
+  { name: z.string().describe('Exact method name, e.g. "CreateView".') },
+  async ({ name }) => {
+    try {
+      const doc = await getApiMethodDoc(name);
+      return textResult(doc.content);
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "search_docs",
+  "Keyword search across compatibility method docs, current guides, and verified modern/VR SDK contracts. Use this " +
+    "for modern-only methods, VR spatial APIs, runtime/backend guidance, networking, controller actions, or panel focus.",
+  { query: z.string().describe("Search term or short phrase.") },
+  async ({ query }) => {
+    try {
+      const results = await searchDocs(query);
+      if (results.length === 0) return textResult(`No matches for "${query}".`);
+      return textResult(JSON.stringify(results, null, 2));
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "get_guide",
+  `Get the full text of one PrismaUI_F4 guide: ${GUIDE_NAMES.join(", ")}.`,
+  { name: z.enum(GUIDE_NAMES as [string, ...string[]]).describe("Which guide to fetch.") },
+  async ({ name }) => {
+    try {
+      return textResult(await getGuide(name));
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "get_header",
+  "Get the public Fallout-4-Prisma-UI-Framework mirror of the canonical PrismaUI_F4 desktop API header. " +
+    "The server recomputes its Git blob SHA and fails closed unless the bytes match the pinned V1-V12 SDK header. " +
+    "Use it before writing or checking C++ signatures, parameter order, defaults, capabilities, or interface versions. " +
+    "The compatibility SDK uses one PrismaUI_F4_API.h file for V1 through V12.",
+  {},
+  async () => {
+    try {
+      return textResult(await getHeader());
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "get_modern_header",
+  "Get the preferred PrismaUI_F4 modern feature-table header after verifying its pinned Git blob. " +
+    "Use this for new integrations that should discover only the Core, Controller, GameThread, Meta, View, Interop, " +
+    "Localization, Render, Input, or Menu feature tables they require.",
+  {},
+  async () => {
+    try {
+      return textResult(await getModernHeader());
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "list_modern_features",
+  "List every modern PrismaUI feature table from the verified PrismaUI_F4_Modern_API.h header, including feature ID, " +
+    "table version, member names, typedef names, and resolved function-pointer signatures.",
+  {},
+  async () => {
+    try {
+      return textResult(JSON.stringify(await listModernFeatures(), null, 2));
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "get_modern_feature",
+  "Get one modern PrismaUI feature table by name, such as Controller, Localization, GameThread, View, Render, Input, or Menu.",
+  { name: z.string().describe('Feature name, e.g. "Controller" or "Localization".') },
+  async ({ name }) => {
+    try {
+      return textResult(JSON.stringify(await getModernFeature(name), null, 2));
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "get_vr_header",
+  "Get the released PrismaUI_F4VR_API.h mirror after verifying its pinned Git blob. Use it for VR spatial, pointer, " +
+    "network-policy, capability, and provider integration work.",
+  {},
+  async () => {
+    try {
+      return textResult(await getVrHeader());
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+server.tool(
+  "scaffold_plugin",
+  "Create a new F4SE consumer project at a local path. Modern is the default and generates a feature-table " +
+    "consumer with verified modern and V1-V12 headers; legacy preserves the numbered-interface example. " +
+    "Writes real files under targetPath, so call this only after the user confirms the target path and plugin name.",
+  {
+    pluginName: z
+      .string()
+      .describe('Plugin name, e.g. "MyPlugin_F4". Letters/digits/hyphens/underscores, starting with a letter.'),
+    targetPath: z.string().describe("Local filesystem path to create the project at."),
+    overwrite: z
+      .boolean()
+      .optional()
+      .describe("Write into targetPath even if it already exists and is non-empty. Default false."),
+    apiStyle: z
+      .enum(["modern", "legacy"])
+      .optional()
+      .describe("API style for generated native code. Default modern."),
+  },
+  async ({ pluginName, targetPath, overwrite, apiStyle }) => {
+    try {
+      const result = await scaffoldPlugin(pluginName, targetPath, overwrite ?? false, apiStyle ?? "modern");
+      return textResult(
+        `Scaffolded "${pluginName}" at ${result.targetPath} using the ${result.apiStyle} API style\n\n` +
+          `Files written (${result.filesWritten.length}):\n` +
+          result.filesWritten.map((f) => `  ${f}`).join("\n")
+      );
+    } catch (err) {
+      return errorResult(err instanceof Error ? err.message : String(err));
+    }
+  }
+);
+
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+main().catch((err) => {
+  console.error("prisma-mcp failed to start:", err);
+  process.exit(1);
+});
