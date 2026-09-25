@@ -90,7 +90,7 @@ Searches API method documentation and guides by keyword.
 
 ### `get_guide`
 
-Returns one current guide. The guide catalog includes setup, networking, translations, panel management, lifecycle, troubleshooting, ModelPreview, controller actions, API extensions, the API reference, the modern API guide, and the 2.2.0 release guide.
+Returns one current guide. The guide catalog includes setup, networking, translations, panel management, lifecycle, troubleshooting, ModelPreview, controller actions, API extensions, the API reference, the modern API guide, and the 2.1.1/2.2.0 release guides.
 
 ### `scaffold_plugin`
 
