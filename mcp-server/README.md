@@ -1,6 +1,6 @@
 # prisma-mcp
 
-`prisma-mcp` gives an MCP-compatible client structured access to the current **PrismaUI_F4 2.1.0** developer surface.
+`prisma-mcp` gives an MCP-compatible client structured access to the current **PrismaUI_F4 2.2.0** developer surface.
 
 The current framework uses **Ultralight 1.4.0 in-process**. The desktop API is exposed through one canonical `PrismaUI_F4_API.h` SDK header containing **V1 through V12**. Desktop support covers OG 1.10.163 plus AE 1.11.137+ with matching Address Library data; the intermediate 1.10.980-1.10.984 line is deliberately unsupported.
 
@@ -17,15 +17,15 @@ The public contract is:
 
 - **Fallout-4-Prisma-UI-Framework `main`** for guides, method documentation, examples, and distributable SDK mirrors.
 - `src/PrismaUI_F4_API.h` is the single desktop SDK header and contains `IVPrismaUI1` through `IVPrismaUI12`.
-- The current canonical desktop SDK header is Git blob `5c03467ce567921e1de86ef89157cd246e07c977`.
-- Its maintainer-side API source is Prisma-Matrix commit `c2892083329db9f255191a052c3b8b922c4e27b1`.
-- The original 2.1.0 release source remains `061f699864500cd754c9aac854eb047093a161ea`; MCP reports release provenance and current SDK provenance separately.
-- The VR header mirror remains Git blob `8221eb7bd81694f604b6f188fc8b2c475200dbf0`.
+- The current canonical desktop SDK header is Git blob `02f6584829063ca59662d135c6910cc87d5bb2ee`.
+- Its maintainer-side API source is Prisma-Matrix release commit `1b32eb1fef28802b35cc9d43ad44152d769bebd5`.
+- The 2.2.0 release source is `1b32eb1fef28802b35cc9d43ad44152d769bebd5`; the public SDK mirrors are pinned to that release contract.
+- The VR header mirror remains Git blob `012f810a98bfa274563c9eb8102881549ab2c9c6`.
 - Repository CI checks the public SDK blob identities before documentation changes can merge.
 
 `get_header` downloads the public `src/PrismaUI_F4_API.h` mirror and recomputes its Git blob SHA locally. It fails closed if the bytes do not match the canonical V1-V12 SDK header.
 
-`get_framework_release` verifies that public SDK snapshot before returning the 2.1.0 release identity, backend, renderer, supported runtime matrix, original release source commit, current API source commit, and SDK blob.
+`get_framework_release` verifies that public SDK snapshot before returning the 2.2.0 release identity, backend, renderer, supported runtime matrix, original release source commit, current API source commit, and SDK blob.
 
 Public framework download:
 
@@ -33,7 +33,7 @@ https://www.nexusmods.com/fallout4/mods/105454
 
 Maintainer provenance, when Matrix access is available:
 
-https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Prisma-Matrix/releases/tag/framework-v2.1.0
+https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Prisma-Matrix/releases/tag/framework-v2.2.0
 
 ## Install
 
@@ -58,7 +58,7 @@ The MCP server reads the public Fallout-4-Prisma-UI-Framework repository at runt
 Call this first when version, backend, renderer, Fallout runtime support, or compatibility matters. It returns:
 
 - framework version and release tag;
-- original 2.1.0 release source commit;
+- 2.2.0 release source commit;
 - current canonical API source commit;
 - Ultralight/renderer identity;
 - supported desktop runtime families;
@@ -84,7 +84,7 @@ Searches API method documentation and guides by keyword.
 
 ### `get_guide`
 
-Returns one current guide. The guide catalog includes setup, networking, panel management, lifecycle, troubleshooting, ModelPreview, controller actions, API extensions, the API reference, and the 2.1.0 release guide.
+Returns one current guide. The guide catalog includes setup, networking, panel management, lifecycle, troubleshooting, ModelPreview, controller actions, API extensions, the API reference, the modern API guide, and the 2.2.0 release guide.
 
 ### `scaffold_plugin`
 
