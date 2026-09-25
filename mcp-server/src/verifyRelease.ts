@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   fetchFrameworkReleaseInfo,
   fetchReleasedFrameworkHeader,
@@ -6,6 +9,7 @@ import {
 } from "./github.js";
 import { getGuide } from "./tools/getGuide.js";
 import { parseModernFeatures } from "./tools/modernApi.js";
+import { scaffoldPlugin } from "./tools/scaffoldPlugin.js";
 import {
   FRAMEWORK_API_SOURCE_COMMIT,
   FRAMEWORK_HEADER_BLOB_SHA,
@@ -73,6 +77,22 @@ async function main(): Promise<void> {
   if (!release.controllerRuntimes.includes("Fallout 4 AE 1.11.240") ||
       !release.modernFeatures.includes("Localization")) {
     throw new Error("Framework release metadata is missing current controller or modern-feature boundaries");
+  }
+
+  const scaffoldRoot = await mkdtemp(join(tmpdir(), "prisma-mcp-"));
+  try {
+    const scaffold = await scaffoldPlugin("PrismaMcpProbe", scaffoldRoot, true, "modern");
+    const generatedMain = await readFile(join(scaffoldRoot, "src", "main.cpp"), "utf8");
+    const generatedModernHeader = await readFile(join(scaffoldRoot, "src", "PrismaUI_F4_Modern_API.h"), "utf8");
+    const generatedVrHeader = await readFile(join(scaffoldRoot, "src", "PrismaUI_F4VR_API.h"), "utf8");
+    if (scaffold.apiStyle !== "modern" ||
+        !generatedMain.includes("Discover<ApiFeature::View>") ||
+        !generatedModernHeader.includes("RegisterTranslationsV4") ||
+        !generatedVrHeader.includes("IVPrismaUIVR1")) {
+      throw new Error("Modern scaffold is missing modern or VR release contracts");
+    }
+  } finally {
+    await rm(scaffoldRoot, { recursive: true, force: true });
   }
 
   console.log(
