@@ -244,7 +244,7 @@ ModelPreview is not an Ultralight `<canvas>` or `<img>` feature. PrismaUI loads/
 Important current behavior:
 
 - Model parsing/GPU work can run on a worker pool.
-- Bethesda/engine-backed file reads are marshalled to the engine/render thread.
+- Bethesda/engine-backed file reads are serviced through the verified game-thread dispatcher after the active Present stack unwinds, so blocking reads do not execute inside Present.
 - Engine file reads are budgeted per servicing pass so a large catalog does not drain an unbounded number of synchronous archive reads in one frame.
 - Resident previews have a configured ceiling to bound resource growth.
 - Hidden/inactive views are cheaper eviction candidates.
