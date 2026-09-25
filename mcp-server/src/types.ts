@@ -17,6 +17,7 @@ export const FRAMEWORK_PUBLIC_DOWNLOAD_URL = "https://www.nexusmods.com/fallout4
 
 export const GUIDE_FILES: Record<string, string> = {
   "2.2.0-release": "docs/2.2.0-release.md",
+  "2.1.1-release": "docs/2.1.1-release.md",
   "2.1.0-release": "docs/2.1.0-release.md",
   "modern-api": "docs/modern-api.md",
   "getting-started": "docs/getting-started.md",
