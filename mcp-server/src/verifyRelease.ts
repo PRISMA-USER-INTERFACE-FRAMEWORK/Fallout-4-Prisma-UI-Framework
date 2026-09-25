@@ -1,4 +1,9 @@
-import { fetchFrameworkReleaseInfo, fetchReleasedFrameworkHeader } from "./github.js";
+import {
+  fetchFrameworkReleaseInfo,
+  fetchReleasedFrameworkHeader,
+  fetchReleasedModernFrameworkHeader,
+} from "./github.js";
+import { getGuide } from "./tools/getGuide.js";
 import {
   FRAMEWORK_API_SOURCE_COMMIT,
   FRAMEWORK_HEADER_BLOB_SHA,
@@ -13,6 +18,16 @@ async function main(): Promise<void> {
   }
   if (!header.includes("enum class InterfaceVersion") || !header.includes("V11 = 138") || !header.includes("V12 = 139")) {
     throw new Error("Verified SDK mirror does not advertise V11/V12");
+  }
+
+  const modernHeader = await fetchReleasedModernFrameworkHeader();
+  if (!modernHeader.includes("enum class ApiFeature") || !modernHeader.includes("LocalizationApiVersion")) {
+    throw new Error("Verified modern SDK mirror does not expose the expected feature-table contract");
+  }
+
+  const translationsGuide = await getGuide("translations");
+  if (!translationsGuide.includes("RegisterTranslationsV4")) {
+    throw new Error("Translations guide is missing from the MCP guide catalog or lacks V4 localization");
   }
 
   const release = await fetchFrameworkReleaseInfo();
