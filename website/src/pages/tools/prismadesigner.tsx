@@ -113,7 +113,7 @@ export default function PrismaDesigner(): JSX.Element {
               functions, button stubs, and visual scripting are all written into one HTML file.
               Put it under <code>Data/PrismaUI_F4/views/&lt;YourPlugin&gt;/</code> and load it with
               <code> CreateView</code> using a path relative to the Prisma views root. PrismaUI_F4
-              2.1.0 does not require an extra <code>Interface</code> subdirectory. The export dialog
+              Current PrismaUI does not require an extra <code>Interface</code> subdirectory. The export dialog
               also prints the C++ listener code for buttons configured in the designer.
             </p>
             <div className={styles.callout}>
