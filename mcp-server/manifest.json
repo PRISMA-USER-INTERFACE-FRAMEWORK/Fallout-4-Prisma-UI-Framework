@@ -2,8 +2,8 @@
   "manifest_version": "0.2",
   "name": "prisma-mcp",
   "version": "1.0.0",
-  "description": "PrismaUI_F4 2.1.0 API, release metadata, guides, and plugin scaffolding for MCP-compatible assistants.",
-  "long_description": "Gives an MCP client access to the PrismaUI_F4 2.1.0 release identity, the public byte-pinned PrismaUI_F4_API.h mirror, method documentation, current developer guides, and plugin scaffolding. The public header mirror is verified against the exact public SDK Git blob so normal users do not need access to the private Prisma-Matrix implementation repository.",
+  "description": "PrismaUI_F4 2.2.0 API, release metadata, guides, and plugin scaffolding for MCP-compatible assistants.",
+  "long_description": "Gives an MCP client access to the PrismaUI_F4 2.2.0 release identity, the public byte-pinned PrismaUI_F4_API.h mirror, method documentation, current developer guides, and plugin scaffolding. The public header mirror is verified against the exact public SDK Git blob so normal users do not need access to the private Prisma-Matrix implementation repository.",
   "author": {
     "name": "NomadsReach",
     "url": "https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK"
@@ -38,7 +38,7 @@
     }
   },
   "tools": [
-    { "name": "get_framework_release", "description": "Get the pinned PrismaUI_F4 2.1.0 release identity, backend, exact source commit, SDK blob, and supported/rejected Fallout runtime lines." },
+    { "name": "get_framework_release", "description": "Get the pinned PrismaUI_F4 2.2.0 release identity, backend, exact source commit, SDK blob, and supported/rejected Fallout runtime lines." },
     { "name": "list_api_methods", "description": "List documented public PrismaUI_F4 API methods, optionally filtered by interface version." },
     { "name": "get_api_method", "description": "Get full docs for one API method by name." },
     { "name": "search_docs", "description": "Keyword search across method docs and developer guides." },
