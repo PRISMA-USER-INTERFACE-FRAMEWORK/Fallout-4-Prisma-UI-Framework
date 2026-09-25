@@ -175,10 +175,9 @@ server.tool(
 
 server.tool(
   "scaffold_plugin",
-  "Create a new F4SE consumer project at a local path by copying and renaming PrismaUI_F4's " +
-    "example plugin. Writes real files under targetPath; call this only after the user confirms the " +
-    "target path and plugin name. The scaffold replaces its desktop API header with the verified canonical " +
-    "V1-V12 public mirror before writing the project.",
+  "Create a new F4SE consumer project at a local path. Modern is the default and generates a feature-table " +
+    "consumer with verified modern and V1-V12 headers; legacy preserves the numbered-interface example. " +
+    "Writes real files under targetPath, so call this only after the user confirms the target path and plugin name.",
   {
     pluginName: z
       .string()
@@ -188,12 +187,16 @@ server.tool(
       .boolean()
       .optional()
       .describe("Write into targetPath even if it already exists and is non-empty. Default false."),
+    apiStyle: z
+      .enum(["modern", "legacy"])
+      .optional()
+      .describe("API style for generated native code. Default modern."),
   },
-  async ({ pluginName, targetPath, overwrite }) => {
+  async ({ pluginName, targetPath, overwrite, apiStyle }) => {
     try {
-      const result = await scaffoldPlugin(pluginName, targetPath, overwrite ?? false);
+      const result = await scaffoldPlugin(pluginName, targetPath, overwrite ?? false, apiStyle ?? "modern");
       return textResult(
-        `Scaffolded "${pluginName}" at ${result.targetPath}\n\n` +
+        `Scaffolded "${pluginName}" at ${result.targetPath} using the ${result.apiStyle} API style\n\n` +
           `Files written (${result.filesWritten.length}):\n` +
           result.filesWritten.map((f) => `  ${f}`).join("\n")
       );
