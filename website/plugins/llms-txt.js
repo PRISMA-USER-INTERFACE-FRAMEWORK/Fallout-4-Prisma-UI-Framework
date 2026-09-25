@@ -1,4 +1,3 @@
-// Generates build/llms.txt for LLM scrapers following the llmstxt.org convention.
 const fs = require('fs');
 const path = require('path');
 
@@ -8,7 +7,7 @@ function extractTitle(content) {
 }
 
 const GUIDES = [
-  '2.1.0-release',
+  '2.2.0-release',
   'what-is-prismaui',
   'getting-started',
   'quick-start',
@@ -17,6 +16,7 @@ const GUIDES = [
   'view-watchdog',
   'panel-management',
   'networking',
+  'modern-api',
   'modern-frameworks',
   'examples',
   'model-preview',
@@ -24,6 +24,8 @@ const GUIDES = [
   'troubleshooting',
   'papyrus-bridge',
   'translations',
+  'controller-actions',
+  'api-extensions',
   'api-reference',
 ];
 
@@ -56,13 +58,14 @@ module.exports = function llmsTxtPlugin(context) {
       const lines = [
         '# PrismaUI F4',
         '',
-        '> Current public framework: PrismaUI_F4 2.1.0.',
+        '> Current public framework: PrismaUI_F4 2.2.0.',
         '> Production web runtime: in-process Ultralight 1.4.0.',
-        '> Shipping renderer: CPU BitmapSurface. legacy-runtime host/subprocess/retired runtime library are retired.',
+        '> Shipping renderer: validated D3D11 GPU acceleration with CPU BitmapSurface fallback. The legacy host/subprocess runtime is retired.',
         '> Desktop support: Fallout 4 OG 1.10.163 and AE 1.11.137+ with matching Address Library data.',
         '> Intermediate 1.10.980-1.10.984 Next-Gen runtimes are deliberately unsupported.',
-        '> Public C++ API: IVPrismaUI1 through IVPrismaUI10. V10 includes capability-gated input regions.',
-        '> ModelPreview bridge in 2.1.0 is `window.__prismaUI_modelPreview` API v4 and accepts NIF paths.',
+        '> Public C++ API: preferred feature tables plus the stable IVPrismaUI1 through IVPrismaUI12 compatibility ABI.',
+        '> ModelPreview bridge is `window.__prismaUI_modelPreview` API v4 and accepts NIF paths.',
+        '> Current builds include the packaged in-game Ultralight DevTools inspector on F12 when enabled.
         '> Required web dependencies should be bundled locally with consumer mods.',
         '> prisma-mcp is built from this public repository; do not assume an npm package is published.',
         '> In prisma-mcp, call `get_framework_release` and `get_header` before generating integration code.',
@@ -78,6 +81,7 @@ module.exports = function llmsTxtPlugin(context) {
         '',
         '## Historical / optional',
         '',
+        `- [2.1.0 release history](${base}/docs/2.1.0-release)`,
         `- [VR Extension](${base}/docs/api/vr-extension)`,
         `- [1.0 vs 2.0 historical migration notes](${base}/docs/1.0-vs-2.0)`,
         `- [Changelog](${base}/docs/changelog)`,
@@ -85,7 +89,7 @@ module.exports = function llmsTxtPlugin(context) {
       ];
 
       fs.writeFileSync(path.join(outDir, 'llms.txt'), lines.join('\n'));
-      console.log('[llms-txt] generated llms.txt for PrismaUI_F4 2.1.0');
+      console.log('[llms-txt] generated llms.txt for PrismaUI_F4 2.2.0');
     },
   };
 };
