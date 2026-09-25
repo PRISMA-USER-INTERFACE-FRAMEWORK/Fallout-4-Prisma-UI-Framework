@@ -3,7 +3,38 @@ title: 'Translations'
 ---
 # Translations
 
-PrismaUI F4 supports Fallout 4-style translation files and exposes loaded strings to a view through `window.L10N` and `window.t()`.
+PrismaUI F4 supports two translation paths. The current V4 localization API is preferred for new integrations; the legacy Fallout-string path remains available for compatibility.
+
+## V4 JSON localization
+
+V4 is exposed through the modern `LocalizationAPI` table as `RegisterTranslationsV4`.
+
+- JSON files load through Fallout's resource system, so loose files and BA2 archives use one path.
+- The selected game language is detected from Fallout configuration.
+- Missing locale data falls back to English.
+- Flat and dotted keys are supported.
+- `{{variable}}` interpolation is available through `window.PrismaL10N`.
+- Malformed, oversized, or excessively deep files fail predictably without taking down the view.
+
+```cpp
+#include "PrismaUI_F4_Modern_API.h"
+
+using namespace PRISMA_UI_FLAT_API;
+
+LocalizationAPI localization{};
+if (!Discover<ApiFeature::Localization>(LocalizationApiVersion, localization)) {
+    return;
+}
+
+if (!localization.RegisterTranslationsV4(view, "MyPlugin")) {
+    return;
+}
+```
+
+Use the legacy format below only when maintaining an integration built around `RegisterTranslations`.
+
+## Legacy Fallout-string localization
+
 
 In **PrismaUI_F4 2.1.0**, `RegisterTranslations` injects those helpers into the **current live document through `Invoke`**. It is not a pre-document injection hook, so call it from the view's DOM-ready callback before application code that requires translations.
 
