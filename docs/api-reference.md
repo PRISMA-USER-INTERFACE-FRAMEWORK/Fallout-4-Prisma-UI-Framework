@@ -5,6 +5,10 @@ This is the current public C++ API index for PrismaUI_F4. The desktop SDK ships 
 - [`PrismaUI_F4_API.h`](https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Fallout-4-Prisma-UI-Framework/blob/main/src/PrismaUI_F4_API.h) is the complete desktop V1-V12 SDK header.
 - [`PrismaUI_F4VR_API.h`](https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Fallout-4-Prisma-UI-Framework/blob/main/src/PrismaUI_F4VR_API.h) is the separate VR provider/header contract.
 
+- [`PrismaUI_F4_Modern_API.h`](https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Fallout-4-Prisma-UI-Framework/blob/main/src/PrismaUI_F4_Modern_API.h) is the preferred discovery surface for new code. It exposes independently versioned Core, Controller, GameThread, Meta, View, Interop, Localization, Render, Input, and Menu feature tables.
+
+For new integrations, start with the [Modern API guide](modern-api.md). The numbered V1-V12 interface remains the compatibility ABI for existing consumers.
+
 Include `PrismaUI_F4_API.h` and request the lowest interface you need. Always null-check `RequestPluginAPI` at runtime. An older installed provider may expose only an earlier interface.
 
 For controller integration, see the full [Controller Actions guide](controller-actions.md). For ABI details and extension boundaries, see [Current API Extensions](api-extensions.md).
