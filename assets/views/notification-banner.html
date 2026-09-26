@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: transparent;
+            overflow: hidden;
+        }
+
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 500px;
+            max-width: 90vw;
+            background: rgba(20, 20, 30, 0.95);
+            border-left: 4px solid;
+            border-radius: 4px;
+            padding: 16px 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            animation: slideIn 0.3s ease-out;
+            z-index: 10000;
+        }
+
+        .notification-container.warning {
+            border-left-color: #f59e0b;
+            background: rgba(30, 25, 15, 0.95);
+        }
+
+        .notification-container.error {
+            border-left-color: #ef4444;
+            background: rgba(30, 15, 15, 0.95);
+        }
+
+        .notification-container.info {
+            border-left-color: #3b82f6;
+            background: rgba(15, 20, 35, 0.95);
+        }
+
+        .notification-container.success {
+            border-left-color: #10b981;
+            background: rgba(15, 30, 20, 0.95);
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .notification-title {
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .notification-container.warning .notification-title {
+            color: #fbbf24;
+        }
+
+        .notification-container.error .notification-title {
+            color: #f87171;
+        }
+
+        .notification-container.info .notification-title {
+            color: #60a5fa;
+        }
+
+        .notification-container.success .notification-title {
+            color: #6ee7b7;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+        }
+
+        .close-btn:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .notification-message {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 13px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(500px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(500px);
+                opacity: 0;
+            }
+        }
+
+        .notification-container.closing {
+            animation: slideOut 0.3s ease-in forwards;
+        }
+    </style>
+</head>
+<body>
+    <div class="notification-container" id="notification">
+        <div class="notification-header">
+            <div class="notification-title" id="title">Notification</div>
+            <button class="close-btn" id="closeBtn">✕</button>
+        </div>
+        <div class="notification-message" id="message">Message</div>
+    </div>
+
+    <script>
+        let closeTimer = null;
+        let autoDismissTime = 0;
+
+        function setNotification(title, message, duration, color) {
+            const container = document.getElementById('notification');
+            const titleEl = document.getElementById('title');
+            const messageEl = document.getElementById('message');
+
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+
+            // Remove old color classes
+            container.classList.remove('warning', 'error', 'info', 'success');
+            container.classList.add(color);
+
+            // Clear existing timeout
+            if (closeTimer) clearTimeout(closeTimer);
+
+            // Set auto-dismiss if duration is specified
+            if (duration > 0) {
+                autoDismissTime = Date.now() + duration;
+                closeTimer = setTimeout(() => {
+                    dismissNotification();
+                }, duration);
+            } else {
+                autoDismissTime = 0;
+            }
+        }
+
+        function dismissNotification() {
+            const container = document.getElementById('notification');
+            container.classList.add('closing');
+            setTimeout(() => {
+                if (window.notificationDismissed) {
+                    window.notificationDismissed();
+                }
+            }, 300);
+        }
+
+        document.getElementById('closeBtn').addEventListener('click', dismissNotification);
+
+        // Listen for C++ calls
+        window.showNotification = function(title, message, duration, color) {
+            setNotification(title, message, duration, color);
+        };
+    </script>
+</body>
+</html>
