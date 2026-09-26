@@ -5,6 +5,7 @@
 #include "GPU/FalloutGPUDriver.h"
 #include "GPU/GenerationDrainState.h"
 #include "PrismaFileSystem.h"
+#include "SystemClipboard.h"
 #include "UltralightRuntime.h"
 
 #pragma warning(push)
@@ -191,6 +192,7 @@ namespace PrismaUI::WebRuntimeUltralight {
                 fileSystem_ = std::make_unique<PrismaFileSystem>(UltralightViewRoot());
                 platform.set_file_system(fileSystem_.get());
                 platform.set_font_loader(ultralight::GetPlatformFontLoader());
+                platform.set_clipboard(&SystemClipboard::UltralightClipboard());
                 const bool allowAccelerated = false;
                 const bool runtimeAcceptanceBuild = PRISMA_ACCELERATED_RUNTIME_ACCEPTANCE != 0;
                 const bool acceleratedForRuntimeAcceptance = allowAccelerated || runtimeAcceptanceBuild;
@@ -253,6 +255,7 @@ namespace PrismaUI::WebRuntimeUltralight {
                 platform.set_gpu_driver(nullptr);
                 platform.set_font_loader(nullptr);
                 platform.set_file_system(nullptr);
+                platform.set_clipboard(nullptr);
             }
             gpuDriver_.reset();
             gpuContext_.Reset();
@@ -341,6 +344,7 @@ namespace PrismaUI::WebRuntimeUltralight {
             platform.set_gpu_driver(nullptr);
             platform.set_font_loader(nullptr);
             platform.set_file_system(nullptr);
+            platform.set_clipboard(nullptr);
         }
         gpuDriver_.reset();
         gpuContext_.Reset();

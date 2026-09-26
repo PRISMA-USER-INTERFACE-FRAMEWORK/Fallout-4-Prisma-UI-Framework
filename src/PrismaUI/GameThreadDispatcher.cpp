@@ -41,10 +41,28 @@ bool PostWake() noexcept
     }
     if (::PostMessageW(hwnd, message, 0, 0)) return true;
 
-    logger::critical("[GameThreadDispatcher] PostMessageW failed, GLE={}; window-thread callbacks disabled",
+    logger::critical("[GameThreadDispatcher] dispatch rejected: wake-failure (PostMessageW GLE={}); "
+                     "window-thread callbacks disabled until the window is re-verified",
                      ::GetLastError());
     FailClosed("could not post the dispatcher wake message",
                g_gameThreadId.load(std::memory_order_acquire), ::GetCurrentThreadId());
+    return false;
+}
+
+bool NoteRejected(GameThreadDispatchQueue::Rejection reason) noexcept
+{
+    static std::atomic<int64_t> s_lastLogMs{0};
+    static std::atomic<uint32_t> s_suppressed{0};
+    const auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    auto last = s_lastLogMs.load(std::memory_order_relaxed);
+    if (nowMs - last < 1000 || !s_lastLogMs.compare_exchange_strong(last, nowMs, std::memory_order_relaxed)) {
+        s_suppressed.fetch_add(1, std::memory_order_relaxed);
+        return false;
+    }
+    logger::warn("[GameThreadDispatcher] dispatch rejected: {} ({} similar rejections suppressed)",
+                 GameThreadDispatchQueue::RejectionName(reason),
+                 s_suppressed.exchange(0, std::memory_order_relaxed));
     return false;
 }
 
@@ -70,27 +88,31 @@ void CaptureCurrentThread() noexcept
     }
 }
 
-bool AttachWindow(HWND hwnd) noexcept
-{
-    if (!hwnd || g_failed.load(std::memory_order_acquire)) return false;
+namespace {
 
+DWORD VerifyWindowThread(HWND hwnd) noexcept
+{
     const DWORD currentThread = ::GetCurrentThreadId();
     if (!MessageId()) {
         logger::critical("[GameThreadDispatcher] RegisterWindowMessageW failed, GLE={}; window-thread callbacks disabled",
                          ::GetLastError());
         FailClosed("could not register the dispatcher wake message", currentThread, 0);
-        return false;
+        return 0;
     }
 
     DWORD processId = 0;
     const DWORD ownerThread = ::GetWindowThreadProcessId(hwnd, &processId);
     if (!ownerThread || processId != ::GetCurrentProcessId() || ownerThread != currentThread) {
         FailClosed("dispatcher attach did not run on the Fallout window thread", ownerThread, currentThread);
-        return false;
+        return 0;
     }
+    return ownerThread;
+}
 
+bool Publish(HWND hwnd, DWORD ownerThread) noexcept
+{
     const HWND already = g_window.load(std::memory_order_acquire);
-    if (already == hwnd && g_ready.load(std::memory_order_acquire)) {
+    if (already == hwnd && IsReady()) {
         return true;
     }
 
@@ -101,6 +123,28 @@ bool AttachWindow(HWND hwnd) noexcept
     logger::info("[GameThreadDispatcher] verified Fallout window thread {} on HWND {:p}",
                  ownerThread, static_cast<void*>(hwnd));
     return true;
+}
+
+}
+
+bool AttachWindow(HWND hwnd) noexcept
+{
+    if (!hwnd || g_failed.load(std::memory_order_acquire)) return false;
+    const DWORD ownerThread = VerifyWindowThread(hwnd);
+    return ownerThread && Publish(hwnd, ownerThread);
+}
+
+bool RecoverWindow(HWND hwnd) noexcept
+{
+    if (!hwnd) return false;
+    if (!g_failed.load(std::memory_order_acquire)) return AttachWindow(hwnd);
+    const DWORD ownerThread = VerifyWindowThread(hwnd);
+    if (!ownerThread) return false;
+    g_tasks.recoverAfterFailure();
+    g_failed.store(false, std::memory_order_release);
+    logger::warn("[GameThreadDispatcher] recovering after fail-closed: Fallout window thread {} re-verified; "
+                 "callbacks rejected before recovery stay dropped", ownerThread);
+    return Publish(hwnd, ownerThread);
 }
 
 void DetachWindow(HWND hwnd) noexcept
@@ -126,10 +170,11 @@ bool IsGameThread() noexcept
 
 bool Dispatch(std::function<void()> task, uint64_t view)
 {
-    if (!task || g_failed.load(std::memory_order_acquire)) return false;
+    if (!task) return false;
+    if (g_failed.load(std::memory_order_acquire)) return NoteRejected(GameThreadDispatchQueue::Rejection::Failed);
 
     const auto queued = g_tasks.tryEnqueue(std::move(task), view);
-    if (!queued.accepted) return false;
+    if (!queued.accepted) return NoteRejected(queued.reason);
     if (!queued.needsWake) return true;
     if (PostWake()) return true;
     return false;
@@ -137,9 +182,10 @@ bool Dispatch(std::function<void()> task, uint64_t view)
 
 bool DispatchSafety(std::function<void()> task)
 {
-    if (!task || g_failed.load(std::memory_order_acquire)) return false;
+    if (!task) return false;
+    if (g_failed.load(std::memory_order_acquire)) return NoteRejected(GameThreadDispatchQueue::Rejection::Failed);
     const auto queued = g_tasks.tryEnqueue(std::move(task), 0, true);
-    if (!queued.accepted) return false;
+    if (!queued.accepted) return NoteRejected(queued.reason);
     if (!queued.needsWake) return true;
     if (PostWake()) return true;
     return false;

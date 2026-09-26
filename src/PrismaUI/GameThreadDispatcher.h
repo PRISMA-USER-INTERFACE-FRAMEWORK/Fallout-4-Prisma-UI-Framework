@@ -9,6 +9,7 @@ namespace PrismaUI::GameThreadDispatcher {
 
 void CaptureCurrentThread() noexcept;
 bool AttachWindow(HWND hwnd) noexcept;
+bool RecoverWindow(HWND hwnd) noexcept;
 void DetachWindow(HWND hwnd) noexcept;
 
 bool Dispatch(std::function<void()> task, uint64_t view = 0);

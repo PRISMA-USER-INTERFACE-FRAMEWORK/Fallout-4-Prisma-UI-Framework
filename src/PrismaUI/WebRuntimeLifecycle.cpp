@@ -267,7 +267,12 @@ namespace PrismaUI::WebRuntime {
     }
     bool LoadAndInit() { return EnsureLoaded(); }
     void TryInstallGameInput() {
-        if (WebInput::IsInstalled()) return;
+        if (WebInput::IsInstalled()) {
+#ifndef PRISMAUI_FO4VR
+            if (!GameThreadDispatcher::IsReady()) (void)WebInput::QueueDispatcherReattach();
+#endif
+            return;
+        }
         const HWND h = st.inputHwnd.load();
         if (h) {
             (void)WebInput::QueueInstall(h);

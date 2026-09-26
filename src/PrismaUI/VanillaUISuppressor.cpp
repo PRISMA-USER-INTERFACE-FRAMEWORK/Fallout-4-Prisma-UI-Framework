@@ -1,4 +1,5 @@
 #include "VanillaUISuppressor.h"
+#include "KnownMenusLog.h"
 #include "../Engine/EngineVanillaUI.h"
 #include "../RuntimeSupportPolicy.h"
 
@@ -316,6 +317,9 @@ namespace PrismaUI::VanillaUISuppressor
 
         ApplyMenuVisibility(name, !a_suppress);
         logger::info("VanillaUISuppressor: SuppressVanillaMenu('{}', {})", a_menuName, a_suppress);
+        if (a_suppress) {
+            KnownMenus::LogMenuPolicyOnce("SuppressVanillaMenu", a_menuName, KnownMenus::Mechanism::Hide);
+        }
         return true;
     }
 
@@ -339,6 +343,9 @@ namespace PrismaUI::VanillaUISuppressor
     void SuppressVanillaMenuIf(const char* a_menuName, PRISMA_UI_API::MenuSuppressPredicate a_predicate)
     {
         if (!a_menuName) return;
+        if (a_predicate) {
+            KnownMenus::LogMenuPolicyOnce("SuppressVanillaMenuIf", a_menuName, KnownMenus::Mechanism::ConditionalClose);
+        }
         std::lock_guard lock{ g_menuMutex };
         if (a_predicate) {
             g_conditionalMenus[a_menuName] = a_predicate;

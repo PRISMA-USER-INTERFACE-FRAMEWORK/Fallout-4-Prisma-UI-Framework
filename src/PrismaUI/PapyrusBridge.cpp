@@ -3,6 +3,7 @@
 #include "WebRuntime.h"
 #include "PapyrusJson.h"
 #include "PapyrusVM.h"
+#include "SystemClipboard.h"
 
 #include <mutex>
 #include <unordered_map>
@@ -64,6 +65,10 @@ static constexpr const char* kBridgeScript = R"js(
                 scriptName: String(scriptName), propName: String(propName),
                 value: value
             });
+        },
+
+        readClipboard: function() {
+            return _read('readClipboard', {});
         },
 
         emit: function(eventName, data) {
@@ -311,6 +316,13 @@ static void HandlePrismaRequest(WebRuntime::ViewId viewId, const std::string& re
             auto* form = LookupFormByPlugin(esp, formId);
             SetPapyrusProperty(form, scriptName, propName, value);
         });
+
+    } else if (op == "readClipboard") {
+        if (hasCallback)
+            WebRuntime::Invoke(viewId,
+                               "__prisma_resolve(" + PapyrusJson::JsStringLiteral(callbackId) + "," +
+                                   PapyrusJson::JsStringLiteral(SystemClipboard::ReadTextUtf8()) + ")",
+                               nullptr);
 
     } else if (op == "emit") {
         const std::string event = PapyrusJson::GetString(json, "event");

@@ -143,6 +143,9 @@ inline bool IsSharedFrameworkPath(std::string_view rawPath) {
     if (path.empty()) return false;
     return path == "prisma_controller_glyphs.js" ||
            path == "prisma_controller_glyphs.css" ||
+           path == "prisma_input.js" ||
+           path == "prisma_osk.js" ||
+           path == "prisma_osk.css" ||
            path == "notification-banner.html" ||
            path.rfind("icons/", 0) == 0 ||
            path.rfind("interface/icons/", 0) == 0;

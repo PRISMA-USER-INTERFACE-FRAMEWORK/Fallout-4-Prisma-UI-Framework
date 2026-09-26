@@ -16,11 +16,27 @@ namespace PrismaUI::GameThreadDispatchQueue {
 inline constexpr std::size_t kMaxQueue = 1024;
 inline constexpr std::size_t kMaxTasksPerWake = 64;
 
+enum class Rejection : uint8_t { None, EmptyTask, NotReady, Failed, Cancelled, QueueFull };
+
+inline const char* RejectionName(Rejection reason) noexcept
+{
+    switch (reason) {
+    case Rejection::None: return "none";
+    case Rejection::EmptyTask: return "empty-task";
+    case Rejection::NotReady: return "not-ready";
+    case Rejection::Failed: return "failed";
+    case Rejection::Cancelled: return "view-cancelled";
+    case Rejection::QueueFull: return "queue-full";
+    }
+    return "unknown";
+}
+
 class Queue {
 public:
     struct EnqueueResult {
         bool accepted = false;
         bool needsWake = false;
+        Rejection reason = Rejection::None;
     };
 
     struct Task {
@@ -97,19 +113,32 @@ public:
 
     void noteWakeFailure() { failClosed(); }
 
+    void recoverAfterFailure()
+    {
+        std::lock_guard lock(mutex_);
+        if (!failed_) return;
+        ++generation_;
+        failed_ = false;
+        ready_ = false;
+        wakePending_ = false;
+        draining_ = false;
+        queue_.clear();
+    }
+
     EnqueueResult tryEnqueue(std::function<void()> fn, uint64_t view = 0, bool safety = false)
     {
-        if (!fn) return {};
+        if (!fn) return {false, false, Rejection::EmptyTask};
         std::lock_guard lock(mutex_);
-        if (failed_ || !ready_) return {};
-        if (view != 0 && cancelled_.contains(view)) return {};
+        if (failed_) return {false, false, Rejection::Failed};
+        if (!ready_) return {false, false, Rejection::NotReady};
+        if (view != 0 && cancelled_.contains(view)) return {false, false, Rejection::Cancelled};
         if (queue_.size() >= kMaxQueue) {
-            if (!safety || HasSafetyLocked()) return {};
+            if (!safety || HasSafetyLocked()) return {false, false, Rejection::QueueFull};
         }
         const bool needsWake = !wakePending_ && !draining_;
         if (needsWake) wakePending_ = true;
         queue_.push_back(Task{generation_, view, safety, std::move(fn)});
-        return {true, needsWake};
+        return {true, needsWake, Rejection::None};
     }
 
     void dropView(uint64_t view)

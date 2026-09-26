@@ -14,6 +14,7 @@
 #include <windowsx.h>
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <mutex>
 
@@ -447,6 +448,27 @@ void OnWindowDestroyed(HWND hwnd);
     }
 
     bool IsInstalled() { return g_window.Installed(); }
+
+#ifndef PRISMAUI_FO4VR
+    bool ReattachDispatcher(HWND hwnd) {
+        std::lock_guard lock(g_installMutex);
+        if (!hwnd || static_cast<HWND>(g_window.Get()) != hwnd) return false;
+        return GameThreadDispatcher::RecoverWindow(hwnd);
+    }
+
+    bool QueueDispatcherReattach() {
+        static std::atomic<int64_t> s_lastRequestMs{0};
+        const HWND hwnd = static_cast<HWND>(g_window.Get());
+        if (!hwnd || GameThreadDispatcher::IsReady()) return false;
+        const auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+        auto last = s_lastRequestMs.load(std::memory_order_relaxed);
+        if (nowMs - last < 1000 || !s_lastRequestMs.compare_exchange_strong(last, nowMs)) return false;
+        logger::warn("[WebInput] window-thread dispatcher is not ready on installed HWND {:p}; requesting re-verification",
+                     static_cast<void*>(hwnd));
+        return HwndThreadBootstrap::Queue(hwnd, &ReattachDispatcher);
+    }
+#endif
 
     bool GetClientScreenRect(int& outX, int& outY, int& outWidth, int& outHeight) {
         const HWND hwnd = static_cast<HWND>(g_window.Get());

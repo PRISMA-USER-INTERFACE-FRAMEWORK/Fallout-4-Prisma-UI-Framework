@@ -18,7 +18,6 @@ Registry g_registry;
 BridgeLifecycle g_bridges;
 
 struct FocusEntryRegistration {
-    std::uint32_t buttonCode = 0;
     FocusEntryCallback callback = nullptr;
     void* userdata = nullptr;
     FocusEntrySequence sequence;
@@ -29,7 +28,8 @@ struct FocusEntryRegistration {
 };
 
 std::mutex g_focusEntryMutex;
-std::unordered_map<ViewId, std::shared_ptr<FocusEntryRegistration>> g_focusEntries;
+using FocusEntryButtons = std::unordered_map<std::uint32_t, std::shared_ptr<FocusEntryRegistration>>;
+std::unordered_map<ViewId, FocusEntryButtons> g_focusEntries;
 
 bool BridgeReady(ViewId view) {
     return g_bridges.Get(view) == BridgeState::kReady;
@@ -45,11 +45,32 @@ void CancelFocusEntryLocked(std::unique_lock<std::mutex>& lock,
     }
 }
 
+std::shared_ptr<FocusEntryRegistration> FindFocusEntryLocked(ViewId view, std::uint32_t buttonCode) noexcept {
+    const auto buttons = g_focusEntries.find(view);
+    if (buttons == g_focusEntries.end()) return {};
+    const auto found = buttons->second.find(buttonCode);
+    return found == buttons->second.end() ? nullptr : found->second;
+}
+
+std::shared_ptr<FocusEntryRegistration> TakeFocusEntryLocked(ViewId view, std::uint32_t buttonCode) noexcept {
+    const auto buttons = g_focusEntries.find(view);
+    if (buttons == g_focusEntries.end()) return {};
+    const auto found = buttons->second.find(buttonCode);
+    if (found == buttons->second.end()) return {};
+    auto entry = std::move(found->second);
+    buttons->second.erase(found);
+    if (buttons->second.empty()) g_focusEntries.erase(buttons);
+    return entry;
+}
+
 void ResetFocusEntrySequences() noexcept {
     std::lock_guard lock(g_focusEntryMutex);
-    for (auto& [view, entry] : g_focusEntries) {
+    for (auto& [view, buttons] : g_focusEntries) {
         (void)view;
-        if (entry) entry->sequence.Reset();
+        for (auto& [button, entry] : buttons) {
+            (void)button;
+            if (entry) entry->sequence.Reset();
+        }
     }
 }
 }
@@ -81,17 +102,12 @@ bool BindFocusEntry(ViewId view, std::uint32_t buttonCode,
 
     try {
         auto replacement = std::make_shared<FocusEntryRegistration>();
-        replacement->buttonCode = buttonCode;
         replacement->callback = callback;
         replacement->userdata = userdata;
 
         std::unique_lock lock(g_focusEntryMutex);
-        if (const auto found = g_focusEntries.find(view); found != g_focusEntries.end()) {
-            const auto previous = found->second;
-            g_focusEntries.erase(found);
-            CancelFocusEntryLocked(lock, previous);
-        }
-        g_focusEntries.emplace(view, std::move(replacement));
+        while (auto previous = TakeFocusEntryLocked(view, buttonCode)) CancelFocusEntryLocked(lock, previous);
+        g_focusEntries[view][buttonCode] = std::move(replacement);
         return true;
     } catch (...) {
         return false;
@@ -108,10 +124,8 @@ bool UnbindFocusEntry(ViewId view, std::uint32_t buttonCode) noexcept {
     if (!view || !buttonCode) return false;
 
     std::unique_lock lock(g_focusEntryMutex);
-    const auto found = g_focusEntries.find(view);
-    if (found == g_focusEntries.end() || !found->second || found->second->buttonCode != buttonCode) return false;
-    const auto entry = found->second;
-    g_focusEntries.erase(found);
+    const auto entry = TakeFocusEntryLocked(view, buttonCode);
+    if (!entry) return false;
     CancelFocusEntryLocked(lock, entry);
     return true;
 #endif
@@ -137,9 +151,12 @@ void Clear(ViewId view) noexcept {
     std::unique_lock lock(g_focusEntryMutex);
     const auto found = g_focusEntries.find(view);
     if (found == g_focusEntries.end()) return;
-    const auto entry = found->second;
+    const FocusEntryButtons buttons = std::move(found->second);
     g_focusEntries.erase(found);
-    CancelFocusEntryLocked(lock, entry);
+    for (const auto& [button, entry] : buttons) {
+        (void)button;
+        CancelFocusEntryLocked(lock, entry);
+    }
 }
 
 void OnFocusAccepted(ViewId view) noexcept {
@@ -202,8 +219,9 @@ HandleResult HandleFocusEntry(std::uint32_t buttonCode,
     {
         std::lock_guard lock(g_focusEntryMutex);
         candidates.reserve(g_focusEntries.size());
-        for (const auto& [view, entry] : g_focusEntries) {
-            if (entry && entry->buttonCode == buttonCode && !entry->cancelled) candidates.push_back(view);
+        for (const auto& [view, buttons] : g_focusEntries) {
+            const auto found = buttons.find(buttonCode);
+            if (found != buttons.end() && found->second && !found->second->cancelled) candidates.push_back(view);
         }
     }
     if (candidates.empty()) return {};
@@ -224,12 +242,8 @@ HandleResult HandleFocusEntry(std::uint32_t buttonCode,
     bool shouldRequest = false;
     {
         std::lock_guard lock(g_focusEntryMutex);
-        const auto found = g_focusEntries.find(target);
-        if (found == g_focusEntries.end() || !found->second || found->second->cancelled ||
-            found->second->buttonCode != buttonCode) {
-            return {};
-        }
-        registration = found->second;
+        registration = FindFocusEntryLocked(target, buttonCode);
+        if (!registration || registration->cancelled) return {};
         shouldRequest = registration->sequence.ShouldRequest(true, false, justPressed);
         if (!shouldRequest) {
             return {true, registration->sequence.Owns(true, false, released)};
@@ -239,12 +253,11 @@ HandleResult HandleFocusEntry(std::uint32_t buttonCode,
     bool admitted = false;
     try {
 
-        admitted = GameThreadDispatcher::Dispatch([registration, target]() {
+        admitted = GameThreadDispatcher::Dispatch([registration, target, buttonCode]() {
             bool execute = false;
             {
                 std::lock_guard lock(g_focusEntryMutex);
-                const auto found = g_focusEntries.find(target);
-                if (found != g_focusEntries.end() && found->second == registration &&
+                if (FindFocusEntryLocked(target, buttonCode) == registration &&
                     !registration->cancelled && registration->callback) {
                     registration->executing = true;
                     registration->executingThread = std::this_thread::get_id();
@@ -274,8 +287,7 @@ HandleResult HandleFocusEntry(std::uint32_t buttonCode,
     bool stillCurrent = false;
     {
         std::lock_guard lock(g_focusEntryMutex);
-        const auto found = g_focusEntries.find(target);
-        stillCurrent = found != g_focusEntries.end() && found->second == registration && !registration->cancelled;
+        stillCurrent = FindFocusEntryLocked(target, buttonCode) == registration && !registration->cancelled;
         if (stillCurrent) registration->sequence.OnDispatchResult(ownUntilFocus);
     }
 
