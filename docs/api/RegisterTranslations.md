@@ -68,3 +68,5 @@ $UI_TITLE	My Plugin
 $UI_CLOSE	Close
 $UI_SETTINGS	Settings
 ```
+
+**Try it:** [Translate your interface](../cookbook/translate-your-ui).

@@ -35,3 +35,5 @@ Pip-Boy model is equipped.
 ## See also
 
 `BindViewToGeometry`, `UnbindViewFromGeometry`.
+
+**Try it:** [Model preview / in-world screens](../model-preview).

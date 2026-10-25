@@ -1,187 +1,120 @@
-# Getting Started with PrismaUI_F4
+---
+title: Install PrismaUI
+sidebar_label: Install PrismaUI
+sidebar_position: 3
+---
 
-This guide takes an F4SE C++ plugin from zero to a working PrismaUI panel using the preferred modern feature-table API. The numbered `PrismaUI_F4_API.h` V1-V12 surface remains the compatibility ABI for existing consumers.
+# Install PrismaUI
 
-PrismaUI uses Ultralight 1.4.0 in-process. Desktop support covers Fallout 4 `1.10.163` (OG) and `1.11.137+` (AE) with matching Address Library data. The intermediate `1.10.980-1.10.984` line is not supported.
+This page covers two things: getting PrismaUI working as a player, and setting up your machine to build mods that use it.
 
-## 1. Install the requirements
+## If you are a player
 
-You need Visual Studio 2022 with C++, Git, your normal F4SE/CommonLibF4 setup, and PrismaUI installed as a mod.
+You need this only if a mod page says it requires PrismaUI.
 
-The runtime contains `PrismaUI_F4.dll` plus the Ultralight runtime under `Data/PrismaUI_F4/`.
+1. **Install the framework.** Download the PrismaUI release and install it with your mod manager (the FOMOD installer walks through it), or copy the archive contents into `Data\` by hand. The important files are:
+   - `Data\F4SE\Plugins\PrismaUI_F4.dll`
+   - `Data\PrismaUI_F4\` (the Ultralight runtime and the boot assets)
+2. **Install F4SE** for your game version, if you have not already.
+3. **Start the game once** and quit when you reach the main menu or load a save.
+4. **Check the log.** Open `Documents\My Games\Fallout4\F4SE\PrismaUI_F4.log`. It should exist and list the runtime it loaded. If it does not exist, the DLL never ran — check that F4SE is installed for the exact game version you are running.
 
-## 2. Copy the preferred API header
+That is it. Mod pages that require PrismaUI will now find it.
 
-For new integrations, copy and include:
+**Version rule:** install the version of PrismaUI that matches your game version. Old-Gen 1.10.163 and Anniversary Edition 1.11.137+ are supported. The 1.10.980–1.10.984 line is intentionally not supported, and PrismaUI will refuse to load rather than half-work.
 
-```text
-src/PrismaUI_F4_Modern_API.h
-```
+**VR:** Fallout 4 VR uses a separate PrismaUI package. Do not mix the flat and VR files.
 
-```cpp
-#include "PrismaUI_F4_Modern_API.h"
+If a UI is blank, see [Troubleshooting](troubleshooting).
 
-using namespace PRISMA_UI_FLAT_API;
-```
+## If you are building a mod
 
-Use `src/PrismaUI_F4_API.h` only when maintaining the stable numbered V1-V12 compatibility ABI.
+### What you need
 
-## 3. Discover feature tables
+- **A plugin project that already builds.** PrismaUI plugs into a normal F4SE C++ plugin. The [example plugin](https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Fallout-4-Prisma-UI-Framework/tree/main/example-f4se-plugin) shows the full setup, including the key handler used in [Your first panel](quick-start).
+- **Visual Studio 2022** (Desktop development with C++) or the same compiler setup your plugin already uses.
+- **PrismaUI installed in the game folder**, so you can test what you build.
+- **One of the two API headers** from `src/` in this repository:
+  - `PrismaUI_F4_Modern_API.h` — preferred for new code. Feature tables you request individually.
+  - `PrismaUI_F4_API.h` — the numbered `IVPrismaUI1`–`IVPrismaUI12` interfaces. Use it when maintaining an existing plugin.
 
-Request only the contracts the plugin needs and null-check discovery through its boolean result.
+Copy the header you choose into your project. Do not copy the framework DLL; it lives in the game folder.
 
-```cpp
-static ViewAPI g_viewApi{};
-static ControllerAPI g_controller{};
-static InteropAPI g_interop{};
-static GameThreadAPI g_gameThread{};
+### Where your files go
 
-static bool LoadPrisma()
-{
-    return Discover<ApiFeature::View>(ViewApiVersion, g_viewApi) &&
-           Discover<ApiFeature::Controller>(ControllerApiVersion, g_controller) &&
-           Discover<ApiFeature::Interop>(InteropApiVersion, g_interop) &&
-           Discover<ApiFeature::GameThread>(GameThreadApiVersion, g_gameThread);
-}
-```
-
-Call `LoadPrisma()` during or after `kGameDataReady`. Do not infer support from a PrismaUI version string when feature discovery is available.
-
-## 4. Create a view
-
-Place web assets under your own view folder:
+Everything the game needs at runtime sits under `Data`:
 
 ```text
-Data/PrismaUI_F4/views/MyPlugin/
-  index.html
-  app.css
-  app.js
+Data/
+├── F4SE/Plugins/
+│   └── MyPlugin.dll
+├── PrismaUI_F4/
+│   ├── PrismaUI_F4.dll          (installed with the framework)
+│   ├── ultralight/              (installed with the framework)
+│   └── views/
+│       └── MyPlugin/
+│           ├── index.html       (your page)
+│           ├── app.css
+│           └── app.js
+└── Interface/Translations/      (only if you localize, see Translations)
+    └── MyPlugin_en.json
 ```
 
+`CreateView("MyPlugin/index.html", ...)` resolves to `Data/PrismaUI_F4/views/MyPlugin/index.html`. If you use Mod Organizer 2, keep this same layout inside one mod folder — the paths are virtual paths under `Data`.
+
+Keep every file your page needs in that folder. No CDNs, no external fonts, no remote scripts.
+
+### Quick check before you write code
+
+1. Game, F4SE and PrismaUI are installed.
+2. You have started the game once and `Documents\My Games\Fallout4\F4SE\PrismaUI_F4.log` exists.
+3. Put a single `index.html` containing `<h1>Hello</h1>` in `Data\PrismaUI_F4\views\MyPlugin\`.
+4. Build a plugin that calls `CreateView("MyPlugin/index.html", nullptr)` at `kPostLoadGame` and `Show` it.
+5. Press whatever opens it. If you see the heading, your setup is correct and you can move on.
+
+### A minimal "is PrismaUI there?" plugin
+
 ```cpp
-static PrismaView g_view = 0;
+#include "PrismaUI_F4_API.h"
 
-static void OnDomReady(PrismaView view)
+static PRISMA_UI_API::IVPrismaUI10* g_api = nullptr;
+
+static void OnMessage(F4SE::MessagingInterface::Message* message)
 {
-    g_controller.BindControllerAction(view, "X", "panel.secondary");
-    g_controller.BindControllerAction(view, "Y", "panel.favorite");
-}
+    switch (message->type) {
+    case F4SE::MessagingInterface::kGameDataReady:
+        g_api = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>();
+        if (!g_api) {
+            REX::CRITICAL("PrismaUI_F4 is not installed");
+        } else {
+            REX::INFO("PrismaUI_F4 is ready");
+        }
+        break;
 
-void EnsureView()
-{
-    if (g_view && g_viewApi.IsValid(g_view)) return;
+    case F4SE::MessagingInterface::kPostLoadGame:
+        if (g_api) {
+            PrismaView view = g_api->CreateView("MyPlugin/index.html", nullptr);
+            if (view) {
+                g_api->Show(view);
+            }
+        }
+        break;
 
-    g_view = g_viewApi.CreateView("MyPlugin/index.html", OnDomReady);
-    if (g_view) {
-        g_controller.SetViewRole(g_view, ViewRole::kPanel);
-        g_viewApi.Hide(g_view);
+    default:
+        break;
     }
 }
 ```
 
-`CreateView` begins visible, so normal panels usually hide immediately. Controller bindings belong in the DOM-ready path. PrismaUI 2.2.0 owns controller bridge installation and bounded recovery.
+If that shows your page, the rest of the documentation is going to work exactly as written.
 
-## 5. Bind page events
+## Installing the build
 
-```cpp
-static void OnDomReady(PrismaView view)
-{
-    g_interop.RegisterJSListener(view, "closePanel", [](const char*) {
-        if (!g_viewApi.IsValid(g_view)) return;
-        g_viewApi.Unfocus(g_view);
-        g_viewApi.Hide(g_view);
-    });
+The DLL goes in `Data\F4SE\Plugins\`, the page goes in `Data\PrismaUI_F4\views\<YourPlugin>\`. Nothing else is needed.
 
-    g_controller.BindControllerAction(view, "X", "panel.secondary");
-}
-```
+## Where to go next
 
-The page can receive controller actions with the `prisma-controller-action` DOM event.
-
-## 6. Mutate Fallout state through GameThreadAPI
-
-If page code must mutate Fallout-owned state, bind a verified game-thread event:
-
-```cpp
-static void OnApply(const char*, void*)
-{
-}
-
-static void OnDomReady(PrismaView view)
-{
-    g_gameThread.BindGameThreadUIEvent(view, "applySetting", OnApply, nullptr);
-}
-```
-
-Or dispatch native work explicitly with `DispatchToGameThread`. A rejected dispatch returns `false` and will not execute later.
-
-## 7. Show and focus the panel
-
-```cpp
-void OpenPanel()
-{
-    if (!g_viewApi.IsValid(g_view)) return;
-    g_viewApi.Show(g_view);
-    g_viewApi.Focus(g_view, false, false);
-}
-
-void ClosePanel()
-{
-    if (!g_viewApi.IsValid(g_view)) return;
-    g_viewApi.Unfocus(g_view);
-    g_viewApi.Hide(g_view);
-}
-```
-
-For selective overlay input, discover `InputAPI`. For menu/HUD operations, discover `MenuAPI`.
-
-## 8. Send data between C++ and JavaScript
-
-```cpp
-g_interop.InteropCall(g_view, "setStatus", R"({"ready":true})");
-```
-
-Use `InteropAPI` for `Invoke`, `InteropCall`, JS listeners, UI events, and console callbacks.
-
-## 9. Use V4 localization for new integrations
-
-Discover `LocalizationAPI` and call `RegisterTranslationsV4` from the document-ready path.
-
-```cpp
-LocalizationAPI localization{};
-if (Discover<ApiFeature::Localization>(LocalizationApiVersion, localization)) {
-    localization.RegisterTranslationsV4(g_view, "MyPlugin");
-}
-```
-
-See [Translations](translations) for the JSON file contract, Fallout resource loading, locale fallback, dotted keys, and interpolation.
-
-## 10. Bundle web dependencies locally
-
-Do not make a shipped view depend on CDNs, Google Fonts, or retired browser-runtime behavior. Bundle required HTML, JS, CSS, fonts, and images with your mod. Implement real HTTP/WebSocket/authentication work in native C++ and relay validated data to the page.
-
-## 11. Debugging
-
-Use:
-
-- the packaged F12 Ultralight inspector when DevTools are enabled;
-- `PrismaUI_F4.log`;
-- your plugin log;
-- `RegisterConsoleCallback` from the discovered `InteropAPI` table;
-- `ViewAPI::GetViewHealth`.
-
-## Before you ship
-
-Verify that your plugin:
-
-- uses `PrismaUI_F4_Modern_API.h` for new feature-table integrations;
-- discovers and checks every feature table it calls;
-- binds controller actions only after DOM-ready;
-- routes engine mutations through `GameThreadAPI` or other correct native ownership;
-- handles focus/unfocus deliberately;
-- keeps required assets local;
-- tests each Fallout runtime family it claims to support.
-
-For existing numbered-interface code, see [API Reference V1-V12](api-reference) and [Current API Extensions](api-extensions).
-
-Next: [Modern API](modern-api), [Controller Actions](controller-actions), [Translations](translations), [View Lifecycle](view-lifecycle), [Networking](networking), and [Troubleshooting](troubleshooting).
+- [Your first panel](quick-start) — build a complete opening/closing panel.
+- [The HTML side](html-views) — what your page can do and how it talks to the plugin.
+- [Cookbook](/docs/cookbook/) — complete examples for HUDs, previews, controllers and translations.
+- [Troubleshooting](troubleshooting) — when the window is blank, the log is empty or nothing appears.

@@ -64,3 +64,5 @@ Keep the regions synchronized with your actual layout. A stale rectangle can mak
 - `FocusOverlay`
 - `Focus`
 - `SetViewRole`
+
+**Try it:** [A click-through HUD overlay](../cookbook/hud-overlay).

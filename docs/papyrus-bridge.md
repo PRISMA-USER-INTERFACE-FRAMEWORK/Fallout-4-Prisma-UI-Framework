@@ -1,84 +1,77 @@
 ---
-title: 'Papyrus Bridge'
+title: 'Papyrus bridge'
 ---
-# Papyrus Bridge
 
-PrismaUI_F4 injects `window.prisma` into each Prisma view immediately before the framework dispatches that view's `OnDomReadyCallback`. The bridge lets page JavaScript read selected Fallout/Papyrus values, write values owned by the view's plugin, and emit a named PrismaUI Papyrus event.
+# Papyrus bridge
 
-The bridge is **not unrestricted cross-mod access**. PrismaUI associates every view with the F4SE plugin that created it and enforces an ESP ownership policy on bridge requests.
+There are two Papyrus-related things in PrismaUI, and they point in opposite directions:
 
-## Availability and timing
+- **`window.prisma`** — JavaScript inside a view reads and writes selected game values and emits a Papyrus event. This page.
+- **`PrismaUI.psc`** — Papyrus creates and controls a view (show, hide, focus, bind to geometry). For that, see [Open a panel from Papyrus](cookbook/from-papyrus).
 
-By the time your C++ `OnDomReadyCallback` runs, `window.prisma` is installed for that document.
+The JavaScript bridge is not a general "call any Papyrus function" tunnel. It is a small, ownership-checked surface.
 
-```cpp
-static void OnDomReady(PrismaView view)
-{
-    g_api->Invoke(view, "window.init && window.init()");
-}
+## What you can do from the page
+
+```js
+await window.prisma.getGlobal('MyPlugin_F4.esp', '800');    // read a global
+window.prisma.setGlobal('MyPlugin_F4.esp', '800', 2.5);     // write a global
+await window.prisma.getProperty('MyPlugin_F4.esp', '800', 'MyPlugin_QuestScript', 'Difficulty');
+window.prisma.setProperty('MyPlugin_F4.esp', '800', 'MyPlugin_QuestScript', 'DamageScale', 1.5);
+window.prisma.emit('settingsSaved', { profile: 'survival' }); // Papyrus event
 ```
 
-Do not assume `window.prisma` exists in page scripts that execute before DOM-ready.
+## Who owns what
 
-## Access policy
+Each view belongs to the F4SE plugin that created it. That ownership decides what the page may touch:
 
-The view owner is the F4SE plugin that created the view.
+- **Your own ESP/ESL** (file name stem matching your plugin) — read and write.
+- **`Fallout4.esm` and the official DLC masters** — read from any view.
+- **Other mods' ESPs** — rejected.
+- **Writing a vanilla master** — rejected.
 
-For global/property access:
+Denied requests reject the Promise. Missing forms, scripts or properties for an *allowed* request resolve to `null` instead.
 
-- a view may read and write the ESP/ESL whose filename stem matches its owning F4SE plugin;
-- vanilla masters (`Fallout4.esm` and the official DLC masters) may be **read** from any view;
-- vanilla masters may not be written by a foreign view;
-- unrelated third-party plugin ESPs are rejected.
+## Form IDs
 
-Example: a view owned by `MyPlugin_F4.dll` may access `MyPlugin_F4.esp`/`.esl`. It may read `Fallout4.esm`, but it cannot use this bridge to write another mod's ESP state.
+Pass the plugin-local hexadecimal form ID, without the load-order prefix:
 
-A denied **read** request rejects its Promise. A missing/invalid form or property for an otherwise allowed request resolves to `null`.
-
-## Form ID format
-
-`formId` is the plugin-local hexadecimal FormID without the load-order prefix.
-
-| Local value | Pass as |
-|---|---|
+| You know it as | Pass |
+| --- | --- |
 | `00000800` | `"800"` |
 | `00000D63` | `"D63"` |
 
-PrismaUI resolves normal and light-plugin compile indexes internally.
+PrismaUI resolves the compile index for normal and light plugins for you.
 
-## `prisma.getGlobal(esp, formId)`
+## Globals
 
-Reads an allowed `TESGlobal` value.
+Read (returns `Promise<number | null>`):
 
 ```js
 try {
   const value = await window.prisma.getGlobal('MyPlugin_F4.esp', '800');
   if (value === null) {
-    // Allowed request, but the plugin/form/global was not available.
+    // Allowed request, but the form/global was not available yet.
   }
 } catch (err) {
-  // Access-policy or malformed-request failure.
+  // Access denied or malformed request.
 }
 ```
 
-**Returns:** `Promise<number | null>`.
-
-## `prisma.setGlobal(esp, formId, value)`
-
-Queues a game-thread write to an allowed `TESGlobal`.
+Write (fire-and-forget):
 
 ```js
 window.prisma.setGlobal('MyPlugin_F4.esp', '800', 2.5);
 ```
 
-This is fire-and-forget. There is no JavaScript success result. Read the value back when confirmation matters.
+A write has no JavaScript success result. Read the value back if you need confirmation.
 
-## `prisma.getProperty(esp, formId, scriptName, propName)`
+## Properties
 
-Reads an attached Papyrus property whose current value is one of the bridge's supported scalar types.
+Reads return `number`, `boolean`, or `null`:
 
 ```js
-const value = await window.prisma.getProperty(
+const difficulty = await window.prisma.getProperty(
   'MyPlugin_F4.esp',
   '800',
   'MyPlugin_QuestScript',
@@ -86,75 +79,61 @@ const value = await window.prisma.getProperty(
 );
 ```
 
-Supported returned values:
-
-- `number` for Papyrus `float` and `int` properties;
-- `boolean` for Papyrus `bool` properties;
-- `null` when the allowed form/script/property/value cannot be resolved.
-
-Denied access rejects the Promise.
-
-## `prisma.setProperty(esp, formId, scriptName, propName, value)`
-
-Writes an attached Papyrus `float`, `int`, or `bool` property owned by the view's plugin.
+Writes accept numbers and booleans only:
 
 ```js
-window.prisma.setProperty(
-  'MyPlugin_F4.esp',
-  '800',
-  'MyPlugin_QuestScript',
-  'DamageScale',
-  1.5
-);
-
-window.prisma.setProperty(
-  'MyPlugin_F4.esp',
-  '800',
-  'MyPlugin_QuestScript',
-  'HardcoreMode',
-  true
-);
+window.prisma.setProperty('MyPlugin_F4.esp', '800', 'MyPlugin_QuestScript', 'HardcoreMode', true);
 ```
 
-The current request parser supports numeric and boolean scalar values for this write path. **Do not pass strings expecting automatic conversion.** Strings and arrays are not a supported property-write contract.
+- No strings, arrays or automatic conversion. A string value fails the write.
+- The write goes to the attached property value directly. It does **not** call your script's getter/setter functions and does not fire your script's events.
+- Writes are fire-and-forget.
 
-Writes are fire-and-forget and update the backing attached property value directly. They do not call custom Papyrus getter/setter functions or synthesize your script's own events.
-
-## `prisma.emit(eventName, data)`
-
-Sends an external Papyrus event through PrismaUI's registered event channel.
+## Emitting a Papyrus event
 
 ```js
 window.prisma.emit('settingsSaved', { profile: 'survival' });
 ```
 
-Non-string data is JSON-stringified before dispatch. Event names must be non-empty and no longer than 128 characters.
+- Non-string payloads are JSON-stringified before dispatch.
+- The event name must be non-empty and at most 128 characters.
+- Papyrus receives the fixed external event `PrismaUI_Event(name, payload)`.
 
-PrismaUI dispatches the fixed external event `PrismaUI_Event` with two string arguments:
+That event is fire-and-forget too. On the Papyrus side, listen for it:
 
-1. the event name supplied by JavaScript;
-2. the string/JSON payload.
+```papyrus
+Event OnExternalEvent(string eventName, string payload)
+    if eventName == "settingsSaved"
+        ; payload is a JSON string
+    endif
+EndEvent
+```
 
-This operation is fire-and-forget.
+## Threading and lifetime
 
-## Threading
+Bridge work that touches game state runs through the F4SE task interface on the game thread.
 
-Bridge requests that touch Fallout or Papyrus state are queued through the F4SE task interface and execute on the game thread.
+- JavaScript read Promises resolve later, by calling back into the originating view.
+- If the view is destroyed before the work finishes, the result has nowhere to go. Guard for a dead view on the page side.
+- Property access needs the Papyrus VM and the target's attached script to exist. Use the bridge from normal loaded-game UI, not from early startup.
 
-Read operations resolve their JavaScript Promises later by invoking a resolver back in the originating view. If the view is destroyed before the queued work completes, a result cannot be delivered.
+## When a read returns null
 
-## VM readiness
+In order of likelihood:
 
-Property access requires the target form's attached script and the Papyrus VM to be available. Perform property work from normal loaded-game/new-game UI rather than during early plugin startup.
+1. the form, script or property does not exist yet;
+2. the value is not a supported scalar type;
+3. the request happened before the VM/script was ready.
 
-A property read that cannot find the VM, attached script, property, or supported value resolves to `null`.
+`null` means "allowed request, nothing usable" — it is not an access denial. Denials throw.
 
-## Separate Papyrus-native surface
+## Security
 
-PrismaUI also registers native Papyrus functions under the `PrismaUI` script for named view lifecycle, focus, offscreen sizing, and mesh binding. That is a separate **Papyrus -> PrismaUI** API from the `window.prisma` **JavaScript -> game/Papyrus** bridge documented here.
+PrismaUI validates every request, but treat JavaScript input as application input. Do not load arbitrary external HTML and then rely on the bridge as a sandbox — the sandbox assumes the page is yours.
 
-See the shipped `scripts/Source/PrismaUI.psc` for the exact native Papyrus surface.
+## Where to go next
 
-## Security guidance
-
-Treat JavaScript payloads as application input even though PrismaUI validates bridge requests. Do not load arbitrary external HTML and then treat the bridge as an application security sandbox.
+- [Open a panel from Papyrus](cookbook/from-papyrus) — the other direction
+- [The HTML side](html-views) — page basics
+- [Translations](translations) — the usual alternative to globals for UI text
+- [Limitations](limitations) — what is not exposed

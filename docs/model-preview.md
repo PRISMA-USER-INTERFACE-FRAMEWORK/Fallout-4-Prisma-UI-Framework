@@ -1,207 +1,138 @@
 ---
 id: model-preview
-title: Model Preview (3D Rendering)
-sidebar_label: Model Preview
+title: Model preview (3D rendering)
+sidebar_label: Model preview
 sidebar_position: 11
 ---
 
-# Model Preview (3D Rendering)
+# Model preview (3D rendering)
 
-PrismaUI_F4 2.2.0 can composite native D3D11 model previews over a Prisma view. The released JavaScript bridge is **ModelPreview API v4**.
+ModelPreview draws a real game mesh over your page — a weapon spinning in an inventory screen, a piece of armor next to its stats, a settlement object in a build menu. The game renders it; your page only says where it goes.
 
-This page documents the current bridge. Older examples that use `window.prismaModelPreview`, `formId`, `pluginName`, or `destLeft`/`destRight` belong to an earlier design and do not match the released API.
+The released JavaScript bridge is **ModelPreview v4** and lives at `window.__prismaUI_modelPreview`.
 
-## Availability
+If you just want a working example, start with [Show a 3D item preview](cookbook/item-preview) and come back here for the full field list.
 
-When ModelPreview is enabled, PrismaUI installs the bridge immediately before the consumer view's DOM-ready callback:
+## Is it there?
 
-```js
-window.__prismaUI_modelPreview
-```
-
-The object exposes:
-
-```js
-{
-  version: 4,
-  show(options),
-  hide(options),
-  onStatus(callback)
-}
-```
-
-Check for the bridge instead of assuming it exists:
+PrismaUI installs the bridge just before your `OnDomReady` callback runs, when the feature is enabled:
 
 ```js
 const preview = window.__prismaUI_modelPreview;
+
 if (!preview || preview.version < 4) {
-  // Show your normal static fallback.
+  // No preview support here. Show your static fallback.
 }
 ```
 
-## Register status handling first
-
-```js
-const preview = window.__prismaUI_modelPreview;
-
-preview.onStatus((status) => {
-  console.log('ModelPreview', status);
-
-  if (!status.ok) {
-    showFallback(status.id, status.error);
-  }
-});
-```
-
-Status payloads include at least:
-
-- `id`
-- `nifPath`
-- `phase`
-- `ok`
-- `error`
-- shape diagnostics when a model is available
-
-Observed release phases include:
-
-- `loaded` - a drawable model is ready;
-- `textured` - the loaded preview reached its textured/render-ready state;
-- `error` - the mesh was missing, unreadable, or contained no drawable shapes.
-
-Do not build status handling around the old `window.onModelPreviewStatus` or `status: "loaded"` contract.
+Never assume the bridge exists. A page with a static image fallback is a page that still works on a build without previews.
 
 ## Show a preview
 
-The release bridge takes **NIF paths**, not a FormID/plugin lookup.
+The bridge takes **NIF paths**, not form lookups:
 
 ```js
 window.__prismaUI_modelPreview.show({
   id: 'selected-item',
   nifPath: 'Meshes/Weapons/10mmPistol/10mmPistol.nif',
   formType: 'WEAP',
-  x: 620,
-  y: 120,
-  w: 300,
-  h: 300,
+  x: 620, y: 120, w: 300, h: 300,
   zoom: 1.0,
-  panX: 0,
-  panY: 0,
   pitch: 0,
   roll: 0,
-  brightness: 1.0
+  yaw: 0.4,
+  brightness: 1.0,
 });
 ```
 
-### Required/practical fields
-
 | Field | Meaning |
-|---|---|
-| `id` | Stable identifier for this preview within the view. Use one when you may show/hide previews independently. |
-| `nifPath` | One NIF path to load. |
-| `nifPaths` | Alternative array of NIF paths for a composed preview. If present, it is used instead of `nifPath`. |
-| `x`, `y` | Destination rectangle origin in Prisma view pixels. |
-| `w`, `h` | Destination rectangle size in Prisma view pixels. |
+| --- | --- |
+| `id` | Stable name for this preview inside the view. Show/hide by id. |
+| `nifPath` | The mesh to load. |
+| `nifPaths` | Array of meshes for a composed model; used instead of `nifPath`. |
+| `x`, `y`, `w`, `h` | Destination rectangle in view pixels. |
+| `formType` | Posing hint (see below). |
+| `zoom`, `panX`, `panY`, `pitch`, `roll`, `yaw`, `spin`, `brightness`, `flip` | Camera and appearance adjustments. |
+| `clipX`, `clipY`, `clipW`, `clipH` | Optional smaller visible area inside the destination rectangle. |
+| `matSwap` | Material swap to apply. |
 
-A request with neither `nifPath` nor a non-empty `nifPaths` array is ignored.
+A request with neither `nifPath` nor a non-empty `nifPaths` is ignored.
 
-## Optional request fields
+## `formType`: how the mesh is posed
 
-The released request parser also accepts:
-
-- `formType`
-- `matSwap`
-- `clipX`, `clipY`, `clipW`, `clipH`
-- `zoom`
-- `panX`, `panY`
-- `roll`
-- `pitch`
-- `brightness`
-- `spin`
-- `yaw`
-- `flip`
-
-Use only what your UI needs and test the exact mesh/material combination in game.
-
-## `formType`
-
-`formType` is a presentation hint used by the native pose logic.
-
-Current handling includes:
-
-| `formType` | Native pose behavior |
-|---|---|
-| `WEAP` | Elongated/weapon presentation |
+| Value | Behaviour |
+| --- | --- |
+| `WEAP` | Weapon presentation |
 | `AMMO` | Ammo presentation |
 | `ARMO` | Armor presentation |
-| `STAT` | Preserve authored world orientation |
-| `FURN` | Preserve authored world orientation |
-| `WORLD` | Preserve authored world orientation |
-| other/empty | Generic presentation |
+| `STAT`, `FURN`, `WORLD` | Keep the authored world orientation |
+| other or empty | Generic presentation |
 
-`STAT`, `FURN`, and `WORLD` were added to the v4 contract specifically so settlement/furniture/static meshes remain upright instead of receiving inventory-style auto posing.
+Use `STAT`/`FURN`/`WORLD` for settlement and world objects; they were added in v4 so furniture does not get inventory-style posing.
 
-## Multiple NIFs
-
-For a preview composed from several meshes:
+## Several meshes in one preview
 
 ```js
 preview.show({
-  id: 'assembled-item',
-  nifPaths: [
-    'Meshes/MyMod/base.nif',
-    'Meshes/MyMod/attachment.nif'
-  ],
-  x: 620,
-  y: 120,
-  w: 300,
-  h: 300
+  id: 'assembled',
+  nifPaths: ['Meshes/MyMod/base.nif', 'Meshes/MyMod/attachment.nif'],
+  x: 620, y: 120, w: 300, h: 300,
 });
 ```
-
-The status payload's `nifPath` field is a display representation of the request's NIF path set.
 
 ## Clipping
 
-Use the clip fields when the model should remain inside a smaller visible region than its destination rectangle:
+When the model can be larger than the visible box:
 
 ```js
 preview.show({
-  id: 'inventory-preview',
+  id: 'inv',
   nifPath: 'Meshes/MyMod/item.nif',
-  x: 600,
-  y: 100,
-  w: 360,
-  h: 360,
-  clipX: 620,
-  clipY: 120,
-  clipW: 320,
-  clipH: 300
+  x: 600, y: 100, w: 360, h: 360,
+  clipX: 620, clipY: 120, clipW: 320, clipH: 300,
 });
 ```
 
-Coordinates are view-space pixels.
-
-## Hide previews
-
-Hide one preview by ID:
+## Hide it again
 
 ```js
-preview.hide({ id: 'selected-item' });
+preview.hide({ id: 'selected-item' });   // one preview
+preview.hide({});                        // everything in this view
 ```
 
-Hide all ModelPreview instances belonging to the current Prisma view by omitting the ID:
+Call `hide()` when the panel closes or the selection no longer needs a model. A hidden Prisma view is still alive, so previews you leave behind keep native resources around.
+
+## Listen for load status
+
+Register status handling first — it is how you find out that a modded mesh failed:
 
 ```js
-preview.hide({});
+if (preview && preview.onStatus) {
+  preview.onStatus(function (status) {
+    if (status.id !== 'selected-item') return;
+
+    if (!status.ok) {
+      showFallback(status.id, status.error);
+    }
+  });
+}
 ```
 
-Call `hide()` when a panel closes or stops needing the preview. A Prisma view can remain alive while hidden, so explicitly releasing preview work avoids unnecessary native rendering/resource residency.
+Status payloads include `id`, `nifPath`, `phase`, `ok`, `error`, and shape diagnostics. Phases you will see:
 
-## Suggested DOM integration
+| Phase | Meaning |
+| --- | --- |
+| `loaded` | The mesh loaded and is drawable. |
+| `textured` | The preview reached its textured, render-ready state. |
+| `error` | The mesh was missing, unreadable, or had no drawable shapes. |
+
+Do not build on the old `window.onModelPreviewStatus` / `status === "loaded"` contract. It is not the released API.
+
+## Putting it on the page
 
 ```html
 <div id="preview-region"></div>
-<div id="preview-fallback" hidden>No preview available</div>
+<p id="preview-fallback" hidden>No preview available</p>
 ```
 
 ```js
@@ -210,13 +141,12 @@ const region = document.getElementById('preview-region');
 const fallback = document.getElementById('preview-fallback');
 
 function showNif(nifPath, formType) {
-  if (!preview) {
+  if (!preview || preview.version < 4) {
     fallback.hidden = false;
     return;
   }
 
   const r = region.getBoundingClientRect();
-
   preview.show({
     id: 'selection',
     nifPath,
@@ -225,47 +155,45 @@ function showNif(nifPath, formType) {
     y: Math.round(r.top),
     w: Math.round(r.width),
     h: Math.round(r.height),
-    zoom: 1.0
+    zoom: 1.0,
   });
 }
 
-if (preview) {
-  preview.onStatus((s) => {
+if (preview && preview.onStatus) {
+  preview.onStatus(function (s) {
     if (s.id !== 'selection') return;
     fallback.hidden = !!s.ok;
   });
 }
 ```
 
-## Native behavior and performance
+Coordinates are view-space pixels. `getBoundingClientRect()` gives you the right numbers at the default view scale; re-read it after layout changes.
 
-ModelPreview is not an Ultralight `<canvas>` or `<img>` feature. PrismaUI loads/parses the NIF and creates native D3D11 render resources, then the compositor places that texture over the requested view rectangle.
+## How the rendering works (and why it costs something)
 
-Important current behavior:
+This is not an `<img>` or a `<canvas>`. PrismaUI loads and parses the NIF, creates native D3D11 resources, and the compositor draws that texture over your view rectangle.
 
-- Model parsing/GPU work can run on a worker pool.
-- Bethesda/engine-backed file reads are serviced through the verified game-thread dispatcher after the active Present stack unwinds, so blocking reads do not execute inside Present.
-- Engine file reads are budgeted per servicing pass so a large catalog does not drain an unbounded number of synchronous archive reads in one frame.
-- Resident previews have a configured ceiling to bound resource growth.
-- Hidden/inactive views are cheaper eviction candidates.
+Practical consequences:
 
-For consumer code, the practical rules are simpler:
+- Engine file reads happen through the game thread, budgeted per pass — so a catalog of hundreds of previews does not read the archives all at once.
+- Preview parsing and GPU work can run on a worker pool.
+- There is a ceiling on resident previews; hidden views are the first to lose theirs.
 
-1. show only the preview(s) the player currently needs;
-2. use stable IDs;
-3. call `hide()` when the panel closes or selection no longer needs the model;
-4. keep a visual fallback for load errors;
-5. test mod-added meshes/materials in the actual load order.
+For your page, that means:
 
-## Material and mesh failures
+1. show only what the player is looking at;
+2. use stable ids;
+3. `hide()` when done;
+4. always keep a fallback;
+5. test with mod-added meshes in the actual load order.
 
-The status callback is the supported way to detect preview failure. Do not assume every mod-added NIF/material can be rendered.
+## When a preview fails
 
-When `ok` is false, display a fallback image/panel and retain the `error` text for diagnostics. The framework also logs ModelPreview details to `PrismaUI_F4.log`.
+`ok: false` plus `error` is the supported signal. Show your fallback image or an empty slot — do not leave a blank rectangle where the model should be. The framework also logs preview details to `PrismaUI_F4.log`.
 
 ## C++ side
 
-There is no extra public C++ interface call needed to create the JavaScript bridge. Create the Prisma view normally:
+Nothing extra to call. Create the view normally; the bridge is installed by PrismaUI's DOM-ready setup when the feature is enabled:
 
 ```cpp
 static void OnDomReady(PrismaView view)
@@ -276,16 +204,21 @@ static void OnDomReady(PrismaView view)
 g_view = g_api->CreateView("MyPlugin/inventory.html", OnDomReady);
 ```
 
-The ModelPreview listeners/API object are installed by PrismaUI's DOM-ready setup before your callback is dispatched, when the feature is enabled.
+## The old contract
 
-## Do not use the old contract
-
-For current PrismaUI_F4, do not copy examples based on:
+Older PrismaUI builds used a different preview bridge. Those examples are documented in old material only (source: earlier PrismaUI preview documentation). Do not copy them:
 
 ```js
 window.prismaModelPreview
 window.onModelPreviewStatus
-{ formId, pluginName, destLeft, destTop, destRight, destBottom }
+destLeft / destTop / destRight / destBottom
 ```
 
-Those names/fields do not match the released bridge implementation.
+They do not match the released bridge.
+
+## Where to go next
+
+- [Show a 3D item preview](cookbook/item-preview) — complete recipe
+- [The HTML side](html-views) — page basics
+- [Limitations](limitations) — what the runtime does not support
+- [Debugging your view](debugging) — when the preview does not show

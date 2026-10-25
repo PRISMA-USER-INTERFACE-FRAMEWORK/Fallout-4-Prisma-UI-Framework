@@ -1,62 +1,45 @@
 ---
 id: vanilla-ui-suppression
-title: Vanilla UI Suppression
-sidebar_label: Vanilla UI Suppression
+title: Vanilla UI suppression
+sidebar_label: Vanilla UI suppression
 sidebar_position: 8
 ---
 
-# Vanilla UI Suppression
+# Vanilla UI suppression
 
-PrismaUI_F4 exposes native APIs for suppressing selected vanilla HUD widgets and menus. These APIs operate on Fallout's existing UI objects; they are separate from the Ultralight web runtime used to render Prisma views.
+PrismaUI can hide or block selected pieces of Fallout's own UI while your replacement is open — a vanilla menu, a HUD widget, or the activate-choice button strip. These calls work on Fallout's UI objects; they have nothing to do with the web view itself.
 
-This page documents only methods present in the current **PrismaUI_F4** public header.
+Use them when you are replacing part of the vanilla interface, not when you are adding a new one.
 
-## Full-menu suppression
-
-### `SuppressVanillaMenu`
-
-```cpp
-virtual bool SuppressVanillaMenu(const char* menuName, bool suppress) noexcept = 0;
-```
-
-Suppress or restore a full vanilla menu by its `MENU_NAME`.
+## Suppress a whole menu
 
 ```cpp
 g_api->SuppressVanillaMenu("PipboyMenu", true);
 
-// Later:
+// later, when your replacement closes
 g_api->SuppressVanillaMenu("PipboyMenu", false);
 ```
 
-Suppression is reapplied when that menu is created/opened again for as long as the framework's suppression state remains enabled for the name.
+- The name is the vanilla `MENU_NAME` (`PipboyMenu`, `ContainerMenu`, `WorkshopMenu`, …).
+- Suppression is reapplied whenever that menu is opened again, for as long as your suppression state is on.
+- There is no `IsMenuSuppressed` query. Track your own state if you need to know whether *you* asked for it.
 
-The public API does **not** expose an `IsMenuSuppressed` method in the current numbered API. Keep your own plugin state if you need to know whether your code requested suppression.
-
-### `CloseVanillaMenu`
-
-```cpp
-virtual bool CloseVanillaMenu(const char* menuName) noexcept = 0;
-```
-
-Closes the menu now. It does not by itself prevent the menu from opening again later.
+To close a menu that is open right now, without blocking future opens:
 
 ```cpp
 g_api->CloseVanillaMenu("ContainerMenu");
 ```
 
-If you need both immediate close and future suppression, combine it with `SuppressVanillaMenu(name, true)`.
-
-### `SuppressVanillaMenuIf`
+To close and keep it closed, call both:
 
 ```cpp
-typedef bool (*MenuSuppressPredicate)();
-
-virtual void SuppressVanillaMenuIf(
-    const char* menuName,
-    MenuSuppressPredicate predicate) noexcept = 0;
+g_api->SuppressVanillaMenu("ContainerMenu", true);
+g_api->CloseVanillaMenu("ContainerMenu");
 ```
 
-Registers a predicate that is evaluated when the menu tries to open.
+## Suppress it only sometimes
+
+A predicate is evaluated each time the menu tries to open:
 
 ```cpp
 static bool ShouldSuppressContainer()
@@ -64,63 +47,44 @@ static bool ShouldSuppressContainer()
     return g_replacementActive;
 }
 
-g_api->SuppressVanillaMenuIf(
-    "ContainerMenu",
-    &ShouldSuppressContainer);
+g_api->SuppressVanillaMenuIf("ContainerMenu", &ShouldSuppressContainer);
 ```
 
-Pass `nullptr` to unregister the predicate.
+Pass `nullptr` to remove the predicate. It runs synchronously on the game thread, so keep it short and non-blocking — it is not a place for file I/O or waits.
 
-The predicate runs synchronously on the game thread. Keep it cheap and non-blocking.
-
-## HUD widget suppression
-
-`IVPrismaUI6` adds:
-
-```cpp
-virtual bool SuppressHUDWidget(
-    const char* className,
-    bool suppress) noexcept = 0;
-```
-
-Example:
+## Suppress a HUD widget
 
 ```cpp
 if (!g_api->SuppressHUDWidget("HUDCompass", true)) {
-    logger::warn("HUDCompass suppression unavailable");
+    REX::WARN("HUDCompass suppression unavailable on this runtime");
 }
 ```
 
-### Runtime support
+- Unknown class names return `false`.
+- The HUD path needs supported runtime data; when it cannot resolve safely, the call fails closed rather than patching a guessed address.
+- Supported: Old-Gen 1.10.163 and Anniversary Edition 1.11.137+ with the matching runtime data.
 
-The current implementation supports its guarded HUD-widget path on:
+Always check the return value. A "suppression" that silently did nothing is worse than an honest failure.
 
-- OG `1.10.163`
-- AE `1.11.137+` when the required Address Library authority resolves
+## The replacement pattern
 
-Unknown class names or unsupported/unresolved hook targets return `false` rather than patching a guessed address.
-
-Do not repeat the older documentation that says this API is always OG-only.
-
-## View replacement pattern
-
-For an interactive replacement panel, combine vanilla suppression with normal Prisma panel coordination:
+Suppress, close, show yours; reverse it when closing:
 
 ```cpp
-static PRISMA_UI_API::IVPrismaUI10* g_api = nullptr;
-static PrismaView g_panel = 0;
+static PRISMA_UI_API::IVPrismaUI10* g_api  = nullptr;
+static PrismaView                   g_panel = 0;
 
 void OpenReplacement()
 {
     if (!g_api || !g_api->IsValid(g_panel)) return;
-    if (g_api->IsAnyPanelVisible(g_panel)) return;
+    if (g_api->IsAnyPanelVisible(g_panel)) return;   // another mod's panel is open
 
     g_api->SuppressVanillaMenu("ContainerMenu", true);
     g_api->CloseVanillaMenu("ContainerMenu");
 
     g_api->SetViewRole(g_panel, PRISMA_UI_API::ViewRole::kPanel);
     g_api->Show(g_panel);
-    g_api->Focus(g_panel, true, false);
+    g_api->Focus(g_panel, /*pauseGame=*/true);
 }
 
 void CloseReplacement()
@@ -133,66 +97,45 @@ void CloseReplacement()
 }
 ```
 
-Your plugin should track whether *it* requested suppression and should clean up that state when its replacement feature is disabled.
+Track whether *your* feature requested suppression, and undo it when the feature is disabled or your plugin unloads. Leaving a vanilla menu suppressed after your UI is gone reads as a bug to the player.
 
 ## Activate-choice APIs
 
-V7/V8 retain several activate-choice methods for ABI compatibility:
+The V7/V8 activate-choice calls are narrower than older guides describe:
 
 ```cpp
-virtual void EnableActivateChoiceFilter(
-    bool enable,
-    bool dropDefaultTake) noexcept = 0;
-
-virtual void SuppressActivateChoicePerk(
-    uint32_t perkFormID,
-    bool suppress) noexcept = 0;
-
-virtual bool GetActivateChoiceLabel(
-    uint32_t buttonIndex,
-    char* outBuffer,
-    size_t bufferSize) noexcept = 0;
-
-virtual bool TriggerActivateChoice(
-    uint32_t buttonIndex) noexcept = 0;
+g_api->EnableActivateChoiceFilter(true, false);           // enables capture
+g_api->GetActivateChoiceLabel(buttonIndex, buffer, size); // read a captured label
+g_api->TriggerActivateChoice(buttonIndex);                // trigger a captured choice
 ```
 
-### Current semantics
+- `EnableActivateChoiceFilter` enables the capture path. Its second argument (`dropDefaultTake`) is kept for compatibility and ignored.
+- `SuppressActivateChoicePerk` is a compatibility placeholder: it does not remove perk rows.
+- `GetActivateChoiceLabel` / `TriggerActivateChoice` are the supported read/trigger path when capture is available.
 
-Do **not** describe this as a working generic “filter the vanilla button strip” API.
+Do not build a public feature around `SuppressActivateChoicePerk` or the ignored argument.
 
-- `EnableActivateChoiceFilter` enables the capture path used by `GetActivateChoiceLabel` / `TriggerActivateChoice`.
-- `dropDefaultTake` is retained in the ABI but is ignored.
-- `SuppressActivateChoicePerk` is an ABI placeholder; it logs/returns without implementing perk-row suppression.
-- `GetActivateChoiceLabel` and `TriggerActivateChoice` operate on captured choices when capture is available.
+## Menu events still happen
 
-If your feature depends on capture/trigger behavior, test it on every runtime family you advertise. Do not build a public feature around `SuppressActivateChoicePerk` or `dropDefaultTake` until the framework implements them.
+Closing or suppressing a vanilla menu does not erase the game's own `MenuOpenCloseEvent` traffic. If your plugin also listens to menu events, guard against reacting to changes your own code just caused:
 
-## Menu event caveats
+```cpp
+// pseudo-code shape: track the reason for the close
+if (g_closingForReplacement) {
+    g_closingForReplacement = false;
+    return;
+}
+```
 
-Vanilla menu operations can still produce normal game `MenuOpenCloseEvent` traffic. Your own event sink must avoid feedback loops when it closes a menu and then receives the resulting close event.
+## Runtime notes
 
-Keep replacement state in your plugin rather than assuming suppression eliminates vanilla events.
+- Old-Gen **1.10.163** and Anniversary Edition **1.11.137+** with matching runtime data are supported.
+- The 1.10.980–1.10.984 line is rejected by the current framework.
+- Engine-hook-backed helpers should be tested on each runtime family you claim. A method existing in the header does not promise every engine feature works everywhere.
 
-## Runtime/version guidance
+## Where to go next
 
-The current desktop provider supports:
-
-- OG `1.10.163`
-- AE `1.11.137+` with matching Address Library data
-
-The intermediate `1.10.980-1.10.984` Next-Gen line is deliberately rejected by the framework.
-
-Engine-hook-backed features should be tested separately on OG and AE. A method existing in the ABI does not guarantee every engine-specific behavior is available on every runtime.
-
-## Related API pages
-
-- [`SuppressHUDWidget`](api/SuppressHUDWidget.md)
-- [`SuppressVanillaMenu`](api/SuppressVanillaMenu.md)
-- [`CloseVanillaMenu`](api/CloseVanillaMenu.md)
-- [`SuppressVanillaMenuIf`](api/SuppressVanillaMenuIf.md)
-- [`EnableActivateChoiceFilter`](api/EnableActivateChoiceFilter.md)
-- [`SuppressActivateChoicePerk`](api/SuppressActivateChoicePerk.md)
-- [`GetActivateChoiceLabel`](api/GetActivateChoiceLabel.md)
-- [`TriggerActivateChoice`](api/TriggerActivateChoice.md)
-- [Panel Management](panel-management)
+- [`SuppressHUDWidget`](api/SuppressHUDWidget) · [`SuppressVanillaMenu`](api/SuppressVanillaMenu) · [`CloseVanillaMenu`](api/CloseVanillaMenu) · [`SuppressVanillaMenuIf`](api/SuppressVanillaMenuIf)
+- [Activate choice pages](api/GetActivateChoiceLabel) — capture and trigger
+- [Panel management](panel-management) — do not stack your UI on another mod's
+- [Limitations](limitations) — runtime-specific behaviour

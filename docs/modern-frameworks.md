@@ -1,22 +1,23 @@
 ---
-title: 'Modern Frameworks'
+title: 'Modern frameworks'
 ---
-# Modern Frameworks
 
-React, Vue, Svelte, Solid, and similar frameworks can be used with **PrismaUI_F4 2.2.0** when you ship the result as compatible local HTML/CSS/JavaScript assets.
+# Modern frameworks
 
-The in-game runtime is **Ultralight 1.4.0**, not previous browser runtime. Test the actual production bundle under PrismaUI and avoid making required UI behavior depend on a browser feature you have only tested in Chrome.
+React, Vue, Svelte, Solid and friends work with PrismaUI — as long as you ship the built result as local HTML, CSS and JavaScript.
 
-## The bridge timing problem
+The page runs in Ultralight 1.4.0, not in Chrome. Your browser dev server is useful; it is not proof that the runtime supports something.
 
-Your C++ DOM-ready callback can run before framework components finish mounting. If C++ calls a JavaScript function that a React/Vue/Svelte component has not registered yet, that first message can be lost.
+## The one real problem: bridge timing
 
-A robust pattern is:
+Your C++ `OnDomReady` can run before your components have mounted. If C++ calls a `window.something` that a component registers on mount, that first message is lost.
 
-1. expose C++-callable `window.*` functions at JavaScript module-load time;
-2. let those functions write into a framework-agnostic store;
-3. let components subscribe to that store;
-4. from Prisma's DOM-ready callback, register JS-to-C++ listeners and push initial data.
+The fix is a small pattern:
+
+1. register C++-callable `window.*` functions at **module load**, before the app renders;
+2. have them write into a framework-agnostic store;
+3. let components subscribe to the store;
+4. register page → C++ listeners and send initial data from `OnDomReady`.
 
 ## React example
 
@@ -24,10 +25,7 @@ A robust pattern is:
 // store.ts
 import { create } from 'zustand';
 
-type PlayerState = {
-  health: number;
-  maxHealth: number;
-};
+type PlayerState = { health: number; maxHealth: number };
 
 type Store = {
   player: PlayerState | null;
@@ -39,12 +37,13 @@ export const useGameStore = create<Store>((set) => ({
   setPlayer: (player) => set({ player }),
 }));
 
+// This runs at module load, before React renders.
 window.setPlayerState = (json: string) => {
   useGameStore.getState().setPlayer(JSON.parse(json));
 };
 ```
 
-Import that module before rendering the application:
+Import the store before rendering:
 
 ```tsx
 import './store';
@@ -54,7 +53,7 @@ import App from './App';
 ReactDOM.createRoot(document.getElementById('root')!).render(<App />);
 ```
 
-C++ can then push state after DOM-ready:
+Then C++ can push data as soon as the DOM is ready:
 
 ```cpp
 static void ClosePanel(const char*)
@@ -67,16 +66,13 @@ static void ClosePanel(const char*)
 static void OnDomReady(PrismaView view)
 {
     g_api->RegisterJSListener(view, "closePanel", ClosePanel);
-    g_api->InteropCall(
-        view,
-        "setPlayerState",
-        R"({"health":100,"maxHealth":100})");
+    g_api->InteropCall(view, "setPlayerState", R"({"health":100,"maxHealth":100})");
 }
 ```
 
-## JavaScript to C++
+## Page → C++
 
-Register page-facing listeners from the DOM-ready path. Prisma-delivered JS listener callbacks are marshalled through the verified framework callback path.
+Register listeners from `OnDomReady`; PrismaUI delivers them on the game thread.
 
 ```cpp
 static void SaveSettingsFromJS(const char* json)
@@ -99,6 +95,8 @@ export function save(settings: object) {
 
 ## TypeScript declarations
 
+Keep the bridge typed once, in a `globals.d.ts`:
+
 ```ts
 export {};
 
@@ -108,38 +106,45 @@ declare global {
     closePanel: () => void;
     saveSettings: (json: string) => void;
     onTranslationsReady?: () => void;
-    t?: (key: string) => string;
-    L10N?: Record<string, string>;
+    PrismaL10N?: { locale: string; messages: Record<string, string>; t: (key: string, vars?: Record<string, unknown>) => string };
+    __prismaUI_modelPreview?: {
+      version: number;
+      show: (options: Record<string, unknown>) => void;
+      hide: (options: { id?: string }) => void;
+      onStatus?: (callback: (status: Record<string, unknown>) => void) => void;
+    };
   }
 }
 ```
 
 ## Translations with a framework app
 
-Legacy `RegisterTranslations` is a runtime `Invoke` path. It does **not** make `window.t` available before your bundle's module-level code executes.
+`RegisterTranslationsV4` injects `window.PrismaL10N` into the live document. It is not available before your bundle's module-level code runs.
 
-Register translations in DOM-ready, then call an application hook that reads them:
+Register in `OnDomReady`, then call a page hook that reads the translations:
 
 ```cpp
 static void OnDomReady(PrismaView view)
 {
-    g_api->RegisterTranslations(view, "MyPlugin_F4");
+    g_api->RegisterJSListener(view, "closePanel", ClosePanel);
+    g_localization.RegisterTranslationsV4(view, "MyPlugin");
     g_api->Invoke(view, "window.onTranslationsReady && window.onTranslationsReady()");
 }
 ```
 
 ```ts
 window.onTranslationsReady = () => {
-  const t = (key: string) => window.t?.(key) ?? key;
+  const l10n = window.PrismaL10N;
+  const t = l10n ? l10n.t : (key: string) => key;
   // Update your store or framework state here.
 };
 ```
 
-Do not build module-level constants from `window.t` unless your own bootstrap code guarantees that translation registration has already happened.
+Do not build module-level constants from translations; there is no guarantee they exist yet.
 
-## Development outside Fallout
+## Developing outside Fallout
 
-Use your normal Vite/Webpack/dev-server workflow for layout and application logic, with mock data when Prisma is absent.
+Use Vite/Webpack and mock data for layout work:
 
 ```ts
 if (import.meta.env.DEV) {
@@ -147,21 +152,17 @@ if (import.meta.env.DEV) {
 }
 ```
 
-The browser preview is a development convenience, not proof that an API is available in Ultralight 1.4.0. Feature-detect anything outside the tested baseline.
+Then test the **production build** in game. Anything outside the tested Ultralight baseline should be feature-detected:
 
-## Bundle dependencies locally
+```js
+if (typeof ResizeObserver !== 'undefined') {
+  // optional enhancement
+}
+```
 
-Do not ship a production page that requires:
+## Bundle everything locally
 
-- Google Fonts;
-- jsDelivr/unpkg;
-- a remote JavaScript module;
-- a remote stylesheet;
-- browser WebSocket/Worker infrastructure.
-
-Bundle those files with the mod instead.
-
-A typical Vite build can emit:
+A production page cannot load remote fonts, scripts or styles. Ship them:
 
 ```text
 Data/PrismaUI_F4/views/MyPlugin/
@@ -172,29 +173,32 @@ Data/PrismaUI_F4/views/MyPlugin/
     └── ui.woff2
 ```
 
-If the mod needs real networking, keep that in native C++ and bridge the resulting data into the view.
+If your app needs HTTP or sockets, keep that in C++ and bridge the result into the page. See [Networking](networking).
 
-## Multiple screens
+## One app, several screens
 
-You do not have to use exactly one Prisma view per plugin. Use one routed frontend when screens share lifecycle/state, and multiple views when they are genuinely separate surfaces such as a persistent HUD plus an independent panel.
+You do not need one Prisma view per screen. Prefer one routed app when the screens share state and lifecycle. Use separate views for genuinely independent surfaces: a persistent HUD plus an independent panel, for example.
 
-For V10 projects:
+For separate views:
 
-- mark passive HUDs `ViewRole::kWidget`;
-- mark interactive menus `ViewRole::kPanel`;
-- use `IsAnyPanelVisible` before opening a cooperating panel;
-- capability-check `InputRegions` before using `FocusOverlay` / `SetInputRegions`.
+- mark HUDs `ViewRole::kWidget`, interactive menus `ViewRole::kPanel`;
+- check `IsAnyPanelVisible` before opening a menu;
+- capability-check input regions before using overlay focus.
 
-## Key rules
+## Rules worth remembering
 
-| Rule | Reason |
-|---|---|
-| Expose C++-called `window.*` functions at module load | They exist before components mount |
-| Register Prisma JS listeners at DOM-ready | Avoid view/context timing ambiguity |
-| Register translations at DOM-ready before translation-dependent init | The legacy path injects them through `Invoke` |
-| Use `InteropCall` for normal named C++ -> JS messages | Simple structured bridge path |
-| Use JSON strings for structured payloads | Stable language boundary |
-| Bundle required web dependencies locally | Matches the current sandbox and offline mod packaging |
-| Test the built bundle in Ultralight | Chrome/Vite success is not runtime proof |
+| Rule | Why |
+| --- | --- |
+| Register `window.*` handlers at module load | They exist before components mount |
+| Register Prisma listeners in `OnDomReady` | The document exists; timing is predictable |
+| Register translations before rendering translated text | They arrive as a live injection |
+| Send structured data as JSON strings | One stable language boundary |
+| Bundle web dependencies locally | The sandbox blocks remote assets |
+| Test the built bundle in game | Chrome success is not Ultralight success |
 
-See [Translations](translations), [HTML Views](html-views), [Networking](networking), [View Lifecycle](view-lifecycle), and [API Reference](api-reference).
+## Where to go next
+
+- [The HTML side](html-views) — the page contract
+- [Translations](translations) — V4 JSON files
+- [Show a 3D item preview](cookbook/item-preview) — a framework-friendly preview integration
+- [Performance notes](html-views) — keep the page cheap

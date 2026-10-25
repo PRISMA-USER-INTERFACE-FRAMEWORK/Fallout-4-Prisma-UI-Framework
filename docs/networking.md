@@ -5,92 +5,94 @@ sidebar_label: Networking
 sidebar_position: 10
 ---
 
-# Networking in PrismaUI_F4 2.2.0
+:::tip New to PrismaUI?
+Start with [Your first panel](quick-start) for a complete walkthrough, or copy a working example from the [Cookbook](/docs/cookbook/).
+:::
 
-PrismaUI_F4 2.2.0 uses an in-process **Ultralight 1.4.0** backend with a deliberately restrictive content-security policy. A Prisma view should be treated as a **local UI document**, not as a general-purpose web client.
+# Networking
 
-If your mod needs HTTP, WebSocket, server push, authentication, or other real network behavior, do that work in native C++ and pass the result into the view through `InteropCall`, `Invoke`, or your registered bridge callbacks.
+The page inside a PrismaUI view is a local document. It can load its own HTML, CSS, JavaScript, fonts and images, and that is all. It is not a web browser and it cannot talk to the internet.
 
-## Shipping rule
+That is deliberate, and it shapes how you build anything online.
 
-For the production Ultralight path, required application assets should be shipped with the mod.
+## The rule
 
-Use:
-
-- local HTML/CSS/JS under `Data/PrismaUI_F4/views/`
-- local images and fonts bundled with the mod
-- `data:` / `blob:` only where the framework CSP permits them
-- C++ for external network I/O
-
-Do **not** build a required UI path around:
-
-- remote `fetch()` or XHR
-- CDN-hosted JavaScript or CSS
-- Google Fonts or other remote fonts
-- WebSocket / EventSource
-- Worker / SharedWorker / ServiceWorker
-- arbitrary `file://` URLs
-- localhost, LAN, router, or other private-network access
-
-Older earlier-runtime documentation described a remote-domain allowlist. That is **not the production Ultralight contract**. The Ultralight CSP is intentionally stricter and does not add those external hosts to the shipping transport policy.
-
-## Why the restriction exists
-
-A mod UI runs inside the game process. Allowing arbitrary HTML to make unrestricted requests would turn every installed UI asset into a potential network client with access to the player's environment.
-
-Prisma therefore separates responsibilities:
-
-```text
-Network / external service
-        |
-        v
-Your native F4SE plugin (C++)
-        |
-        | validated data / JSON
-        v
-InteropCall / Invoke / UI event bridge
-        |
-        v
-PrismaUI local view
+```
+internet  ──►  your C++ plugin  ──►  InteropCall / Invoke  ──►  the page
+                  (network, TLS,            JSON
+                   keys, retries)
 ```
 
-This keeps network policy, credentials, TLS libraries, threading, retries, and validation in code you control instead of depending on browser behavior.
+- **Networking happens in C++.** HTTP, WebSockets, authentication, retries, TLS — your plugin does it.
+- **The page only displays the result.** Your plugin sends validated JSON with `InteropCall`; the page renders it.
+- **Nothing required by the UI lives on a CDN.** No Google Fonts, no jsDelivr, no remote scripts or styles.
 
-## Recommended pattern
+If your mod loads a remote resource for the production view, it will fail for some players. The framework blocks it before the page sees it.
 
-### C++ side
+## What is blocked in the page
 
-Run blocking or long-lived network work away from the game thread. When data is ready, marshal the Prisma call onto the game thread before touching the UI.
+These do not work from view JavaScript:
+
+- remote `fetch()` and `XMLHttpRequest`;
+- `WebSocket`, `EventSource`, `WebTransport`;
+- `Worker`, `SharedWorker`, service workers;
+- WebRTC (`RTCPeerConnection`);
+- remote scripts, stylesheets and fonts;
+- `file://` paths outside your view folder;
+- localhost and private-network addresses.
+
+`data:` URLs and local files inside your view folder are fine.
+
+## The pattern that works
+
+### 1. Do the network work off the game thread
 
 ```cpp
-static PRISMA_UI_API::IVPrismaUI2* g_api = nullptr;
-static PrismaView g_view = 0;
+static void FetchPlayerStats()
+{
+    // Your own worker thread or async client. Never block the game thread on I/O.
+    std::thread([] {
+        std::string json = MyHttpClient::Get("https://api.example.com/stats");
+        // Validate and shape the data before it reaches the UI.
+        auto result = BuildStatsPayload(json);
+        OnNetworkResult(std::move(result));
+    }).detach();
+}
+```
 
-void OnNetworkResult(std::string json)
+### 2. Hand the result back to the game thread
+
+```cpp
+static void OnNetworkResult(std::string json)
 {
     F4SE::GetTaskInterface()->AddTask([json = std::move(json)]() {
-        if (!g_api || !g_view || !g_api->IsValid(g_view)) {
-            return;
-        }
-        g_api->InteropCall(g_view, "onNetworkResult", json.c_str());
+        if (!g_api || !g_api->IsValid(g_view)) return;   // the view may be gone
+        g_api->InteropCall(g_view, "onStats", json.c_str());
     });
 }
 ```
 
-### JavaScript side
+The `IsValid` check matters: the player can close the panel while your request is in flight.
+
+### 3. Render it in the page
 
 ```js
-window.onNetworkResult = function (json) {
-  const data = JSON.parse(json);
-  render(data);
+window.onStats = function (json) {
+  try {
+    const stats = JSON.parse(json);
+    document.getElementById('level').textContent = stats.level;
+    document.getElementById('hours').textContent = stats.hours;
+  } catch (e) {
+    console.error('bad stats payload', e);
+  }
 };
 ```
 
-The view never needs direct access to the remote service.
+That is the whole contract: native fetch, game-thread handoff, JSON into the page.
 
 ## Local assets
 
-Keep dependencies inside your mod whenever possible. A typical layout is:
+Keep everything the page needs in its view folder:
 
 ```text
 Data/PrismaUI_F4/views/MyPlugin/
@@ -102,8 +104,6 @@ Data/PrismaUI_F4/views/MyPlugin/
 └── images/
     └── icon.webp
 ```
-
-Then reference them with document-relative URLs:
 
 ```html
 <link rel="stylesheet" href="app.css">
@@ -117,43 +117,23 @@ Then reference them with document-relative URLs:
 }
 ```
 
-This is more reliable for players, works offline, avoids third-party availability changes, and matches the current security model.
+A mod that works offline works for every player, on every connection, and after the remote service changes its URLs.
 
-## Private/local network protection
+## If your plugin needs localhost or a LAN service
 
-Prisma also maintains native and script-level protections around loopback/private network targets. Mod authors should not try to work around them from JavaScript.
+Do it in native code, where you control the address, protocol, validation and error handling. Do not try to reach loopback from page JavaScript — the sandbox blocks it, and working around it is not a supported pattern.
 
-If your own plugin intentionally needs localhost or LAN communication, implement that connection in native code where you can explicitly define the address, protocol, validation, and user expectations.
+## Debugging a blank page caused by a remote asset
 
-## Threading
+1. Look at `PrismaUI_F4.log` — CSP refusals are logged.
+2. Open F12 and check the Console and Network tabs.
+3. Search the page for `http://`, `https://`, `//cdn`, `fonts.googleapis`.
+4. Move that file into the view folder and point at it relatively.
+5. Test with the machine offline: the interface must still render fully.
 
-Do not block the game thread for network I/O.
+## Where to go next
 
-A safe pattern is:
-
-1. perform HTTP/socket work on a worker thread or asynchronous native client;
-2. validate and parse the response;
-3. queue a task back to the game thread;
-4. verify the Prisma view still exists;
-5. call `InteropCall` or `Invoke`.
-
-## Debugging
-
-If a page tries to load a remote dependency and the UI is blank or incomplete:
-
-1. confirm the asset is not hosted on a CDN;
-2. move the dependency into your mod's view directory;
-3. check `PrismaUI_F4.log` and your plugin log for load/console errors;
-4. register `RegisterConsoleCallback` during development;
-5. verify the page works with all external network access disabled.
-
-For release-quality PrismaUI content, an offline machine should still be able to render the complete interface.
-
-## Summary
-
-- PrismaUI_F4 views are local UI documents.
-- Self-host required HTML, CSS, JS, fonts, and images with the mod.
-- Do external HTTP/WebSocket work in C++.
-- Push validated results into the view through the Prisma bridge.
-- Do not rely on the old legacy-runtime remote-domain whitelist documentation.
-- Do not attempt to bypass private-network or arbitrary-file restrictions from JavaScript.
+- [The HTML side](html-views) — the full page contract
+- [Limitations](limitations) — every unsupported web feature in one list
+- [Debugging your view](debugging) — when a page loads but looks wrong
+- [Packaging your mod](packaging) — shipping local assets

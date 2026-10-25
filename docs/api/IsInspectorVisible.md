@@ -16,4 +16,6 @@ Current builds provide the packaged in-game inspector when DevTools are enabled.
 
 ## See also
 
-`CreateInspectorView`, `SetInspectorVisibility`, [`GetViewHealth`](GetViewHealth.md).
+`CreateInspectorView`, `SetInspectorVisibility`, [`GetViewHealth`](GetViewHealth).
+
+**Try it:** [Debugging your view](../debugging).

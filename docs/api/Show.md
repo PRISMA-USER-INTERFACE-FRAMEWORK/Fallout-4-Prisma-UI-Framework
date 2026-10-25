@@ -12,3 +12,5 @@ separately if the view should also receive input.
 ## See also
 
 `Hide`, `IsHidden`, `Focus`.
+
+**Try it:** [Build your first panel](../quick-start).

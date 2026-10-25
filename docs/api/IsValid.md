@@ -14,3 +14,5 @@ game reload - a `PrismaView` handle from a previous game session is not valid in
 ## See also
 
 `Destroy`, `GetViewHealth` (V8) - a richer health check beyond simple validity.
+
+**Try it:** [View lifecycle](../view-lifecycle).

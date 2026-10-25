@@ -45,3 +45,5 @@ void CreateMyView() {
     g_api->Hide(g_view);   // views are visible by default; hide until the player opens it
 }
 ```
+
+**Try it:** [Build your first panel](../quick-start).

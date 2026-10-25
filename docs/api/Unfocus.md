@@ -15,3 +15,5 @@ only releases input, it does not hide the view.
 ## See also
 
 `Focus`, `Hide`.
+
+**Try it:** [Panel management](../panel-management).

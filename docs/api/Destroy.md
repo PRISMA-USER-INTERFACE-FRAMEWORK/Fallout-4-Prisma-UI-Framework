@@ -13,3 +13,5 @@ session rather than destroyed and recreated.
 ## See also
 
 `IsValid`, `Hide`.
+
+**Try it:** [View lifecycle](../view-lifecycle).

@@ -13,3 +13,5 @@ working. Use `Destroy` if you actually want to tear the view down.
 ## See also
 
 `Show`, `IsHidden`, `Destroy`.
+
+**Try it:** [Build your first panel](../quick-start).

@@ -32,6 +32,8 @@ After removal, the button falls back to the normal Prisma controller policy. For
 
 ## See also
 
-- [Controller actions](../controller-actions.md)
+- [Controller actions](../controller-actions)
 - `BindControllerAction`
 - `ClearControllerActions`
+
+**Try it:** [A controller-friendly menu](../cookbook/controller-menu).

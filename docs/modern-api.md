@@ -1,136 +1,130 @@
 ---
 title: 'Modern API'
 ---
-# Modern feature-table API
 
-`PrismaUI_F4_Modern_API.h` is the preferred discovery surface for new native integrations. It does not replace the frozen `IVPrismaUI1` through `IVPrismaUI12` ABI. It provides independently versioned feature tables so a consumer can request only the framework capabilities it actually uses.
+# Modern API
 
-## Header
+New plugins should use `PrismaUI_F4_Modern_API.h`. Instead of one large interface, it gives you small feature tables, and you ask only for the ones you need.
 
-```cpp
-#include "PrismaUI_F4_Modern_API.h"
-```
+Existing plugins using `PrismaUI_F4_API.h` (`IVPrismaUI1` … `IVPrismaUI12`) keep working unchanged. The modern header does not deprecate them; it is a nicer way to discover the same framework.
 
-The namespace is `PRISMA_UI_FLAT_API`.
-
-## Feature tables
-
-| Feature | Table | Current version | Purpose |
-|---|---|---:|---|
-| Core | `CoreAPI` | 1 | View lifecycle, focus, visibility, ordering, health, console, legacy translations, enumeration and core rendering hooks |
-| Controller | `ControllerAPI` | 1 | Device state, prompts, roles, input regions, focused controller actions, focus entry and native Gamepad mode |
-| GameThread | `GameThreadAPI` | 1 | Verified Fallout window-thread dispatch and UI event callbacks |
-| Meta | `MetaAPI` | 1 | Provider identity, API build and feature discovery |
-| View | `ViewAPI` | 1 | Focused view lifecycle plus cursor policy |
-| Interop | `InteropAPI` | 1 | Invoke, interop calls, JS listeners, UI events and console callbacks |
-| Localization | `LocalizationAPI` | 1 | Legacy translations plus V4 JSON localization |
-| Render | `RenderAPI` | 1 | SRV, offscreen rendering and geometry/screen-texture binding |
-| Input | `InputAPI` | 1 | Scrolling compatibility and selective input regions |
-| Menu | `MenuAPI` | 1 | HUD/menu suppression, activate-choice capture and view enumeration |
-
-All current feature tables start with `structSize` and `apiVersion`. Consumers should discover the table and use only the methods present in the returned version.
-
-## Discover a table
+## The idea in one example
 
 ```cpp
 #include "PrismaUI_F4_Modern_API.h"
 
 using namespace PRISMA_UI_FLAT_API;
 
-ControllerAPI g_controller{};
+static ViewAPI       g_viewApi{};
+static InteropAPI    g_interop{};
+static LocalizationAPI g_localization{};
 
-bool LoadControllerAPI()
+static bool LoadPrisma()
 {
-    return Discover<ApiFeature::Controller>(ControllerApiVersion, g_controller);
+    return Discover<ApiFeature::View>(ViewApiVersion, g_viewApi) &&
+           Discover<ApiFeature::Interop>(InteropApiVersion, g_interop) &&
+           Discover<ApiFeature::Localization>(LocalizationApiVersion, g_localization);
 }
 ```
 
-`Discover` clears the table, requests `PrismaUI_F4_GetAPI`, verifies the returned size, and rejects an API version below the requested minimum.
+Each `Discover` call fills one table and returns `false` when the installed PrismaUI cannot provide it. You never call through a table you failed to discover.
 
-## Check provider capabilities
+## The tables
 
-The Meta table can be used when a plugin wants explicit capability discovery before requesting another feature.
+| Feature | Table | What it is for |
+| --- | --- | --- |
+| Core | `CoreAPI` | View lifecycle, focus, visibility, ordering, health, console, legacy translations, enumeration, rendering hooks |
+| View | `ViewAPI` | Focused view lifecycle plus cursor policy |
+| Interop | `InteropAPI` | `Invoke`, `InteropCall`, JS listeners, UI events, console callbacks |
+| Controller | `ControllerAPI` | Device state, prompts, roles, input regions, controller actions, focus entry, native gamepad |
+| GameThread | `GameThreadAPI` | Verified game-thread dispatch and UI event callbacks |
+| Localization | `LocalizationAPI` | Legacy translations plus V4 JSON localization |
+| Render | `RenderAPI` | Offscreen rendering, texture view and geometry/screen-texture binding |
+| Input | `InputAPI` | Scrolling compatibility and selective input regions |
+| Menu | `MenuAPI` | HUD/menu suppression, activate-choice capture and view enumeration |
+| Meta | `MetaAPI` | Provider identity, API build and capability discovery |
+
+Every table starts with `structSize` and `apiVersion`, so a newer framework can hand you the fields your build understands.
+
+## Which table do I need?
+
+- Creating and showing a panel: **View** (and **Interop** for page messaging).
+- Page ↔ plugin messages: **Interop**.
+- Controller buttons and prompts: **Controller**.
+- Changing game state from a page event: **GameThread**.
+- Translation files: **Localization**.
+- HUD and menu suppression: **Menu**.
+- Overlay input regions: **Controller** / **Input**.
+- In-world screens: **Render**.
+
+You can add a table later without rewriting the rest — that is the point of the split.
+
+## Checking capabilities
+
+When you want to know whether a feature exists before requesting another table, use the Meta table:
 
 ```cpp
-using namespace PRISMA_UI_FLAT_API;
-
 MetaAPI meta{};
 if (!Discover<ApiFeature::Meta>(MetaApiVersion, meta)) {
     return;
 }
 
 if (!HasCapability(meta, ApiFeature::Localization, LocalizationApiVersion)) {
-    return;
+    return;   // translations are not available on this build/provider
 }
 ```
 
-Do not infer support from a PrismaUI version string when a feature-table query is available.
+Prefer this over checking a version string. A version number tells you which release is installed; a capability tells you what it can actually do here — including on VR, where the provider advertises only what it implements.
 
-## Controller API
+## Controller table
 
-The Controller table includes the V9-V12 controller surface plus native Gamepad mode:
+The Controller table covers the V9–V12 controller surface plus native gamepad mode:
 
-- `IsUsingGamepad`
-- `GetControllerStyle`
-- `SetControllerStyle`
-- `NoteInputDevice`
-- `GetButtonPrompt`
-- `GetGamepadButtonName`
-- `SetViewOwnsEscape`
-- `SetViewRole`
-- `GetViewRole`
-- `GetFocusedView`
-- `IsAnyPanelVisible`
-- `FocusOverlay`
-- `SetInputRegions`
-- `BindControllerAction`
-- `UnbindControllerAction`
-- `ClearControllerActions`
-- `GetControllerActionBridgeState`
-- `BindControllerFocusEntry`
-- `UnbindControllerFocusEntry`
+- `IsUsingGamepad`, `GetControllerStyle`, `SetControllerStyle`, `NoteInputDevice`
+- `GetButtonPrompt`, `GetGamepadButtonName`
+- `SetViewOwnsEscape`, `SetViewRole`, `GetViewRole`
+- `GetFocusedView`, `IsAnyPanelVisible`
+- `FocusOverlay`, `SetInputRegions`
+- `BindControllerAction`, `UnbindControllerAction`, `ClearControllerActions`, `GetControllerActionBridgeState`
+- `BindControllerFocusEntry`, `UnbindControllerFocusEntry`
 - `SetNativeGamepad`
 
-Use focused controller actions for semantic UI commands. Use `SetNativeGamepad` only when a focused page needs live stick/trigger state through `navigator.getGamepads()`.
+Use controller actions for menu commands. Use `SetNativeGamepad` only when the page genuinely needs live stick or trigger values through `navigator.getGamepads()`.
 
-PrismaUI 2.2.0 owns controller-action bridge recovery. Consumers should not build their own retry loop around a failed bridge install.
+PrismaUI owns controller-bridge recovery. Do not build another retry loop on top.
 
-## Localization API
-
-The Localization table exposes both compatibility registration and V4 JSON localization:
+## Localization table
 
 ```cpp
 LocalizationAPI localization{};
-if (!Discover<ApiFeature::Localization>(LocalizationApiVersion, localization)) {
-    return;
-}
+if (!Discover<ApiFeature::Localization>(LocalizationApiVersion, localization)) return;
 
 if (!localization.RegisterTranslationsV4(view, "MyPlugin")) {
-    return;
+    REX::WARN("no usable translation JSON");
 }
 ```
 
-V4 loads JSON through Fallout's resource system, supports loose files and BA2 archives, detects the selected game language, falls back to English, supports dotted keys, and exposes interpolation through `window.PrismaL10N`.
+V4 loads JSON through the game's resource system (loose files or BA2), follows the selected language with English fallback, supports dotted keys, and exposes `window.PrismaL10N`. The file contract is on [Translations](translations).
 
-See [Translations](translations.md) for the file contract.
+## Cursor policy
 
-## View cursor policy
+`ViewAPI` has `SetViewCursorPolicy` / `GetViewCursorPolicy`. Cursor policy is per view, so a page can use its own CSS cursor without fighting the compositor cursor.
 
-The View table exposes `SetViewCursorPolicy` and `GetViewCursorPolicy`. Cursor policy is owned per view so a page can use its own CSS cursor without fighting the compositor cursor.
+## When to use the numbered API instead
 
-## Legacy API remains supported
+- You maintain an existing plugin that already requests a numbered interface.
+- You need one specific V-numbered interface and nothing else.
+- You are following an older guide that was written against it.
 
-`PrismaUI_F4_API.h` remains the stable vtable ABI for existing consumers. V1-V12 are unchanged by the modern discovery surface.
+Both headers can be used in the same plugin if you are migrating one table at a time.
 
-Use the legacy header when maintaining an existing plugin that already requests a numbered interface. Prefer the feature-table header for new integrations that want explicit capability discovery and smaller contracts.
+## VR
 
-## Fallout 4 VR
+The modern header can discover a VR provider, but VR advertises only the features it implements. Always discover the exact feature and null-check it — do not assume the flat provider's tables exist.
 
-The modern header can discover a VR provider, but VR advertises only features it actually implements. Do not assume that GameThread or every flat-provider table exists in VR. Always discover the exact feature and null-check the result.
+## Where to go next
 
-## Related
-
-- [API Reference](api-reference.md)
-- [Current API Extensions](api-extensions.md)
-- [Controller Actions](controller-actions.md)
-- [Translations](translations.md)
+- [Your first panel](quick-start) — the numbered API, complete
+- [API reference](api-reference) — every call
+- [Current API extensions](api-extensions) — what V11 and V12 added
+- [Controller actions](controller-actions) · [Translations](translations)

@@ -32,6 +32,8 @@ V11 is flat Fallout 4 only. The VR provider does not advertise V11.
 
 ## See also
 
-- [Current API extensions](../api-extensions.md)
+- [Current API extensions](../api-extensions)
 - `DispatchToGameThread`
 - `BindGameThreadUIEvent`
+
+**Try it:** [Run game-thread work from a button](../cookbook/run-game-thread-work).

@@ -51,7 +51,9 @@ Mapped input is admitted only for the exact focused live view. Admission can sto
 
 ## See also
 
-- [Controller actions](../controller-actions.md)
+- [Controller actions](../controller-actions)
 - `UnbindControllerAction`
 - `ClearControllerActions`
 - `BindGameThreadUIEvent`
+
+**Try it:** [A controller-friendly menu](../cookbook/controller-menu).

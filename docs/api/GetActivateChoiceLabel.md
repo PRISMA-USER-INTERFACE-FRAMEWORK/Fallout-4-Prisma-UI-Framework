@@ -28,3 +28,5 @@ isn't enabled.
 ## See also
 
 `EnableActivateChoiceFilter` (V7), `TriggerActivateChoice`.
+
+**Try it:** [Vanilla UI suppression](../vanilla-ui-suppression).

@@ -38,3 +38,5 @@ api->RegisterConsoleCallback(view,
         logger::info("{} {}", tag, msg);
     });
 ```
+
+**Try it:** [Debugging your view](../debugging).

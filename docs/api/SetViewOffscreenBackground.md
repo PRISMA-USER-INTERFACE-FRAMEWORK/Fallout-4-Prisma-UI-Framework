@@ -44,4 +44,6 @@ This method was appended to V9 before V10 was introduced. Consumers using it sho
 
 ## See also
 
-[`SetViewOffscreen`](SetViewOffscreen.md), [`SetViewOffscreenSize`](SetViewOffscreenSize.md), `BindViewToGeometry`, `BindViewToScreenTexture`.
+[`SetViewOffscreen`](SetViewOffscreen), [`SetViewOffscreenSize`](SetViewOffscreenSize), `BindViewToGeometry`, `BindViewToScreenTexture`.
+
+**Try it:** [Model preview / in-world screens](../model-preview).

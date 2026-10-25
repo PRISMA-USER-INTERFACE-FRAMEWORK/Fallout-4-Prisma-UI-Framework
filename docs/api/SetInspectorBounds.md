@@ -22,4 +22,6 @@ Current builds open the in-game Ultralight inspector with **F12** when DevTools 
 
 ## See also
 
-`CreateInspectorView`, `SetInspectorVisibility`, [`RegisterConsoleCallback`](RegisterConsoleCallback.md).
+`CreateInspectorView`, `SetInspectorVisibility`, [`RegisterConsoleCallback`](RegisterConsoleCallback).
+
+**Try it:** [Debugging your view](../debugging).

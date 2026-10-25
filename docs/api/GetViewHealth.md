@@ -48,4 +48,6 @@ Use `RegisterConsoleCallback`, `Invoke` error results, and `PrismaUI_F4.log` to 
 
 ## See also
 
-[`IsValid`](IsValid.md), [`RegisterConsoleCallback`](RegisterConsoleCallback.md), [View Health & Watchdog](../view-watchdog.md).
+[`IsValid`](IsValid), [`RegisterConsoleCallback`](RegisterConsoleCallback), [View Health & Watchdog](../view-watchdog).
+
+**Try it:** [Debugging your view](../debugging).

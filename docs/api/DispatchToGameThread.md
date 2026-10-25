@@ -48,6 +48,8 @@ V11 is exposed by the flat Fallout 4 provider. The VR provider does not advertis
 
 ## See also
 
-- [Current API extensions](../api-extensions.md)
+- [Current API extensions](../api-extensions)
 - `IsGameThread`
 - `BindGameThreadUIEvent`
+
+**Try it:** [Run game-thread work from a button](../cookbook/run-game-thread-work).

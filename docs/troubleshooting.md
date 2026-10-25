@@ -5,180 +5,124 @@ sidebar_label: Troubleshooting
 sidebar_position: 99
 ---
 
-# Troubleshooting PrismaUI_F4 2.2.0
+# Troubleshooting
 
-Start with:
+Find your symptom, run the checks in order, stop at the first one that fails. Most PrismaUI problems are one of: a view that was never created, a view that is visible but not focused, or a page asset that did not load.
 
-```text
-Documents\My Games\Fallout4\F4SE\PrismaUI_F4.log
-```
+## First 30 seconds
 
-Also keep your consumer plugin log. For JavaScript errors, register `RegisterConsoleCallback` during development.
+1. Open **`Documents\My Games\Fallout4\F4SE\PrismaUI_F4.log`**. If it does not exist, the framework never ran — fix F4SE or the game version first.
+2. Open your own plugin log. Look for your `CreateView` line.
+3. If the view was created, press **F12** while it is focused and look at the Console.
+
+That resolves most reports before you read further.
 
 ## Nothing appears on screen
 
-Check these in order:
+1. Is `PrismaUI_F4.dll` in `Data\F4SE\Plugins\` and loaded by F4SE? The framework log proves it.
+2. Is the Ultralight runtime present under `Data\PrismaUI_F4\`?
+3. Did you call `RequestPluginAPI` at or after `kGameDataReady`? Earlier returns null.
+4. Does the path in `CreateView` match the folder under `Data\PrismaUI_F4\views\` exactly, including capital letters?
+5. Is the handle non-zero and `IsValid(view)` true?
+6. Did you create it at `kPostLoadGame` / `kNewGame`? Creating before a world exists can give you a handle that has nothing to attach to.
+7. Did you call `Hide()` after creation and never `Show()`? That is normal for menus — the open path must call `Show`.
 
-1. `PrismaUI_F4.dll` is installed under `Data/F4SE/Plugins/` and actually loaded by F4SE.
-2. The current Ultralight runtime tree exists under `Data/PrismaUI_F4/` with its `libs`, `resources`, and runtime data.
-3. `RequestPluginAPI` is called during/after `kGameDataReady` and its return value is not null.
-4. The HTML path is relative to `Data/PrismaUI_F4/views/`.
-5. The view handle is nonzero and `IsValid(view)` is true.
-6. You did not hide the view and forget to show it again.
+## The panel is visible but clicks do nothing
 
-`CreateView` starts a view visible. Many plugins intentionally call `Hide(view)` immediately after creation so the panel can be preloaded. If you do that, call `Show(view)` on the real open path.
-
-## The UI appears but input does not work
-
-A visible view does not automatically mean it owns interactive focus.
-
-For a conventional panel:
+A visible view is not a focused view.
 
 ```cpp
 api->SetViewRole(view, PRISMA_UI_API::ViewRole::kPanel);
 api->Show(view);
-api->Focus(view, false, false);
+api->Focus(view, /*pauseGame=*/false);
 ```
 
-Before opening a panel over other PrismaUI mods, use `IsAnyPanelVisible()` or `GetFocusedView()` rather than treating every visible widget as a blocker.
+Also check that another Prisma view is not holding focus (`GetFocusedView()`), and that your page has something focusable in the area the player clicks.
 
-For selective overlay input, use `FocusOverlay`/`SetInputRegions` only when:
+## A JavaScript listener does nothing
 
-```cpp
-PRISMA_UI_API::HasPrismaCapability(
-    PRISMA_UI_API::PrismaCapability::InputRegions)
-```
+- Are the names identical? `window.requestClose` and `BindUIEvent(view, "requestClose", …)`.
+- Was the listener registered in `OnDomReady`? Registration before the DOM exists does nothing useful.
+- Did JavaScript throw earlier in the page? Register `RegisterConsoleCallback` and read the log.
+- Is the page healthy? `GetViewHealth(view)`.
 
-returns true.
+## The page is blank, white or unstyled
 
-## A JS listener does nothing
+- Missing CSS link, or the CSS file is not in the view folder.
+- No transparent background on `html, body` — a page with the default white background covers the game.
+- A remote stylesheet or font was blocked — anything on a CDN is blocked. See [Networking](networking).
+- The page threw before painting. Check the Console.
 
-Check:
+## The game crashes when the plugin calls PrismaUI
 
-- the C++ listener name and JavaScript function name match exactly;
-- the view is valid and its document has reached the expected lifecycle point;
-- your JavaScript did not throw before calling the listener;
-- `RegisterConsoleCallback` for console errors;
-- `GetViewHealth(view)` for load/unresponsive state.
-
-Use `BindUIEvent` when you want the game-thread callback contract to be explicit.
-
-## The game crashes when calling PrismaUI
-
-The most common consumer-side cause is dereferencing a null or incompatible API pointer.
+The usual cause is a null or mismatched API pointer:
 
 ```cpp
 auto* api = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>();
 if (!api) {
-    logger::error("PrismaUI_F4 V10 unavailable");
+    REX::CRITICAL("PrismaUI_F4 V10 unavailable");
     return;
 }
 ```
 
-Compile against the current public SDK headers. Do not mix an old copied header with assumptions about newer vtable methods or feature tables.
+Also check that the header you build against matches the installed framework, and that you are not calling a newer interface than the installed build provides.
 
-The public legacy and modern SDK headers are mirrored from the canonical Prisma-Matrix provider source.
+## Translations do not appear
 
-## The UI is blank or unstyled
+- File name must be `<pluginName>_<language>.json` under `Data\Interface\Translations\`, and `<pluginName>` must equal the string passed to `RegisterTranslationsV4`.
+- Call registration in `OnDomReady`, and only then ask the page to render text.
+- `RegisterTranslationsV4` returns `false` when the file is missing or malformed — check the return value.
+- The page must use `window.PrismaL10N` only after registration; a module-level read runs too early.
 
-Bundle required assets with the mod and use document-relative paths:
+## HUD suppression returns false or does nothing
 
-```html
-<link rel="stylesheet" href="app.css">
-<script src="app.js"></script>
-```
+`SuppressHUDWidget` needs a supported runtime with matching game support data. On an unsupported game version it fails closed instead of guessing. Check the return value and the framework log; if it fails, hide the widget through your own means or disable that part of your UI.
 
-Do not depend on CDN JavaScript, Google Fonts, or other remote resources for the production Ultralight UI path. The shipping Ultralight security model is intentionally restrictive.
+## Activate-choice filtering behaves differently than old guides say
 
-If a remote dependency worked under an old legacy-runtime build and fails now, move it into your mod.
+The released behaviour is narrower than some older documentation:
 
-See [Networking](networking).
+- `EnableActivateChoiceFilter(true, dropDefaultTake)` enables capture; `dropDefaultTake` is ignored.
+- `SuppressActivateChoicePerk` is a compatibility placeholder and does not remove perk rows.
+- Use `GetActivateChoiceLabel` and `TriggerActivateChoice` for the supported read/trigger path.
 
-## DevTools / inspector
+## Input leaks through to the game
 
-Do not use old instructions for an external legacy-runtime host or Chrome remote-debugging session.
+- For a normal interactive panel, use `Focus`, not just `Show`.
+- For an overlay, use V10 input regions and keep the rectangles in sync with the visible controls. A wrong rectangle lets clicks through or eats clicks over empty space.
+- For Escape, only take ownership (`SetViewOwnsEscape`) when the page actually handles Escape.
 
-Current PrismaUI builds package an in-game Ultralight inspector. Press **F12** when DevTools are enabled. The inspector provides Elements, Sources, Console, Network, Timelines, Storage, Graphics, Layers, and Audit panels.
+## 3D and on-mesh views
 
-Also use:
+- Wait until the view has rendered before expecting a texture.
+- Set the offscreen size to the target surface's aspect ratio.
+- Bind after the target geometry exists; rebind if the game rebuilds it.
+- Unbind while the original geometry is still valid.
+- Never release the framework-owned texture yourself.
 
-- `PrismaUI_F4.log`;
-- your plugin's F4SE log;
-- `RegisterConsoleCallback`;
-- `GetViewHealth`;
-- `Invoke` error results.
+Mesh binding is an advanced, debug-gated integration. It is off by default, so it is not the right tool for a normal overlay.
 
-The V1 inspector ABI methods are not the control surface for the current F12 workflow.
+## The installation has leftover old files
 
-## The installation contains old legacy-runtime files
+If the game folder has a mix of old and current runtime files, reinstall the PrismaUI package cleanly. Do not hand-merge runtime generations.
 
-A current install should not require:
+Do not delete the current Ultralight libraries: `AppCore.dll`, `Ultralight.dll`, `UltralightCore.dll` and `WebCore.dll` are part of the shipping runtime.
 
-```text
-retired host component
-retired subprocess
-retired runtime library
-retired runtime directory/
-```
+## Reporting a bug
 
-If you upgraded from an old development build and still have mixed runtime generations, reinstall the current PrismaUI_F4 package cleanly rather than trying to combine them.
+Include:
 
-Do **not** delete the current Ultralight libraries. `AppCore.dll`, `Ultralight.dll`, `UltralightCore.dll`, and `WebCore.dll` are part of the current Ultralight runtime.
-
-## HUD suppression does not work
-
-`SuppressHUDWidget` supports:
-
-- OG 1.10.163;
-- AE 1.11.137+ when matching Address Library data is available.
-
-The intermediate 1.10.980-1.10.984 Next-Gen runtime line is not supported by the current PrismaUI_F4 desktop line.
-
-The call can also return `false` for an unknown widget class or when the required runtime authority cannot be safely resolved. Check the return value and the framework log.
-
-## Activate-choice filtering does not behave like old docs
-
-The released V7 behavior is intentionally narrower than older documentation claimed:
-
-- `EnableActivateChoiceFilter(true, dropDefaultTake)` enables activate-choice **capture**. `dropDefaultTake` is ignored.
-- `SuppressActivateChoicePerk` is an ABI placeholder and does not remove perk rows.
-- Use V8 `GetActivateChoiceLabel` and `TriggerActivateChoice` for the supported capture/read/trigger path.
-
-## Input leaks to the game
-
-If the UI is meant to be a normal interactive panel, use `Focus()` rather than only `Show()`.
-
-If it is meant to be a partially interactive overlay, use V10 input regions and keep the rectangles synchronized with the visible controls. An incorrect region can make empty space consume input or let a visible control click through to the game.
-
-For Escape behavior, review `SetViewOwnsEscape` and make sure your JavaScript provides a close path before taking ownership of Escape.
-
-## 3D/on-mesh view issues
-
-For offscreen/on-mesh views:
-
-- ensure the view has rendered before expecting a live SRV;
-- configure offscreen size for the target surface;
-- bind after the target geometry exists;
-- rebind if Fallout rebuilds that geometry;
-- unbind while the original geometry is still valid;
-- do not `Release()` the framework-owned SRV;
-- remember that mesh binding remains an explicit advanced integration rather than a requirement for normal overlays.
-
-## Runtime/version confusion
-
-The supported desktop framework line is:
-
-- 1.10.163 OG
-- 1.11.137+ AE with matching Address Library data
-
-Do not treat 1.10.980-1.10.984 as a supported middle runtime just because older docs called it "NG".
-
-When reporting a bug, include:
-
-- PrismaUI_F4 version;
-- Fallout executable version;
+- PrismaUI version and where it came from;
+- your exact Fallout 4 version;
 - F4SE version;
-- Address Library version when relevant;
-- `PrismaUI_F4.log`;
-- consumer plugin log;
-- whether the issue is a normal screen view, offscreen view, or mesh-bound view.
+- `Documents\My Games\Fallout4\F4SE\PrismaUI_F4.log`;
+- your plugin log;
+- whether the view is a normal screen view, an offscreen view or a mesh-bound view;
+- what you did just before it happened, and whether it happens again after reopening the panel.
+
+## Where to go next
+
+- [Debugging your view](debugging) — the tooling behind these checks
+- [Limitations](limitations) — when the answer is "not supported"
+- [FAQ](faq) — quick questions
+- [Your first panel](quick-start) — a known-good setup to compare against

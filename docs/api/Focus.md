@@ -41,3 +41,5 @@ Standard toggle menus opened directly from gameplay, with no other game menu pre
 
 `Unfocus`, `HasFocus`, `SetViewOwnsEscape` (V9) - an alternative way to handle Escape yourself
 inside the page instead of relying on the FocusMenu overlay.
+
+**Try it:** [Panel management](../panel-management).

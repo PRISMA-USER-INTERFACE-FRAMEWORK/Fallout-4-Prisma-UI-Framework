@@ -1,17 +1,42 @@
 ---
 id: panel-management
-title: Panel Management
-sidebar_label: Panel Management
+title: Panel management
+sidebar_label: Panel management
 sidebar_position: 12
 ---
 
-# Panel Management
+# Panel management
 
-Panel management answers the question every multi-mod setup eventually hits: **is another Prisma UI already open, and should mine wait?**
+Fallout 4 sessions have more than one PrismaUI mod in them. This page is about not putting your menu on top of someone else's menu, and about letting your own panel be found by the others.
 
-This coordination surface requires `IVPrismaUI10`.
+The calls here need `IVPrismaUI10`.
 
-## View roles
+## The short version
+
+```cpp
+// Once, after creating the view:
+g_api->SetViewRole(g_view, PRISMA_UI_API::ViewRole::kPanel);
+
+// Before opening it:
+if (g_api->IsAnyPanelVisible(g_view)) {
+    return;   // someone else is open; do not stack
+}
+
+g_api->Show(g_view);
+g_api->Focus(g_view, /*pauseGame=*/true);
+```
+
+That is the whole cooperation protocol. Everything below explains it.
+
+## Why this exists
+
+`IsAnyPanelVisible` answers one question: *is another Prisma-powered interface already open?*
+
+Without it, two mods with a hotkey will both open when the player presses their keys, and the player ends up with two menus stacked on one screen, both trying to own input. With it, the second mod knows to wait.
+
+It only works if every interactive mod declares itself. That is what roles are for.
+
+## Roles
 
 ```cpp
 enum class ViewRole : uint32_t {
@@ -21,124 +46,145 @@ enum class ViewRole : uint32_t {
 };
 ```
 
-| Role | Use for | Counts as an interactive panel? |
-|---|---|---|
-| `kUnspecified` | undeclared/default view | No |
-| `kWidget` | passive HUD/overlay | No |
-| `kPanel` | inventory, crafting, MCM, terminal, dialog-like panel | Yes when visible/focused |
+| Role | Use it for | Counted as an open panel? |
+| --- | --- | --- |
+| `kUnspecified` | not decided yet | No |
+| `kWidget` | a passive HUD or overlay | No |
+| `kPanel` | inventory, settings, terminal, dialogue-like menu | Yes, while visible |
 
-Declare a role on any view that takes input:
-
-```cpp
-g_api->SetViewRole(g_view, PRISMA_UI_API::ViewRole::kPanel);
-```
-
-A focus-taking view left at `kUnspecified` logs a one-time framework warning and remains invisible to other plugins' `IsAnyPanelVisible` checks.
-
-## `IsAnyPanelVisible`
-
-Returns true if another view is focused, or is declared `kPanel` and is currently visible.
+Declare the role right after you create the view:
 
 ```cpp
-if (g_api->IsAnyPanelVisible(g_view)) {
-    return;
+g_view = g_api->CreateView("MyPlugin/panel.html", OnDomReady);
+if (g_view) {
+    g_api->SetViewRole(g_view, PRISMA_UI_API::ViewRole::kPanel);
+    g_api->Hide(g_view);
 }
-
-g_api->Show(g_view);
-g_api->Focus(g_view, true, false);
 ```
 
-Pass `0` to consider every Prisma view:
+A view that takes input but stays at `kUnspecified` logs a one-time warning and stays invisible to the other mods' checks. That is the mistake that makes cooperation fail silently.
+
+HUDs are widgets:
 
 ```cpp
-const bool busy = g_api->IsAnyPanelVisible(0);
+g_api->SetViewRole(g_hud, PRISMA_UI_API::ViewRole::kWidget);
 ```
 
-Passive `kWidget` views do not block this check.
+A widget never blocks a menu from opening, which is what you want for an always-on HUD.
 
-## `GetFocusedView`
+## Opening only when the screen is free
+
+```cpp
+static void TryOpenPanel()
+{
+    if (!g_api || !g_api->IsValid(g_view)) return;
+
+    if (g_api->IsAnyPanelVisible(g_view)) {
+        // Another Prisma panel is open. Options:
+        //  - do nothing (the player can close it and press your key again)
+        //  - show your own "busy" hint
+        //  - call Focus(g_view) to take focus, if that is what your mod should do
+        return;
+    }
+
+    g_api->Show(g_view);
+    g_api->Focus(g_view, /*pauseGame=*/true);
+}
+```
+
+The argument is your own view: the call ignores the view you pass, so you never block yourself.
+
+Pass `0` to ask about any panel in the session:
+
+```cpp
+const bool anyPanelOpen = g_api->IsAnyPanelVisible(0);
+```
+
+## Seeing who has focus
 
 ```cpp
 PrismaView focused = g_api->GetFocusedView();
 if (focused != 0 && focused != g_view) {
-    logger::info("another Prisma view owns focus: {}", focused);
+    REX::INFO("another Prisma view owns focus: {}", focused);
 }
 ```
 
-`HasAnyActiveFocus()` gives the older yes/no answer. `GetFocusedView()` identifies the owner.
+`HasAnyActiveFocus()` is the older yes/no version. Use these for diagnostics and for deciding whether to steal focus or wait.
 
-## Normal panel focus
+## Closing in the right order
 
-Use `Focus` when the whole view is intended to own normal Prisma input:
-
-```cpp
-void OpenPanel()
-{
-    if (!g_api || !g_api->IsValid(g_view)) return;
-    if (g_api->IsAnyPanelVisible(g_view)) return;
-
-    g_api->SetViewRole(g_view, PRISMA_UI_API::ViewRole::kPanel);
-    g_api->Show(g_view);
-    g_api->Focus(g_view, true, false);
-}
-```
-
-Close in the reverse order:
+Always let go of input before hiding:
 
 ```cpp
 g_api->Unfocus(g_view);
 g_api->Hide(g_view);
 ```
 
-## Selective overlay focus
+Hiding a focused view without unfocusing can leave the game without input until the framework notices. Make the pair a habit.
 
-V10 also exposes `SetInputRegions` and `FocusOverlay` for views where only selected rectangles should capture Prisma input.
+## Selective input for overlays
 
-This feature is capability-gated:
+A panel takes all mouse input while focused. Sometimes you want only a few rectangles to be interactive — a HUD where two buttons work and the rest of the screen still belongs to the game.
 
 ```cpp
 if (!PRISMA_UI_API::HasPrismaCapability(
         PRISMA_UI_API::PrismaCapability::InputRegions)) {
-    // Fall back to normal Focus() or disable the selective-overlay feature.
+    // This PrismaUI build has no input regions. Fall back to a normal panel.
     return;
 }
 
 const PRISMA_UI_API::InputRegion regions[] = {
-    { 80, 80, 420, 240 },
+    { 80, 80, 420, 240 },    // x, y, width, height in screen pixels
     { 560, 80, 180, 60 },
 };
 
 if (g_api->SetInputRegions(g_view, regions, 2)) {
     g_api->Show(g_view);
-    g_api->FocusOverlay(g_view, false, false);
+    g_api->FocusOverlay(g_view, /*pauseGame=*/false, /*disableFocusMenu=*/false);
 }
 ```
 
-Clear regions with:
+Clear them when the overlay closes:
 
 ```cpp
 g_api->SetInputRegions(g_view, nullptr, 0);
 ```
 
-Do not assume V10 alone means this optional behavior is enabled. Use the capability helper.
+`IVPrismaUI10` existing does not prove input regions are enabled — check the capability, as above. There is a complete overlay in [A click-through HUD overlay](cookbook/hud-overlay).
 
-## Escape ownership
+## Escape
 
-If your focused panel should own Escape:
+If your focused panel should close on Escape by itself:
 
 ```cpp
 g_api->SetViewOwnsEscape(g_view, true);
 ```
 
-Only do this when the page has a working Escape handler that closes/unfocuses the panel. Otherwise you can trap the player inside your UI.
+```js
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  event.preventDefault();
+  window.requestClose();
+});
+```
 
-## Cooperative panel example
+Only do this when the page has a working Escape handler. Otherwise the player is stuck.
+
+## A complete cooperative panel
 
 ```cpp
-static PRISMA_UI_API::IVPrismaUI10* g_api = nullptr;
-static PrismaView g_view = 0;
+static PRISMA_UI_API::IVPrismaUI10* g_api  = nullptr;
+static PrismaView                   g_view = 0;
 
-void CreatePanel()
+static void OnDomReady(PrismaView view)
+{
+    g_api->BindUIEvent(view, "requestClose", [](const char*) {
+        g_api->Unfocus(g_view);
+        g_api->Hide(g_view);
+    });
+}
+
+static void CreatePanel()
 {
     if (!g_api || g_view) return;
 
@@ -149,20 +195,19 @@ void CreatePanel()
     g_api->Hide(g_view);
 }
 
-void TryOpenPanel()
+static void TryOpenPanel()
 {
     if (!g_api || !g_api->IsValid(g_view)) return;
-
     if (g_api->IsAnyPanelVisible(g_view)) {
-        logger::debug("another Prisma panel is active; not opening");
+        REX::INFO("another Prisma panel is open; not opening");
         return;
     }
 
     g_api->Show(g_view);
-    g_api->Focus(g_view, true, false);
+    g_api->Focus(g_view, /*pauseGame=*/true);
 }
 
-void ClosePanel()
+static void ClosePanel()
 {
     if (!g_api || !g_api->IsValid(g_view)) return;
     g_api->Unfocus(g_view);
@@ -170,22 +215,17 @@ void ClosePanel()
 }
 ```
 
-## Why roles matter
+## Common mistakes
 
-`EnumerateViews` intentionally sees passive and interactive views. Treating “any visible Prisma view” as a blocker would make an always-on HUD prevent every menu from opening.
+- **Forgetting `SetViewRole`.** Your menu is real, but other mods do not see it.
+- **Using `kPanel` for a HUD.** Every menu in the session will think the screen is busy.
+- **Checking `IsAnyPanelVisible` after showing.** Check first, then show.
+- **Hiding without unfocusing.** The game can keep waiting for input.
+- **Assuming the V10 interface means input regions work.** Check `HasPrismaCapability(InputRegions)`.
 
-Roles solve that:
+## Where to go next
 
-- `kWidget` means “present but passive.”
-- `kPanel` means “interactive screen that other cooperating plugins should respect.”
-- `kUnspecified` is not counted and should not be left on a real input-taking panel.
-
-## Related pages
-
-- [`SetViewRole`](api/SetViewRole.md)
-- [`GetViewRole`](api/GetViewRole.md)
-- [`GetFocusedView`](api/GetFocusedView.md)
-- [`IsAnyPanelVisible`](api/IsAnyPanelVisible.md)
-- [`FocusOverlay`](api/FocusOverlay.md)
-- [`SetInputRegions`](api/SetInputRegions.md)
-- [View Lifecycle](view-lifecycle)
+- [`SetViewRole`](api/SetViewRole) · [`IsAnyPanelVisible`](api/IsAnyPanelVisible) · [`GetFocusedView`](api/GetFocusedView)
+- [A click-through HUD overlay](cookbook/hud-overlay) — input regions in practice
+- [View lifecycle](view-lifecycle) — the states behind these calls
+- [Working with other PrismaUI mods](working-with-other-mods) — the wider rules of the road

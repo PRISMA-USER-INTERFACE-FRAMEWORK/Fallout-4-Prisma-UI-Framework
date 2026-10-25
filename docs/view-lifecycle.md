@@ -1,273 +1,253 @@
-# View Lifecycle
+# What happens to a view
 
-This page describes the current public lifecycle contract. The production backend is in-process **Ultralight 1.4.0**. Older legacy-runtime shell and subprocess behavior does not apply.
+A PrismaUI view is created, loaded, shown, hidden, and eventually destroyed. This page is the map: what each state means, which calls are safe when, and the mistakes that cause blank panels or dead handles.
 
-## States
+If you have not built one yet, do [Your first panel](quick-start) first.
 
-A normal view moves through these application-visible states:
-
-```text
-[not created]
-     |
-     | CreateView("page.html", onDomReady)
-     v
-[loading]
-     |
-     | document becomes ready -> onDomReady is queued to the game thread
-     v
-[ready + visible]
-     |
-     | Hide()
-     v
-[ready + hidden]
-     |
-     | Show()
-     v
-[visible + unfocused]
-     |
-     | Focus(...) or FocusOverlay(...)
-     v
-[visible + focused]
-     |
-     | Unfocus()
-     v
-[visible + unfocused]
-     |
-     | Hide()
-     v
-[ready + hidden]
-     |
-     | Destroy()
-     v
-[destroyed]
-```
-
-`CreateView` returns a `PrismaView` handle immediately. Loading continues asynchronously. Views begin visible, so menus that should not appear immediately normally call `Hide()` after creation.
-
-## Creation
+## The short version
 
 ```cpp
-PrismaView view = api->CreateView("MyPlugin/page.html", OnDomReady);
-if (view != 0) {
-    api->Hide(view);
+// Create once, when the game has a world.
+g_view = g_api->CreateView("MyPlugin/page.html", OnDomReady);
+if (g_view) {
+    g_api->SetViewRole(g_view, PRISMA_UI_API::ViewRole::kPanel);
+    g_api->Hide(g_view);            // views start visible; hide until opened
+}
+
+// Open.
+if (g_api->IsValid(g_view)) {
+    g_api->Show(g_view);
+    g_api->Focus(g_view, /*pauseGame=*/true);
+}
+
+// Close.
+if (g_api->IsValid(g_view)) {
+    g_api->Unfocus(g_view);
+    g_api->Hide(g_view);
+}
+
+// Tear down (usually only on a new game or when the plugin unloads).
+if (g_api->IsValid(g_view)) {
+    g_api->Unfocus(g_view);
+    g_api->Hide(g_view);
+    g_api->Destroy(g_view);
+}
+g_view = 0;
+```
+
+That is all you need for most mods. The rest of this page explains why.
+
+## The states
+
+```
+not created
+   │ CreateView(path, OnDomReady)
+   ▼
+loading ────────────────► load failed / timed out
+   │ page DOM ready
+   ▼
+ready, visible
+   │ Hide()                     ▲ Show()
+   ▼                            │
+ready, hidden ───────────────── ┘
+   │ Focus()
+   ▼
+focused (input goes to the page)
+   │ Unfocus()
+   ▼
+visible, unfocused
+   │ Destroy()
+   ▼
+destroyed (handle is no longer valid)
+```
+
+Two things surprise people:
+
+- **A view is visible the moment it is created.** If it is a menu, call `Hide()` right after `CreateView` or the player sees it as soon as the plugin creates it.
+- **Visible is not focused.** A visible view is drawn; a focused view receives mouse and keyboard input. `Show()` alone gives you a picture with a dead mouse.
+
+## Creating it at the right time
+
+Create the view after the game world exists, and after you have the Prisma API:
+
+```cpp
+static void OnMessage(F4SE::MessagingInterface::Message* message)
+{
+    switch (message->type) {
+    case F4SE::MessagingInterface::kGameDataReady:
+        g_api = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>();
+        break;
+
+    case F4SE::MessagingInterface::kPostLoadGame:
+    case F4SE::MessagingInterface::kNewGame:
+        CreateView();
+        break;
+
+    default:
+        break;
+    }
 }
 ```
 
-Create the view when your plugin is ready to own it, commonly from `kPostLoadGame` / `kNewGame` or another bounded game-state event after you have acquired the Prisma API.
+Do not hold a view handle forever without checking it. If the player loads a save, starts a new game or hops between worlds, re-check `IsValid(g_view)` and recreate if it died:
 
 ```cpp
-case F4SE::MessagingInterface::kPostLoadGame:
-case F4SE::MessagingInterface::kNewGame:
-    if (g_api && (g_view == 0 || !g_api->IsValid(g_view))) {
-        g_view = g_api->CreateView("MyPlugin/page.html", OnDomReady);
-        if (g_view) {
-            g_api->Hide(g_view);
-            g_api->RegisterConsoleCallback(g_view, ConsoleCallback);
-            g_api->SetViewRole(g_view, PRISMA_UI_API::ViewRole::kPanel);
-        }
+static void EnsureView()
+{
+    if (g_view && g_api->IsValid(g_view)) return;
+
+    g_view = g_api->CreateView("MyPlugin/page.html", OnDomReady);
+    if (g_view) {
+        g_api->SetViewRole(g_view, PRISMA_UI_API::ViewRole::kPanel);
+        g_api->Hide(g_view);
     }
-    break;
+}
 ```
 
-Do not assume an old handle remains valid across arbitrary world/session transitions. Use `IsValid()` when reusing a stored handle.
+## The DOM-ready callback
 
-## DOM-ready callback
+`OnDomReady` runs when the page's DOM exists and JavaScript is available. Run your page setup there — not earlier:
 
 ```cpp
 static void OnDomReady(PrismaView view)
 {
-    g_api->RegisterJSListener(view, "onClose", OnClose);
-    g_api->RegisterJSListener(view, "requestData", OnDataRequest);
+    // Console output first, so page errors reach your log.
+    g_api->RegisterConsoleCallback(view, ConsoleCallback);
 
-    // Legacy RegisterTranslations injects into the current live document.
+    // Page → plugin calls.
+    g_api->BindUIEvent(view, "requestClose", [](const char*) {
+        g_api->Unfocus(g_view);
+        g_api->Hide(g_view);
+    });
+    g_api->BindUIEvent(view, "requestData", [](const char*) {
+        SendPlayerData();
+    });
+
+    // Translations, controller actions, initial data.
     g_api->RegisterTranslations(view, "MyPlugin_F4");
-
-    // Run translation/listener-dependent page initialization after registration.
     g_api->Invoke(view, "window.init && window.init()");
 }
 ```
 
-The framework queues `OnDomReadyCallback` onto the **main game thread**.
+Each callback PrismaUI delivers is already on the game thread. `RE::` calls are safe inside them, and `InteropCall`/`Invoke` from them are safe too.
 
-For consumer code, registering page-facing listeners in `OnDomReady` is the safest pattern because the document and JS environment are known to exist. The runtime accepts listener registration for a valid view, but registering after DOM readiness avoids depending on backend timing.
+If your own worker thread wants to touch the game or the view, post the work back to the game thread yourself. The guarantee only covers callbacks PrismaUI hands you.
 
-`RegisterTranslations` belongs here as well. The legacy path builds the translation helper script and sends it to the current document through `Invoke`; it is not a pre-document injection hook.
+## Show, hide, focus, unfocus
 
-Do not depend on `Invoke()` succeeding before the page has a live JavaScript context.
+These four calls are separate on purpose:
 
-## Callback threading
+| Call | What it changes |
+| --- | --- |
+| `Show(view)` | The view is drawn. |
+| `Hide(view)` | The view is not drawn; it stays loaded. |
+| `Focus(view, pauseGame)` | The view receives mouse and keyboard input. |
+| `Unfocus(view)` | Input goes back to the game. |
 
-The public callback paths are marshalled through the verified framework callback path:
-
-- `OnDomReadyCallback`
-- `JSCallback` returned by `Invoke`
-- `JSListenerCallback` registered with `RegisterJSListener`
-- `JSListenerCallback` registered with `BindUIEvent`
-- `ConsoleMessageCallback`
-
-That means normal `RE::*` access is safe inside those callbacks without adding a second `F4SE::GetTaskInterface()->AddTask` solely to reach the game thread.
+A typical menu toggle:
 
 ```cpp
-g_api->RegisterJSListener(view, "queryPlayer", [](const char*) {
-    auto* player = RE::PlayerCharacter::GetSingleton();
-    if (!player) return;
-
-    const auto hp = player->GetActorValue(RE::ActorValue::kHealth);
-    g_api->InteropCall(g_view, "setHealth", std::to_string(hp).c_str());
-});
-```
-
-If your own worker/network thread calls into game state, you still must dispatch that work appropriately. The guarantee above applies to callbacks delivered by PrismaUI.
-
-## Show, Hide, Focus, and Unfocus
-
-Visibility and focus are separate:
-
-| Operation | Meaning |
-|---|---|
-| `Show(view)` | Include the view in normal on-screen presentation |
-| `Hide(view)` | Stop on-screen presentation while keeping the view alive |
-| `Focus(view, ...)` | Give the view normal Prisma input ownership |
-| `FocusOverlay(view, ...)` | V10 overlay-focus path used with selective input regions |
-| `Unfocus(view)` | Release Prisma input ownership from that view |
-
-Typical panel toggle:
-
-```cpp
-void OpenPanel()
+static void ToggleMenu()
 {
     if (!g_api || !g_api->IsValid(g_view)) return;
 
-    g_api->SetViewRole(g_view, PRISMA_UI_API::ViewRole::kPanel);
-    g_api->Show(g_view);
-    g_api->Focus(g_view, true, false);
-}
-
-void ClosePanel()
-{
-    if (!g_api || !g_api->IsValid(g_view)) return;
-    g_api->Unfocus(g_view);
-    g_api->Hide(g_view);
-}
-```
-
-Only one Prisma view owns normal framework focus at a time. `GetFocusedView()` identifies it and `HasAnyActiveFocus()` gives the older yes/no form.
-
-## View roles and panel coordination
-
-Any view that behaves as an interactive panel should declare a V10 role:
-
-```cpp
-g_api->SetViewRole(g_view, PRISMA_UI_API::ViewRole::kPanel);
-```
-
-Passive HUD-style views should use `kWidget`. Undeclared views are not counted as panels by `IsAnyPanelVisible()`, so leaving an interactive panel at `kUnspecified` can cause other Prisma mods to open over it.
-
-Before opening your own panel:
-
-```cpp
-if (g_api->IsAnyPanelVisible(g_view)) {
-    return;
-}
-```
-
-## V10 selective input regions
-
-`FocusOverlay` and `SetInputRegions` support interaction with only selected rectangles instead of making the entire view surface an input blocker.
-
-This behavior is capability-gated. Check it first:
-
-```cpp
-if (PRISMA_UI_API::HasPrismaCapability(
-        PRISMA_UI_API::PrismaCapability::InputRegions)) {
-    const PRISMA_UI_API::InputRegion regions[] = {
-        { 80, 80, 500, 300 },
-    };
-
-    if (g_api->SetInputRegions(g_view, regions, 1)) {
-        g_api->FocusOverlay(g_view, false, false);
+    g_visible = !g_visible;
+    if (g_visible) {
+        g_api->Show(g_view);
+        g_api->Focus(g_view, /*pauseGame=*/true);
+    } else {
+        g_api->Unfocus(g_view);
+        g_api->Hide(g_view);
     }
 }
 ```
 
-See [`FocusOverlay`](api/FocusOverlay.md) and [`SetInputRegions`](api/SetInputRegions.md).
+Only one Prisma view owns normal focus at a time. `GetFocusedView()` returns it; `HasAnyActiveFocus()` is the older yes/no call.
 
-## Escape ownership
+## Telling other mods what your view is
 
-`SetViewOwnsEscape(view, true)` opts a focused view into receiving Escape instead of leaving it to the game's normal path.
+Declare a role once, right after creating an interactive view:
+
+```cpp
+g_api->SetViewRole(g_view, PRISMA_UI_API::ViewRole::kPanel);   // takes input, counts as a panel
+g_api->SetViewRole(g_hud,  PRISMA_UI_API::ViewRole::kWidget);  // passive HUD
+```
+
+- `kPanel` means "this is an interactive screen". Other cooperating Prisma mods check `IsAnyPanelVisible()` and wait instead of opening on top of you.
+- `kWidget` means "always on screen, does not block anything".
+- `kUnspecified` (the default) is invisible to those checks. Leaving a real menu at `kUnspecified` makes your panel look absent to everyone else.
+
+To wait politely before opening:
+
+```cpp
+if (g_api->IsAnyPanelVisible(g_view)) {
+    // Someone else's panel is open. Wait, close theirs, or show a hint.
+    return;
+}
+```
+
+More in [Panel management](panel-management).
+
+## Letting the player press Escape
+
+By default Escape is handled by the game. If your panel should own it:
 
 ```cpp
 g_api->SetViewOwnsEscape(g_view, true);
 ```
 
-Then handle it in the page and call your normal close listener:
-
 ```js
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    window.onClose();
-  }
+  if (event.key !== 'Escape') return;
+  event.preventDefault();
+  window.requestClose();     // your BindUIEvent listener
 });
 ```
 
-Only enable this on a view that actually handles Escape.
+Only do this if the page really handles Escape. Otherwise you trap the player in a UI with no way out.
 
-## Multiple views
+## Several views
 
-Each Prisma view has its own handle and page state. Do not use the retired shared-legacy-runtime-shell model to reason about current PrismaUI.
+One view per screen is usually enough; use your page's own routing for tabs. Use separate views when the surfaces are genuinely different — for example a persistent HUD plus an independent panel.
 
-Ordering is controlled with `SetOrder` / `GetOrder`:
+Draw order is controlled with:
 
 ```cpp
-api->SetOrder(backgroundView, 0);
-api->SetOrder(popupView, 10);
+g_api->SetOrder(hudView, 0);
+g_api->SetOrder(panelView, 10);   // drawn on top
 ```
 
-For most plugins, prefer one view with internal routing for related screens. Use multiple views for genuinely separate surfaces such as a persistent widget plus an independent panel.
+## Health, and what to do with a broken view
 
-## Hidden and offscreen views
+`GetViewHealth(view)` tells you what the framework thinks:
 
-`Hide()` controls normal 2D presentation. V5 offscreen rendering is a separate mode used for texture handoff / mesh-oriented consumers.
+| Value | Meaning |
+| --- | --- |
+| `kCreating` | Still loading. |
+| `kDomReady` | DOM is ready. |
+| `kLive` | Running normally. |
+| `kLoadFailed` | The page failed to load. |
+| `kDomReadyTimeout` | The page never became ready. |
+| `kUnresponsive` | The page stopped responding. |
+| `kJsError` | A JavaScript error left the view unhealthy. |
 
-Use `SetViewOffscreen(view, true)` and the related V5/V8 APIs only when you specifically need an offscreen texture. Do not confuse offscreen mode with an ordinary hidden panel.
+If a view is unhealthy, destroy it and create a fresh one. Calling into a dead handle does not fix anything:
 
-Mesh binding remains an explicit advanced integration; on-mesh behavior should be treated as an explicit advanced integration rather than a requirement for ordinary HTML overlays.
+```cpp
+if (g_api->GetViewHealth(g_view) == PRISMA_UI_API::ViewHealth::kLoadFailed) {
+    g_api->Destroy(g_view);
+    g_view = 0;
+    EnsureView();
+}
+```
 
-## Health and recovery
+The [view watchdog](view-watchdog) covers automatic recovery for focused views. The F12 inspector and `RegisterConsoleCallback` are how you find out *why* a page broke.
 
-V8 exposes `GetViewHealth()` for framework-observed view state:
+## Offscreen views are a different thing
 
-- `kCreating`
-- `kDomReady`
-- `kLive`
-- `kLoadFailed`
-- `kDomReadyTimeout`
-- `kUnresponsive`
-- `kJsError`
+`Hide()` is about on-screen presentation. V5 offscreen rendering (`SetViewOffscreen` and friends) gives you a texture for advanced consumers such as in-world screens. Treat offscreen mode as an advanced integration; do not use it as "hidden panel".
 
-Use it when you need diagnostics or a bounded recovery policy. If a consumer decides a view should be recreated, destroy the old handle and create a new view rather than continuing to call a dead handle.
-
-## Inspector compatibility methods
-
-Current builds ship a packaged in-game Ultralight inspector opened with **F12** when DevTools are enabled.
-
-The V1 inspector methods remain in the ABI for compatibility and are not the control surface for the current F12 DevTools workflow. Do not use retired remote-debugging-port or external legacy-runtime instructions.
-
-For diagnostics, combine the F12 inspector with `RegisterConsoleCallback`, `PrismaUI_F4.log`, and view-health reporting.
-
-## Scrolling-size compatibility methods
-
-`GetScrollingPixelSize` and `SetScrollingPixelSize` remain in the V1 ABI but remain compatibility methods and should not be used as a primary layout API.
-
-- `GetScrollingPixelSize` returns `0` and logs a warning.
-- `SetScrollingPixelSize` leaves the view unchanged and logs a warning.
-
-Normal browser/page scrolling still comes from the page and input events. Do not build new behavior around the V1 pixel-size compatibility calls.
-
-## Destruction
-
-`Destroy()` tears down the view and invalidates its handle.
+## Destroying
 
 ```cpp
 if (g_api && g_api->IsValid(g_view)) {
@@ -278,14 +258,20 @@ if (g_api && g_api->IsValid(g_view)) {
 g_view = 0;
 ```
 
-The framework also clears per-view bookkeeping such as roles, input regions, escape ownership, callbacks, and offscreen tracking when the view is forgotten.
+`Destroy` invalidates the handle and releases the page. Roles, input regions, escape ownership and callback registrations are cleared with it.
 
-## Related guides
+## Common mistakes
 
-- [Getting Started](getting-started)
-- [API Reference](api-reference)
-- [Translations](translations)
-- [Panel Management](panel-management)
-- [View Watchdog](view-watchdog)
-- [Limitations](limitations)
-- [Troubleshooting](troubleshooting)
+- **Creating the view before a save is loaded.** The handle exists but the UI cannot be shown properly. Create at `kPostLoadGame` / `kNewGame`.
+- **Forgetting `Hide()` after creation.** The menu pops up on its own.
+- **Calling `Show()` but not `Focus()`.** Visible panel, dead mouse.
+- **Calling `Invoke` before `OnDomReady`.** Nothing runs; the page has no JavaScript context yet.
+- **Never checking `IsValid()`.** After a reload or destroy, the old handle may be invalid.
+- **Leaving an interactive view at `kUnspecified`.** Other mods cannot see it and open on top.
+
+## Where to go next
+
+- [Panel management](panel-management) — cooperating with other PrismaUI mods
+- [The HTML side](html-views) — the page half
+- [View watchdog](view-watchdog) — automatic recovery when a focused view dies
+- [Troubleshooting](troubleshooting) — when the panel does not appear

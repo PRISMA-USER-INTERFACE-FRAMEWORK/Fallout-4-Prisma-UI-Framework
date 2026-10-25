@@ -1,146 +1,144 @@
 ---
 title: 'Limitations'
 ---
+
+:::tip New to PrismaUI?
+Start with [Your first panel](quick-start) for a complete walkthrough, or copy a working example from the [Cookbook](/docs/cookbook/).
+:::
+
 # Limitations
 
-PrismaUI_F4 2.2.0 uses **Ultralight 1.4.0 in-process**. The retired legacy-runtime host/subprocess architecture is not the production runtime, so previous browser runtime-specific guarantees from older documentation do not apply.
+PrismaUI runs Ultralight 1.4.0 inside Fallout 4. It is a good web engine for game interfaces and it is not Chrome. This page is the honest list of what that means, so you do not build on a feature that is not there.
 
-The safest rule for consumer mods is simple: use ordinary HTML/CSS/JavaScript, bundle required assets locally, and test every browser feature your UI depends on against Ultralight 1.4.0.
+The short rule: use ordinary HTML, CSS and JavaScript, ship your assets with the mod, and test anything unusual in game before you rely on it.
 
-## Web-platform compatibility
+## Browser features
 
-Ultralight is not a drop-in previous browser runtime/Electron environment. Do not assume that a feature works only because it works in Chrome.
+Do not assume a feature works because it works in your desktop browser. Test anything you depend on, especially:
 
-Before shipping, test any dependency on:
+- newer or uncommon CSS (container queries, `:has()`, subgrid, view transitions);
+- media playback and streaming;
+- browser-only JavaScript APIs (`IntersectionObserver`, `ResizeObserver` are worth checking in your target build);
+- large framework code paths that assume modern Chrome;
+- font fallback and variable fonts;
+- canvas and WebGL usage;
+- focus, selection and keyboard event edge cases.
 
-- newer or uncommon CSS features;
-- advanced media behavior;
-- browser-specific JavaScript APIs;
-- framework/polyfill behavior;
-- font rendering and fallback behavior;
-- canvas or other rendering APIs;
-- focus and keyboard-event edge cases.
-
-React, Vue, Svelte, Tailwind, and similar stacks are usable when their **built output** works under Ultralight 1.4.0. PrismaUI does not guarantee every current browser framework release indefinitely.
+React, Vue, Svelte and Tailwind are usable when their built output works in Ultralight 1.4.0. PrismaUI does not pin every framework version forever — test your build.
 
 ## Networking
 
-A Prisma view is intended to be a local UI document, not an unrestricted network client.
+A view is a local document, not a network client:
 
-For the current shipping policy:
+- no remote scripts, styles or fonts;
+- no `fetch`/XHR to the internet;
+- no WebSockets, EventSource, Workers or WebRTC;
+- no localhost or LAN access from page code.
 
-- bundle required JS, CSS, fonts, images, and other assets with the mod;
-- do not depend on CDNs or remote fonts;
-- Worker, SharedWorker, and ServiceWorker-style behavior is blocked by the Prisma sandbox;
-- do not design required functionality around direct page `fetch`, XHR, WebSocket, or private-network access;
-- implement real network I/O in native C++ and relay validated data into the view.
+Do network work in C++ and pass the result to the page. See [Networking](networking).
 
-See [Networking](networking).
+## Rendering paths
 
-## Rendering
+PrismaUI uses its validated GPU path when the graphics environment is eligible and falls back to CPU rendering when it is not. Your page should not care which one is active, but it should not assume unlimited headroom:
 
-PrismaUI can use the validated D3D11 GPU-accelerated Ultralight path when the graphics environment is eligible. CPU BitmapSurface rendering remains a controlled fallback.
+- keep repaint areas small;
+- avoid full-screen animation for small changes;
+- do not run heavy per-frame work in JavaScript;
+- test with the graphics tools your players use (ENB, frame generation, overlays).
 
-Consumer mods should not assume which path is active. Keep repaint regions bounded, avoid unnecessary full-screen animation, and test with the graphics wrappers your mod supports.
+If another graphics injector owns presentation in a way PrismaUI cannot safely share, PrismaUI may skip its own draw rather than risk the game. In that case the UI may not appear until the conflict is resolved — that is a deliberate fail-closed choice, not a random glitch.
 
-## Offscreen and on-mesh rendering
+## Offscreen and mesh-bound views
 
-V5 exposes offscreen rendering and texture-handoff APIs, but engine-side mesh binding is a more fragile integration surface than normal screen overlays.
+Offscreen rendering and binding a view to a mesh are advanced. They are more fragile than a normal screen overlay and depend on the exact game version and content.
 
-The framework ships with `bMeshBinding=0` by default. Treat mesh-binding features as opt-in and test the exact game/runtime/content combination you support.
+- mesh binding is off by default;
+- only verified runtime layouts are allowed, and unsupported ones fail closed;
+- set the offscreen size before using the texture;
+- the framework owns the texture view — do not retain or release it yourself;
+- rebind if the game rebuilds the target geometry.
 
-For a view used offscreen:
+If you are building a normal menu or HUD, you do not need any of this.
 
-- set the offscreen configuration before relying on its texture;
-- match `SetViewOffscreenSize` to the target surface's aspect ratio and useful resolution;
-- rebind when the target game geometry is rebuilt;
-- unbind while the original geometry is still valid;
-- do not retain or release the framework-owned SRV yourself.
+## Inspector and DevTools
 
-## Inspector / DevTools
+The old external browser debugging workflow is gone. Current builds package an in-game inspector, opened with **F12** when DevTools are enabled.
 
-The old external legacy-runtime/Chrome debugging workflow is retired.
+The V1 inspector methods are compatibility ABI; they are not how you control the F12 inspector. Keep the framework log and `RegisterConsoleCallback` in your debugging loop.
 
-Current PrismaUI builds include a packaged in-game Ultralight inspector opened with **F12** when DevTools are enabled. Use it for Elements, Sources, Console, Network, Timelines, Storage, Graphics, Layers, and Audit inspection.
+## Game-version support
 
-The V1 inspector methods are compatibility ABI and should not be treated as the control surface for the current F12 DevTools workflow. Keep framework logs and `RegisterConsoleCallback` in your debugging workflow as well.
+Supported desktop runtimes:
 
-## Runtime-specific Fallout features
+- Old-Gen **1.10.163**;
+- Anniversary Edition **1.11.137 and newer**, with matching game support data installed.
 
-Not every Fallout-facing helper has identical implementation requirements across game versions.
+The 1.10.980–1.10.984 line is deliberately rejected. Features that need version-specific engine data fail closed when that data is missing instead of guessing.
 
-The current desktop line supports:
+Some helper calls are narrower than the general framework:
 
-- OG 1.10.163;
-- AE 1.11.137+ when matching Address Library data is available.
+- `SuppressHUDWidget` needs a supported runtime with matching data, and returns `false` otherwise;
+- native controller conversion is validated only for Old-Gen 1.10.163 and Anniversary Edition 1.11.240;
+- game-thread dispatch (V11) and controller actions (V12) exist on the flat provider, not on VR.
 
-The intermediate 1.10.980-1.10.984 Next-Gen line is deliberately rejected.
+Check the specific API page when the runtime matters.
 
-For example, `SuppressHUDWidget` uses validated runtime/address authorities and can fail closed if the required runtime data cannot be resolved. Always check return values on APIs that provide them.
+## Legacy compatibility quirks
 
-## Activate-choice compatibility calls
+Two V7 calls behave differently from older guides:
 
-Two older V7 methods need special attention:
+- `EnableActivateChoiceFilter(enable, dropDefaultTake)`: `dropDefaultTake` is ignored; it only enables capture.
+- `SuppressActivateChoicePerk`: a compatibility placeholder that does not filter perk rows.
 
-- `EnableActivateChoiceFilter(enable, dropDefaultTake)` enables the capture path used by the V8 read/trigger APIs. `dropDefaultTake` is retained for ABI compatibility and ignored.
-- `SuppressActivateChoicePerk(...)` is an ABI placeholder. Perk-row filtering is not implemented.
+Use `GetActivateChoiceLabel` and `TriggerActivateChoice` for the supported path.
 
-Do not build gameplay behavior around the older filtering description.
+## Input regions are optional
 
-## V10 input regions
-
-`IVPrismaUI10` exposes `FocusOverlay` and `SetInputRegions`, but selective input-region behavior is capability-gated.
-
-Check:
+`FocusOverlay` and `SetInputRegions` (V10) only work when the loaded build enables input regions. Check the capability first:
 
 ```cpp
-PRISMA_UI_API::HasPrismaCapability(
-    PRISMA_UI_API::PrismaCapability::InputRegions)
+if (!PRISMA_UI_API::HasPrismaCapability(PRISMA_UI_API::PrismaCapability::InputRegions)) {
+    // Fall back to a normal focused panel.
+}
 ```
 
-before depending on it. Fall back to normal `Focus()` when appropriate.
+`IVPrismaUI10` existing does not prove the behaviour is enabled.
 
 ## Multiple views
 
-Multiple views are supported, but creating one view per screen is not automatically the best architecture.
+Multiple views work, but they are not automatically the right architecture. Prefer one view with internal page routing when the screens are one UI. Use separate views for genuinely independent surfaces: a persistent HUD plus a separate menu, for example.
 
-Prefer a single application view with internal routing when the screens are really one UI. Separate views make sense for genuinely independent surfaces such as a persistent HUD widget plus a separate interactive panel.
+Declare a role (`kPanel` / `kWidget`) on any view so other Prisma mods can coordinate. See [Panel management](panel-management).
 
-For views that take input, declare `ViewRole::kPanel` or another appropriate role so other PrismaUI mods can coordinate through `IsAnyPanelVisible()` and `GetFocusedView()`.
+## Input quirks worth testing
 
-## Input quirks
+Game input and page text input interact in engine-specific ways. Test:
 
-Game input and browser-like text input can interact in ways that are specific to Fallout and the current input route. Test:
-
-- keyboard and mouse;
-- controller input if supported by your mod;
+- keyboard and mouse in menus and in text fields;
+- controller input, if you use it;
 - Escape ownership;
-- focus changes;
+- focus changes while typing;
 - hide/show/destroy while focused;
-- alt-tab/minimize/restore;
-- text entry for keys also bound to gameplay actions.
-
-Use V10 input regions only for selective overlay interaction, and keep their rectangles synchronized with the actual UI layout.
+- Alt-Tab and window restore;
+- keys that are also bound to gameplay actions.
 
 ## Custom cursor
 
-A custom cursor image can be installed at:
+A custom cursor image can be supplied at:
 
 ```text
 Data/PrismaUI_F4/misc/cursor.png
 ```
 
-Test it against bright and dark game backgrounds and at the resolutions your mod supports.
+Check it against bright and dark backgrounds and at the resolutions you support.
 
-## Removed legacy-runtime architecture
+## What is not in the current runtime
 
-The following are historical and should not appear in a current installation guide or troubleshooting checklist:
+If you find an old guide that mentions a separate browser host process, a subprocess, a runtime directory tree or a host/subprocess ABI mismatch: that architecture is retired and none of it belongs in a current install. If a player's game folder still has a mix of old and current files, reinstall the package cleanly.
 
-- `retired host component`;
-- `retired subprocess`;
-- `retired runtime directory/` production runtime tree;
-- `retired runtime library`;
-- shared legacy-runtime-shell deployment steps;
-- shim/host ABI mismatch troubleshooting.
+## Where to go next
 
-If a player's installation contains a mixture of retired legacy-runtime files and current Ultralight files, reinstall the current PrismaUI package cleanly rather than trying to combine the two runtime generations.
+- [Networking](networking) — the network rules in detail
+- [Troubleshooting](troubleshooting) — symptom-by-symptom
+- [FAQ](faq) — short answers
+- [API reference](api-reference) — per-call behaviour and return values

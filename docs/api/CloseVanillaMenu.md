@@ -15,3 +15,5 @@ forward.
 ## See also
 
 `SuppressVanillaMenu`.
+
+**Try it:** [Vanilla UI suppression](../vanilla-ui-suppression).

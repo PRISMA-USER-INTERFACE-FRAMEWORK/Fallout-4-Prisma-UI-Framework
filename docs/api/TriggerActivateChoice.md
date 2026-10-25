@@ -25,3 +25,5 @@ reference-counted here, so it can go stale if the player's target changes in bet
 ## See also
 
 `GetActivateChoiceLabel`, `EnableActivateChoiceFilter` (V7).
+
+**Try it:** [Vanilla UI suppression](../vanilla-ui-suppression).

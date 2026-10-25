@@ -28,3 +28,5 @@ If your feature needs to inspect or activate the current row, use the V8 capture
 ## See also
 
 `EnableActivateChoiceFilter`, `GetActivateChoiceLabel`, `TriggerActivateChoice`.
+
+**Try it:** [Vanilla UI suppression](../vanilla-ui-suppression).

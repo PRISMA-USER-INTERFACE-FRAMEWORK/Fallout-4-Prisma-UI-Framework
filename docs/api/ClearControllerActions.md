@@ -28,7 +28,9 @@ api->ClearControllerActions(view);
 
 ## See also
 
-- [Controller actions](../controller-actions.md)
+- [Controller actions](../controller-actions)
 - `BindControllerAction`
 - `UnbindControllerAction`
 - `Destroy`
+
+**Try it:** [A controller-friendly menu](../cookbook/controller-menu).

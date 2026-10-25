@@ -25,9 +25,11 @@ itself on Escape, the player has no way out of the focused view at all.
 
 Requires a current `PrismaUI_F4.dll` build. This method was added to `IVPrismaUI9` after that
 interface's initial release rather than as a new interface version - see the compatibility note in
-[api-reference.md](../api-reference.md#interface-versions).
+[api-reference.md](../api-reference#interface-versions).
 
 ## See also
 
 `Focus` - the `disableFocusMenu` parameter there is a related but separate mechanism for handling
 input around an existing game cursor.
+
+**Try it:** [Panel management](../panel-management).

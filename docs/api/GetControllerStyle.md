@@ -21,3 +21,5 @@ order without any extra coordination.
 ## See also
 
 `SetControllerStyle`, `GetButtonPrompt`, `GetGamepadButtonName`.
+
+**Try it:** [A controller-friendly menu](../cookbook/controller-menu).

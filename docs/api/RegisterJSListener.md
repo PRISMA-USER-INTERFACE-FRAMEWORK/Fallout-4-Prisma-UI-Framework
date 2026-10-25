@@ -53,3 +53,5 @@ onCloseRequest();
 ## See also
 
 `BindUIEvent` (V4), `InteropCall`, `Invoke`.
+
+**Try it:** [Talk between the page and the plugin](../cookbook/talk-to-your-plugin).

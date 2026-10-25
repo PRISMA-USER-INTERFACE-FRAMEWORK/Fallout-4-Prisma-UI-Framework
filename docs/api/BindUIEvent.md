@@ -33,3 +33,5 @@ api->BindUIEvent(view, "requestPlayerName", [](const char* /*arg*/) {
 ## See also
 
 `RegisterJSListener`.
+
+**Try it:** [Talk between the page and the plugin](../cookbook/talk-to-your-plugin).

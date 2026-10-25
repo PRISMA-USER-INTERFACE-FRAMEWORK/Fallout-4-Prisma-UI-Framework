@@ -16,4 +16,4 @@ Do not use it to tune DOM scrolling in new 2.1.0 code. Implement page scrolling 
 
 ## See also
 
-[`GetScrollingPixelSize`](GetScrollingPixelSize.md).
+[`GetScrollingPixelSize`](GetScrollingPixelSize).

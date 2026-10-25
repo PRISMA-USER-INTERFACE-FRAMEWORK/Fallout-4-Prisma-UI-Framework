@@ -23,3 +23,5 @@ suppression is active for that name - you do not need to call this again on ever
 
 `SuppressVanillaMenuIf` (V7) - a conditional version that re-checks a predicate on every open
 instead of using a fixed on/off flag. `CloseVanillaMenu`.
+
+**Try it:** [Vanilla UI suppression](../vanilla-ui-suppression).

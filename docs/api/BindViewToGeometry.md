@@ -38,3 +38,5 @@ rebuilt between sessions, which invalidates a previous binding.
 `BindViewToScreenTexture` - binds by diffuse-texture name instead of node name, useful when you want
 to target a class of objects (e.g. "any Pip-Boy model") rather than one specific node name.
 `UnbindViewFromGeometry`, `SetViewOffscreen`, `SetViewOffscreenBackground` (V9).
+
+**Try it:** [Model preview / in-world screens](../model-preview).

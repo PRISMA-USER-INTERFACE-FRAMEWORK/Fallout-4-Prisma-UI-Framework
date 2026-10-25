@@ -14,7 +14,7 @@ virtual ViewRole GetViewRole(PrismaView view) noexcept = 0;
 ```
 
 Declare what a view is. The framework uses this to answer
-[`IsAnyPanelVisible`](IsAnyPanelVisible.md) correctly - a passive HUD widget should not count as
+[`IsAnyPanelVisible`](IsAnyPanelVisible) correctly - a passive HUD widget should not count as
 "another UI is in the way", but a full interactive menu should.
 
 - `kUnspecified` (the default for every view) never counts as an interactive panel.
@@ -29,8 +29,10 @@ api->SetViewRole(myMenuView, PRISMA_UI_API::ViewRole::kPanel);
 api->SetViewRole(myHudWidget, PRISMA_UI_API::ViewRole::kWidget);
 ```
 
-The role is cleared automatically when the view is [`Destroy`](Destroy.md)ed.
+The role is cleared automatically when the view is [`Destroy`](Destroy)ed.
 
 ## See also
 
-- [`IsAnyPanelVisible`](IsAnyPanelVisible.md) - the question roles exist to answer.
+- [`IsAnyPanelVisible`](IsAnyPanelVisible) - the question roles exist to answer.
+
+**Try it:** [Panel management](../panel-management).

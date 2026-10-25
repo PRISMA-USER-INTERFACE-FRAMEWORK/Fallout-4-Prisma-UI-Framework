@@ -31,3 +31,5 @@ resizes it in place instead.
 
 `SetViewOffscreen`, `SetViewOffscreenBackground` (V9), `BindViewToGeometry`,
 `BindViewToScreenTexture`.
+
+**Try it:** [Model preview / in-world screens](../model-preview).

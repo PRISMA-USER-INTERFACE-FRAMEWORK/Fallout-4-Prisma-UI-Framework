@@ -1,185 +1,175 @@
 ---
 title: 'Translations'
 ---
+
+:::tip New to PrismaUI?
+Start with [Your first panel](quick-start) for a complete walkthrough, or copy a working example from the [Cookbook](/docs/cookbook/).
+:::
+
 # Translations
 
-PrismaUI F4 supports two translation paths. The current V4 localization API is preferred for new integrations; the legacy Fallout-string path remains available for compatibility.
+This makes your interface follow the player's game language. You ship a JSON file per language, and PrismaUI hands the matching strings to the page as `window.PrismaL10N`.
 
-## V4 JSON localization
+There are two translation APIs. **V4 JSON** is the one to use for new mods. The old Fallout-string `.txt` path still works for existing integrations; it is documented at the bottom.
 
-V4 is exposed through the modern `LocalizationAPI` table as `RegisterTranslationsV4`.
+## The short version
 
-- JSON files load through Fallout's resource system, so loose files and BA2 archives use one path.
-- The selected game language is detected from Fallout configuration.
-- Missing locale data falls back to English.
-- Flat and dotted keys are supported.
-- `{{variable}}` interpolation is available through `window.PrismaL10N`.
-- Malformed, oversized, or excessively deep files fail predictably without taking down the view.
+1. Put `MyPlugin_en.json` in `Data/Interface/Translations/`.
+2. In `OnDomReady`, call `RegisterTranslationsV4(view, "MyPlugin")`.
+3. In the page, use `window.PrismaL10N.t('KEY')`.
+
+The rest of this page is the detail.
+
+## The files
+
+```text
+Data/Interface/Translations/
+├── MyPlugin_en.json
+├── MyPlugin_de.json
+└── MyPlugin_fr.json
+```
+
+`MyPlugin_en.json`:
+
+```json
+{
+  "MENU_TITLE": "My Panel",
+  "MENU_CLOSE": "Close",
+  "ITEMS_COUNT": "Items: {{count}}"
+}
+```
+
+`MyPlugin_de.json`:
+
+```json
+{
+  "MENU_TITLE": "Mein Panel",
+  "MENU_CLOSE": "Schließen",
+  "ITEMS_COUNT": "Gegenstände: {{count}}"
+}
+```
+
+The file name is `<pluginName>_<language>.json`. The plugin name is the string you pass to the API; the language is the code Fallout reports (`en`, `de`, `fr`, `it`, `es`, `esmx`, `cn`, `ja`, `pl`, `ru`, `ptbr`, …).
+
+Add English last if you like — it is the fallback for every other language.
+
+## Registering from the plugin
 
 ```cpp
 #include "PrismaUI_F4_Modern_API.h"
-
 using namespace PRISMA_UI_FLAT_API;
 
-LocalizationAPI localization{};
-if (!Discover<ApiFeature::Localization>(LocalizationApiVersion, localization)) {
-    return;
+static LocalizationAPI g_localization{};
+
+// once, at kGameDataReady
+if (!Discover<ApiFeature::Localization>(LocalizationApiVersion, g_localization)) {
+    REX::WARN("this PrismaUI build has no V4 localization");
 }
-
-if (!localization.RegisterTranslationsV4(view, "MyPlugin")) {
-    return;
-}
-```
-
-Use the legacy format below only when maintaining an integration built around `RegisterTranslations`.
-
-## Legacy Fallout-string localization
-
-
-In **PrismaUI_F4 2.1.0**, `RegisterTranslations` injects those helpers into the **current live document through `Invoke`**. It is not a pre-document injection hook, so call it from the view's DOM-ready callback before application code that requires translations.
-
----
-
-## File format
-
-Translation files use the Fallout 4 UI-string format:
-
-- **Encoding:** UTF-16 LE with BOM (`FF FE`) is the normal release format.
-- UTF-8 is also accepted by PrismaUI for development convenience.
-- **One entry per line:** `$KEY<tab>Translated string`
-- **Keys start with `$`**
-- Lines that do not start with `$` are ignored.
-
-```text
-$CLOSE	Close
-$MY_MENU_TITLE	My Menu
-$ITEM_COUNT	Items: {0}
-```
-
----
-
-## File location
-
-```text
-Data\Interface\Translations\<PluginName>_<lang>.txt
-```
-
-| Part | Example |
-|---|---|
-| `PluginName` | The base name passed to `RegisterTranslations`, for example `MyPlugin_F4` |
-| `lang` | Lowercase detected language code |
-
-Example:
-
-```text
-Data\Interface\Translations\MyPlugin_F4_en.txt
-```
-
-PrismaUI first tries `<PluginName>_<lang>.txt`. For a non-English language, it falls back to `<PluginName>_en.txt` when the requested language file is missing.
-
----
-
-## Language codes
-
-Common supported codes include:
-
-| Code | Language |
-|---|---|
-| `en` | English |
-| `de` | German |
-| `fr` | French |
-| `it` | Italian |
-| `es` | Spanish |
-| `esmx` | Spanish (Mexico) |
-| `cn` | Chinese (Simplified) |
-| `ja` | Japanese |
-| `pl` | Polish |
-| `ru` | Russian |
-| `ptbr` | Portuguese (Brazil) |
-
----
-
-## C++ setup
-
-Register translations from DOM-ready, then run whatever page initializer consumes them:
-
-```cpp
-static PRISMA_UI_API::IVPrismaUI10* g_api = nullptr;
-static PrismaView g_view = 0;
 
 static void OnDomReady(PrismaView view)
 {
-    g_api->RegisterTranslations(view, "MyPlugin_F4");
-    g_api->Invoke(view, "window.onTranslationsReady && window.onTranslationsReady()");
-}
-
-static void CreateMenu()
-{
-    g_view = g_api->CreateView("MyPlugin/menu.html", OnDomReady);
-    if (g_view) {
-        g_api->Hide(g_view);
+    if (g_localization.RegisterTranslationsV4 &&
+        !g_localization.RegisterTranslationsV4(view, "MyPlugin")) {
+        REX::WARN("no usable translation JSON for MyPlugin");
     }
+
+    // Only now ask the page to paint translated text.
+    g_api->Invoke(view, "window.applyTranslations()");
 }
 ```
 
-This ordering matters. In the released 2.1.0 implementation, `RegisterTranslations` parses the translation file, builds a JavaScript helper script, and sends that script to the view through the normal `Invoke` path.
+`RegisterTranslationsV4` returns `false` when nothing usable was loaded. Then `window.PrismaL10N` is simply not defined, and the page keeps its fallback text.
 
-Do **not** rely on `window.t` from module-level code that runs before DOM-ready.
+If the page reloads, the DOM is new: register again from `OnDomReady`.
 
-If the page reloads and the view's DOM-ready callback fires again, register translations again for that document.
+## Using the strings in the page
 
----
+```js
+window.applyTranslations = function () {
+  const l10n = window.PrismaL10N;
 
-## JavaScript usage
+  // Fall back to the key if translations never loaded.
+  const t = l10n ? l10n.t : function (key) { return key; };
 
-Prepare an initializer that C++ can call after `RegisterTranslations`:
+  document.getElementById('title').textContent = t('MENU_TITLE');
+  document.getElementById('close').textContent = t('MENU_CLOSE');
 
-```javascript
-window.onTranslationsReady = function () {
-  const t = (key) => window.t?.(key) ?? key;
-
-  document.getElementById('close-btn').textContent = t('$CLOSE');
-  document.getElementById('title').textContent = t('$MY_MENU_TITLE');
+  // {{name}} placeholders are replaced from the second argument.
+  document.getElementById('count').textContent = t('ITEMS_COUNT', { count: 12 });
 };
 ```
 
-After successful registration:
+`window.PrismaL10N` contains:
 
-```javascript
-window.t('$CLOSE');
-window.L10N['$CLOSE'];
-```
+| Property | Meaning |
+| --- | --- |
+| `locale` | The language PrismaUI detected, e.g. `"de"`. |
+| `messages` | The flat key/value object, e.g. `PrismaL10N.messages['MENU_TITLE']`. |
+| `t(key, vars)` | Returns the string, replaces `{{name}}` from `vars`, returns the key if missing. |
 
-If no translation file was loaded, PrismaUI leaves those globals undefined. Always use a fallback when translations are optional:
+Write the HTML so it makes sense before translations arrive — for example, put English text directly in the page. If no translation file is found, the player still gets a usable interface.
 
-```javascript
-const t = (key) => window.t?.(key) ?? key;
-```
+## Which file wins
 
----
+PrismaUI builds the list from the detected language:
 
-## Example mod layout
+1. English (`en`) is always loaded first as a base.
+2. For a regional language like `de-DE`, the base language (`de`) is loaded next, if it differs.
+3. The full locale (`de-DE`) is loaded last.
+
+Later files win, so a missing key in a language file falls back to your English text. That is why keeping the English file complete matters even if you ship one language.
+
+Nested JSON objects are flattened into dotted keys, so `{"menu":{"title":"My Panel"}}` is also reachable as `menu.title`.
+
+## Loose files and BA2
+
+The loader resolves `Interface/Translations/<pluginName>_<language>.json` through Fallout's resource system. A loose file and a file inside a BA2 use the same path — you do not need a second code path, and you do not need to load the JSON from the page.
+
+## Testing translations
+
+1. Copy the files to `Data/Interface/Translations/`.
+2. Start the game with a non-English language selected.
+3. Open the page: the strings should be translated.
+4. Delete the non-English file, restart, and confirm English is used instead.
+5. Add a key to only one file and confirm the other language falls back for that key.
+
+## The legacy `.txt` API
+
+Old mods use `RegisterTranslations(view, "MyPlugin_F4")` and this file:
 
 ```text
-mods/MyPlugin_F4/
-├── F4SE/Plugins/
-│   └── MyPlugin_F4.dll
-├── PrismaUI_F4/
-│   └── views/
-│       └── MyPlugin/
-│           └── menu.html
-└── Interface/
-    └── Translations/
-        ├── MyPlugin_F4_en.txt
-        ├── MyPlugin_F4_de.txt
-        └── MyPlugin_F4_fr.txt
+Data/Interface/Translations/MyPlugin_F4_en.txt
 ```
 
----
+Format: UTF-16 LE with BOM (UTF-8 also works), one `$KEY<TAB>value` per line:
 
-## Notes
+```text
+$CLOSE	Close
+$MENU_TITLE	My Panel
+$ITEM_COUNT	Items: {0}
+```
 
-- Keys are case-sensitive.
-- If no requested-language or English fallback file exists, `window.L10N` / `window.t` are not injected.
-- Values can contain HTML-like characters. Escape untrusted or user-controlled values before inserting them into `innerHTML`.
-- Use the DOM-ready callback as the synchronization point between native translation registration and JavaScript that consumes translations.
+The page then gets `window.L10N` and `window.t()`:
+
+```js
+window.onTranslationsReady = function () {
+  document.getElementById('title').textContent = window.t('$MENU_TITLE');
+};
+```
+
+Call it from `OnDomReady` and invoke the page initializer afterwards, exactly like V4. The legacy path injects into the current live document; it is not a pre-document hook. Do not mix V4 JSON and the legacy `.txt` for one view.
+
+## Common mistakes
+
+- **File name does not match the API name.** `RegisterTranslationsV4(view, "MyPlugin")` needs `MyPlugin_en.json`, not `MyPlugin_F4_en.json`.
+- **Called before the view exists.** Register in `OnDomReady`.
+- **Used in a script that runs before registration.** The strings are injected at registration; page module-level code runs earlier.
+- **Only English file shipped and the game is German.** That works (English fallback) — but the file still has to exist.
+- **`innerHTML` with translated text.** Use `textContent`. Treat translation values as data.
+
+## Where to go next
+
+- [Translate your interface](cookbook/translate-your-ui) — complete recipe
+- [`RegisterTranslations`](api/RegisterTranslations) — the numbered API version
+- [Modern API](modern-api) — feature discovery in general
+- [The HTML side](html-views) — using strings safely in the page

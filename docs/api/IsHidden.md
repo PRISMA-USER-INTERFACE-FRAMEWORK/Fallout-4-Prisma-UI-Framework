@@ -11,3 +11,5 @@ Returns `true` if the view is currently hidden.
 ## See also
 
 `Show`, `Hide`.
+
+**Try it:** [View lifecycle](../view-lifecycle).

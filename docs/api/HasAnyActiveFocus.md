@@ -15,3 +15,5 @@ probably typing into a text field rather than trying to loot something.
 ## See also
 
 `HasFocus` - the single-view version of this check.
+
+**Try it:** [Panel management](../panel-management).

@@ -28,3 +28,5 @@ is created.
 
 `SetViewOffscreenSize` (V8), `SetViewOffscreenBackground` (V9), `BindViewToGeometry`,
 `BindViewToScreenTexture`, `UnbindViewFromGeometry`, `GetViewSRV`.
+
+**Try it:** [Model preview / in-world screens](../model-preview).

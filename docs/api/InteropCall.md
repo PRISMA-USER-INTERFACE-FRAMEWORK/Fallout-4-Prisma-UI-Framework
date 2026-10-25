@@ -41,3 +41,5 @@ function onInventoryData(json) {
 ## See also
 
 `Invoke` - for one-shot calls where you need a return value back in C++.
+
+**Try it:** [Talk between the page and the plugin](../cookbook/talk-to-your-plugin).

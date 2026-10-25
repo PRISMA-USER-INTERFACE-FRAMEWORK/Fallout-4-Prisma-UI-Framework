@@ -38,3 +38,5 @@ if (api->GetActivateChoiceLabel(0, label, sizeof(label))) {
 - `GetActivateChoiceLabel`
 - `TriggerActivateChoice`
 - `SuppressActivateChoicePerk` - retained ABI placeholder; filtering is not implemented in 2.1.0
+
+**Try it:** [Vanilla UI suppression](../vanilla-ui-suppression).

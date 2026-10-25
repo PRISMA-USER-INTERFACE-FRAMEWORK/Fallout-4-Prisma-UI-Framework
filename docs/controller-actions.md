@@ -1,228 +1,186 @@
-# Focused controller actions (V12)
+# Controller actions
 
-`IVPrismaUI12` lets a mod map controller buttons to UI actions without installing its own raw Fallout controller sink. It derives from V11, so the existing V1-V11 ABI prefix remains unchanged.
+This turns gamepad buttons into named actions for your page. You ask PrismaUI to map a button to an action, the page listens for the action, and the game underneath does not also receive that button press.
 
-> **Availability:** include the canonical `PrismaUI_F4_API.h` SDK header and request `IVPrismaUI12` at runtime. Always null-check the request. Older installed providers may expose only earlier interface versions.
+It saves you from installing your own raw Fallout controller sink just to catch X, Y, LB and RB.
 
-## Runtime boundary
-
-Native flat-provider controller conversion is validated for Fallout 4 **1.10.163** and Anniversary Edition **1.11.240**. Unsupported or unverified controller runtimes fail closed instead of installing guessed conversion hooks.
-
-This controller-specific boundary is narrower than some other PrismaUI features. Do not infer native-controller support solely from general desktop-provider compatibility.
-
-## Public API
+## The short version
 
 ```cpp
-virtual bool BindControllerAction(
-    PrismaView view,
-    const char* canonicalButton,
-    const char* action) noexcept = 0;
-
-virtual bool UnbindControllerAction(
-    PrismaView view,
-    const char* canonicalButton) noexcept = 0;
-
-virtual void ClearControllerActions(PrismaView view) noexcept = 0;
-```
-
-`BindControllerAction` replaces the mapping for that view and button. It returns `false` until the target view is DOM-ready. `UnbindControllerAction` removes one mapping. `ClearControllerActions` removes every controller mapping owned by the view.
-
-Action identifiers are copied into framework storage and must contain 1-64 ASCII letters, digits, `_`, `-`, `.`, or `:`.
-
-## Bridge recovery in PrismaUI 2.2.0
-
-PrismaUI owns controller-action bridge installation and recovery. If the JavaScript bridge fails to install, the framework retries through the deferred Ultralight queue with a maximum of three attempts for the current view generation.
-
-Reloading, clearing, or destroying a view invalidates stale retry state. A completion from an older generation cannot mark a newer view as ready.
-
-Consumer mods should not add their own unbounded retry loop. Bind the semantic actions you need and treat `GetControllerActionBridgeState` as diagnostics/state reporting.
-
-## Canonical buttons
-
-The accepted button names are:
-
-`A`, `B`, `X`, `Y`, `LB`, `RB`, `LT`, `RT`, `LS`, `RS`, `Back`, `Start`, `DUp`, `DDown`, `DLeft`, `DRight`.
-
-These match the canonical names used by `GetGamepadButtonName()` and Prisma controller glyph rendering. PlayStation mode changes presentation only. Your code still registers the canonical names above.
-
-## Request V12
-
-```cpp
-#include "PrismaUI_F4_API.h"
-
-static PRISMA_UI_API::IVPrismaUI12* g_prisma = nullptr;
-static PrismaView g_view = 0;
-
-// During/after kGameDataReady:
+// Request V12 once, at kGameDataReady.
 g_prisma = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI12>();
 if (!g_prisma) {
-    logger::warn("PrismaUI V12 unavailable; controller actions disabled");
+    REX::WARN("controller actions need PrismaUI V12");
 }
-```
 
-Request the lowest API version your mod actually requires. If controller actions are optional, keep a fallback path when V12 is unavailable.
-
-## Bind after DOM-ready
-
-Controller actions should normally be registered from your DOM-ready callback. Binding before the final page context is ready returns `false`.
-
-```cpp
-static void OnDomReady(PrismaView view) {
+// Bind after the page is ready.
+static void OnDomReady(PrismaView view)
+{
     if (!g_prisma) return;
-
     g_prisma->BindControllerAction(view, "X", "scrap");
     g_prisma->BindControllerAction(view, "Y", "favorite");
-    g_prisma->BindControllerAction(view, "LB", "category_prev");
-    g_prisma->BindControllerAction(view, "RB", "category_next");
+    g_prisma->BindControllerAction(view, "LB", "tab.prev");
+    g_prisma->BindControllerAction(view, "RB", "tab.next");
 }
 ```
 
-Duplicate registration for the same view/button replaces the previous action deterministically.
-
-## JavaScript event
-
-The focused page receives one stable browser event:
-
 ```js
-window.addEventListener('prisma-controller-action', ({ detail }) => {
-  console.log(detail.action); // registered action identifier
-  console.log(detail.button); // canonical button name
-  console.log(detail.state);  // pressed, repeat, or released
+window.addEventListener('prisma-controller-action', function (event) {
+  const { action, button, state } = event.detail;
+  if (state !== 'pressed') return;
+
+  if (action === 'scrap') scrapSelectedItem();
+  if (action === 'favorite') toggleFavorite();
+  if (action === 'tab.prev') previousTab();
+  if (action === 'tab.next') nextTab();
 });
 ```
 
-Example:
+That is the whole pattern. Everything below is detail.
+
+## Which buttons you can map
+
+`A`, `B`, `X`, `Y`, `LB`, `RB`, `LT`, `RT`, `LS`, `RS`, `Back`, `Start`,
+`DUp`, `DDown`, `DLeft`, `DRight`.
+
+`LS` and `RS` are stick clicks. Stick movement is a different feature — see [live stick data](#live-stick-data).
+
+Action names are yours. They must be 1–64 characters from ASCII letters, digits, `_`, `-`, `.` and `:`. PrismaUI keeps its own copy, so a local `std::string` can go out of scope.
+
+## What the page receives
+
+One DOM event, always the same name:
 
 ```js
-window.addEventListener('prisma-controller-action', ({ detail }) => {
-  if (detail.state !== 'pressed') return;
-
-  switch (detail.action) {
-    case 'scrap':
-      scrapSelectedItem();
-      break;
-    case 'favorite':
-      toggleFavorite();
-      break;
-    case 'category_prev':
-      selectPreviousCategory();
-      break;
-    case 'category_next':
-      selectNextCategory();
-      break;
-  }
+window.addEventListener('prisma-controller-action', function (event) {
+  event.detail.action;   // "scrap"
+  event.detail.button;   // "X"
+  event.detail.state;    // "pressed" | "repeat" | "released"
 });
 ```
 
-Delivery runs in the view's Ultralight JavaScript context and is intended for UI work. If JavaScript needs to mutate Fallout-owned state, route that mutation through a native listener registered with V11 `BindGameThreadUIEvent`, or dispatch native work with `DispatchToGameThread`.
+Menus usually act on `pressed` only. List boxes that scroll on hold can use `repeat`. Games/emulators that need button-up use `released`.
 
-## Focus and event consumption
+## When an action is delivered
 
-A mapped controller event is eligible only when:
+A mapped event reaches your page only when all of this is true:
 
 - it is a gamepad button event;
-- the mapped view still exists;
-- that exact view owns PrismaUI focus; and
+- the view still exists;
+- **that exact view has PrismaUI focus**;
 - the button has a live mapping for that view.
 
-An admitted `pressed`, `repeat`, or `released` event is marked `kStop` on the Fallout input chain so the same physical input does not also activate a menu or gameplay action underneath the Prisma view.
+When those hold, PrismaUI consumes the physical press so it does not also trigger the Fallout menu or gameplay underneath. Unmapped buttons, unfocused views, keyboard and mouse are untouched.
 
-`kStop` means the mapped event was accepted for asynchronous dispatch to the exact focused live view. It does **not** mean JavaScript synchronously acknowledged or handled the event.
+Consuming is asynchronous. The press was accepted for delivery to your page; it is not a synchronous JavaScript acknowledgement. Do not assume the page already handled it by the time the native call returns.
 
-Unmapped, unfocused, keyboard/mouse, idle, and invalid-view events are not consumed by the V12 controller-action path.
+## Focus is the gate
 
-## Legacy D-pad, A, and B behavior
+No focus, no controller actions. If your panel is open but the game still has focus, nothing arrives. Make sure `Focus(view, pauseGame)` ran.
 
-PrismaUI already provides automatic controller navigation for focused views:
+Two other notes:
 
-- D-pad -> Arrow keys
-- A -> Enter
-- B -> Escape
+- **Reloads reset focus expectations.** After a page reload, bind actions again from `OnDomReady`.
+- **Other mods' panels.** If another PrismaUI panel takes focus, your actions stop arriving until focus comes back. That is correct.
 
-That behavior remains unchanged when those buttons are **not** explicitly registered through V12.
+## D-pad, A and B already work
 
-If a view explicitly maps `A`, `B`, `DUp`, `DDown`, `DLeft`, or `DRight`, the V12 action replaces the legacy synthetic-key route for that button. One physical event is not delivered through both paths.
+PrismaUI gives every focused view basic navigation for free:
 
-This makes migration incremental: map only the actions your UI needs and leave normal keyboard-style navigation alone.
+| Physical | Page receives |
+| --- | --- |
+| D-pad up/down/left/right | Arrow keys |
+| A | Enter |
+| B | Escape |
 
-## LT and RT hysteresis
+If you map one of these buttons yourself, your action **replaces** that synthetic-key behaviour for that button. It is never delivered twice.
 
-Triggers are analog values, so V12 uses deterministic hysteresis:
+This means you can start with ordinary keyboard-style navigation (arrow keys move the selection, Enter activates, Escape closes), and later map only the buttons you want as semantic actions — for example `X` for "scrap" — without breaking the rest.
 
-- press at `0.55` or above;
-- remain held through the middle band;
-- release at `0.45` or below.
+## Triggers
 
-This avoids trigger drift creating noisy press/release edges. Trigger state is reset when focus is successfully acquired so returning to a view does not inherit stale trigger state.
+`LT` and `RT` are analog. PrismaUI uses fixed thresholds so drift does not produce noisy presses:
 
-`LS` and `RS` refer to the stick-click buttons. Thumbstick movement itself is outside this API.
+- press at **0.55** or above;
+- release at **0.45** or below;
+- in between, the previous state is kept.
 
-## Native Gamepad mode
+Trigger state is reset when focus is acquired, so returning to a view does not inherit a held trigger from the previous one.
 
-The modern Controller feature table also exposes `SetNativeGamepad(view, enabled)`. Use it when the focused page needs live stick or trigger state through `navigator.getGamepads()`.
+## Live stick data
 
-Semantic menu actions should still use `BindControllerAction`. Native Gamepad mode is for continuous analog state, not a replacement for framework-owned action routing.
-
-## Lifecycle
-
-Mappings are owned per `PrismaView`.
-
-- `UnbindControllerAction` removes one button.
-- `ClearControllerActions` removes all mappings for a view.
-- `Destroy(view)` clears the view's mappings before backend destruction.
-- A destroyed view cannot leak mappings into a later view.
-
-For long-lived views, it is fine to bind once after DOM-ready and keep the mappings until destruction. For screens whose control scheme changes, rebind or clear mappings when the mode changes.
-
-## Removing a mapping
+If the page needs stick positions or analog values (a radial menu, a cursor, a camera), enable native Gamepad mode on the view:
 
 ```cpp
-g_prisma->UnbindControllerAction(g_view, "X");
+g_controller.SetNativeGamepad(view, true);
 ```
 
-Clear all mappings:
-
-```cpp
-g_prisma->ClearControllerActions(g_view);
+```js
+function poll() {
+  const pads = navigator.getGamepads();
+  const pad = pads && pads[0];
+  if (pad) {
+    const x = pad.axes[0], y = pad.axes[1];
+    // move your cursor
+  }
+  requestAnimationFrame(poll);
+}
 ```
 
-## Controller prompts
+Use native Gamepad for continuous values and `BindControllerAction` for discrete menu actions. Do not rebuild menu navigation out of raw button state.
 
-V12 handles actions, while the existing V9 prompt API handles presentation. Use them together:
+## Button prompts
+
+To draw a prompt that matches the player's controller style:
 
 ```cpp
 char prompt[32]{};
 if (g_prisma->GetButtonPrompt("Activate", prompt, sizeof(prompt))) {
-    // Show prompt in the page.
+    // Show prompt in the page, e.g. "A" on Xbox, "Cross" on PlayStation.
 }
 ```
 
-For a direct gamepad code, `GetGamepadButtonName()` returns the same canonical naming family used by V12. Shared controller glyphs are constrained to the framework prompt size so missing consumer CSS does not allow the source artwork to render at its full dimensions.
+`GetButtonPrompt` and `GetGamepadButtonName` use the same canonical button names as `BindControllerAction`, so the prompt for a mapped button is consistent with the action you bound.
+
+## Cleaning up
+
+```cpp
+g_prisma->UnbindControllerAction(g_view, "X");   // one button
+g_prisma->ClearControllerActions(g_view);        // all buttons on this view
+```
+
+`Destroy(view)` clears the view's mappings. Long-lived views can bind once and keep the mappings until destruction; screens whose controls change (a list view versus a detail view) should clear and rebind when the mode changes.
+
+## Runtime limits
+
+Native controller conversion is validated for **Old-Gen 1.10.163** and **Anniversary Edition 1.11.240**. Other runtimes fail closed rather than installing guessed conversion hooks.
+
+Fallout 4 VR does not advertise V11 or V12, so this interface does not exist there.
 
 ## Migrating an existing mod
 
-If your mod currently installs its own menu/player controller sink only to catch X/Y/LB/RB/etc. for a Prisma view:
+If your mod already has its own controller sink just to catch a few buttons for a Prisma view:
 
 1. Include `PrismaUI_F4_API.h` and request `IVPrismaUI12`.
-2. Remove the duplicate raw controller sink for UI actions now owned by PrismaUI.
-3. Bind actions after DOM-ready.
-4. Handle `prisma-controller-action` in the page.
-5. Keep V9 prompt/glyph APIs for visual button prompts.
-6. Keep engine mutations behind the V11 game-thread APIs.
+2. Remove the duplicate sink for UI actions.
+3. Bind actions in `OnDomReady`.
+4. Listen for `prisma-controller-action` in the page.
+5. Keep game-thread mutations behind `BindGameThreadUIEvent` / `DispatchToGameThread`.
+6. Keep the prompt APIs for drawing glyphs.
 
-This avoids multiple mods independently consuming the same Fallout controller events.
+This is the change that stops two mods from each consuming the same controller event.
 
-## Fallout 4 VR
+## Common mistakes
 
-V12 follows the current V11 flat-provider boundary. The VR provider may compile shared controller policy, but it does not advertise V11 or V12. Do not assume the desktop V12 interface exists in Fallout 4 VR.
+- **Binding before DOM-ready.** The bind returns `false`; move it into `OnDomReady`.
+- **Panel not focused.** Actions only arrive for the focused view.
+- **Expecting Enter/Escape.** If you map `A`/`B`, map them to your own actions; otherwise the free Arrow/Enter/Escape navigation applies.
+- **Rebuilding navigation from raw pad state.** Use actions for buttons, native Gamepad only for axes.
+- **Forgetting VR.** V12 does not exist there; keep a keyboard/fallback path.
 
-## See also
+## Where to go next
 
-- [Current API extensions](api-extensions.md)
-- [`BindControllerAction`](api/BindControllerAction.md)
-- [`UnbindControllerAction`](api/UnbindControllerAction.md)
-- [`ClearControllerActions`](api/ClearControllerActions.md)
-- [`GetButtonPrompt`](api/GetButtonPrompt.md)
-- [`GetGamepadButtonName`](api/GetGamepadButtonName.md)
-- [`BindGameThreadUIEvent`](api/BindGameThreadUIEvent.md)
-- [`DispatchToGameThread`](api/DispatchToGameThread.md)
+- [A controller-friendly menu](cookbook/controller-menu) — complete recipe
+- [`BindControllerAction`](api/BindControllerAction) · [`UnbindControllerAction`](api/UnbindControllerAction) · [`ClearControllerActions`](api/ClearControllerActions)
+- [`GetButtonPrompt`](api/GetButtonPrompt) · [`GetGamepadButtonName`](api/GetGamepadButtonName)
+- [Current API extensions](api-extensions) — what each interface adds

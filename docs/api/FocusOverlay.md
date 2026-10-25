@@ -55,3 +55,5 @@ if (PRISMA_UI_API::HasPrismaCapability(PRISMA_UI_API::PrismaCapability::InputReg
 - `SetInputRegions`
 - `SetViewRole`
 - `GetFocusedView`
+
+**Try it:** [A click-through HUD overlay](../cookbook/hud-overlay).

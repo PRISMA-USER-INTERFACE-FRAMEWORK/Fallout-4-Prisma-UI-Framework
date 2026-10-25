@@ -7,114 +7,89 @@ sidebar_position: 1
 
 # What is PrismaUI F4?
 
-**PrismaUI F4 is a native F4SE UI framework that lets Fallout 4 mods build interfaces with HTML, CSS, and JavaScript instead of authoring Scaleform SWFs.**
+PrismaUI F4 lets you build Fallout 4 interfaces with HTML, CSS and JavaScript instead of Scaleform SWFs.
 
-The current public framework release is **2.2.0**. It runs **Ultralight 1.4.0 in-process** and presents views through the framework's D3D11 compositor. The older legacy-runtime host/subprocess architecture is retired and is not part of the production package.
+If you can make a web page, you can make a menu, a HUD, a terminal screen or a Pip-Boy panel in Fallout 4. You write the page like any other web page, then a small F4SE plugin (or a Papyrus script) tells PrismaUI when to show it and what to put in it.
 
-## Why it exists
+```
+your plugin  ──create / show / send data──▶  PrismaUI_F4.dll
+                                                  │
+                                                  │  Ultralight 1.4.0, in-process
+                                                  ▼
+                                            Fallout 4 frame
+your HTML/CSS/JS  ──clicks, keys, data──▶  your plugin
+```
 
-Fallout 4's built-in menus use Scaleform. Editing those menus usually means working with SWF files and ActionScript. PrismaUI gives mod authors another path: build the new interface as ordinary web assets, then let an F4SE plugin control its lifecycle through a versioned C++ API.
+## Who it is for
 
-You can still suppress selected vanilla HUD widgets or menus when replacing them, but PrismaUI does not require you to modify the original SWF files.
+- **Players** who downloaded a mod that needs PrismaUI. Follow [Install PrismaUI](getting-started).
+- **Mod authors** who want a real UI without fighting Scaleform. Follow [Install PrismaUI](getting-started), then [Your first panel](quick-start). It takes about ten minutes and builds a panel you can open in game.
+- **Experienced plugin authors** who just want the calls. Open the [API reference](api-reference) or jump into the [Cookbook](/docs/cookbook/) for a complete example of the thing you are trying to do.
+
+## What you can build
+
+- **Menus and settings pages** with normal buttons, sliders, text fields and tabs.
+- **HUD widgets and overlays** that sit over the game with click-through areas you define.
+- **In-game screens and terminals** by binding a view to a screen in the world.
+- **Item and model previews** with real 3D meshes rendered by the game, not fake images.
+- **Controller-first interfaces** with your own button prompts and focus.
+- **Localized interfaces** that follow the player's game language.
 
 ## How it works
 
-1. **Build the view.** Put your HTML/CSS/JS under your mod's `Data/PrismaUI_F4/views/<PluginName>/` directory.
-2. **Create it from C++.** Request a PrismaUI interface and call `CreateView("<PluginName>/index.html")`.
-3. **Control its lifecycle.** Use `Show`, `Hide`, `Focus`, `Unfocus`, `Invoke`, `InteropCall`, and listener APIs as needed.
-4. **Let PrismaUI own the browser/runtime boundary.** `PrismaUI_F4.dll` owns Ultralight, rendering, input routing, focus, and composition inside the Fallout 4 process.
+1. **You write a web page.** Put `index.html`, CSS, JavaScript, fonts and images in `Data/PrismaUI_F4/views/YourPlugin/`.
+2. **Your plugin creates the view.** `CreateView("YourPlugin/index.html", OnDomReady)` tells PrismaUI to load the page and hand you a `PrismaView` handle.
+3. **You control the view.** Show, hide, focus, move data in, listen for clicks — all through the PrismaUI API.
+4. **PrismaUI owns the rest.** Ultralight, rendering, input routing, focus and D3D11 composition all run inside the Fallout process.
 
-```text
-Your HTML/CSS/JS
-      |
-      v
-PrismaUI_F4.dll
-  Ultralight 1.4.0
-  view lifecycle + JS bridge
-  input/focus routing
-  validated D3D11 GPU presentation with CPU BitmapSurface fallback
-      |
-      v
-Fallout 4 frame
-```
+There is no separate browser process and no host program to ship. `PrismaUI_F4.dll` plus the Ultralight runtime is the whole framework.
 
-There is no `retired host component`, previous browser runtime subprocess, shared legacy-runtime shell, or `retired runtime library` in the current release.
+## Supported game versions
 
-## Supported desktop runtimes
+- Fallout 4 **1.10.163** (Old-Gen)
+- Fallout 4 **1.11.137 and newer** (Anniversary Edition family) when the matching runtime data is installed
+- Fallout 4 **VR** uses its own package and its own provider DLL
 
-The current desktop provider supports:
+The 1.10.980–1.10.984 Next-Gen line is deliberately not supported. If the framework refuses to load there, that is working as intended. These boundaries match the framework README (source: README.md).
 
-- Fallout 4 **1.10.163** (OG)
-- Fallout 4 **1.11.137 and later** in the AE family when matching Address Library data is available
+## The two ways to call it
 
-The intermediate **1.10.980-1.10.984 Next-Gen line is deliberately rejected** by the framework. Do not advertise it as a supported runtime.
-
-Fallout 4 VR uses a separate provider DLL and separate release artifact. PrismaUI_F4 2.2.0 publishes a dedicated VR package; VR features remain capability-gated and are not implied by desktop API availability.
-
-## What you get
-
-### Versioned C++ API
-
-For new integrations, the preferred `PrismaUI_F4_Modern_API.h` surface exposes independently versioned Core, Controller, GameThread, Meta, View, Interop, Localization, Render, Input, and Menu tables. The stable compatibility header continues to expose `IVPrismaUI1` through `IVPrismaUI12`.
+New code should use **`PrismaUI_F4_Modern_API.h`**. It exposes small feature tables (View, Controller, Interop, GameThread, Localization, Render, Input, Menu) and you only ask for the ones you need:
 
 ```cpp
-auto* api = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>();
-if (!api) {
+#include "PrismaUI_F4_Modern_API.h"
+using namespace PRISMA_UI_FLAT_API;
+
+ViewAPI viewApi{};
+if (!Discover<ApiFeature::View>(ViewApiVersion, viewApi)) {
+    // PrismaUI is missing or too old for this table.
     return;
 }
 ```
 
-Existing numbered-interface consumers can continue using capability discovery where provided. For optional V10 input-region behavior, check the capability before depending on it:
+Existing plugins built against the numbered `PrismaUI_F4_API.h` header keep working unchanged. `IVPrismaUI1` through `IVPrismaUI12` are still there, and [Your first panel](quick-start) uses them because it is the shortest complete example:
 
 ```cpp
-if (PRISMA_UI_API::HasPrismaCapability(PRISMA_UI_API::PrismaCapability::InputRegions)) {
-    // FocusOverlay / SetInputRegions are available.
+auto* api = PRISMA_UI_API::RequestPluginAPI<PRISMA_UI_API::IVPrismaUI10>();
+if (!api) {
+    // PrismaUI is not installed or is too old.
+    return;
 }
 ```
 
-### C++ and JavaScript bridge
-
-Push data into the view with `InteropCall` or `Invoke`, and receive events with `RegisterJSListener` or `BindUIEvent`.
-
-```cpp
-g_api->InteropCall(view, "updateHealth", jsonPayload);
-
-g_api->RegisterJSListener(view, "onClose", [](const char*) {
-    g_api->Hide(g_view);
-});
-```
-
-### Focus and panel coordination
-
-The API includes focus management, view roles, focused-view lookup, panel visibility checks, and V10 input-region support. This lets multiple PrismaUI mods coordinate instead of blindly opening interactive panels on top of one another.
-
-### Fallout integration
-
-The framework provides APIs for translations, controller prompts, selected vanilla UI suppression, view health, offscreen rendering, and other Fallout-specific UI tasks. Some calls have runtime-specific limits, so read the method documentation instead of assuming every feature is identical across OG and AE.
-
-## Web-platform expectations
-
-Ultralight is not previous browser runtime. Do not rely on old documentation that promised the complete previous browser runtime/Electron feature set.
-
-For the current Ultralight runtime:
-
-- Standard HTML/CSS/JavaScript is the intended authoring model.
-- React, Vue, Svelte, and similar frameworks can be used when compiled/bundled into compatible static assets.
-- Self-host your JavaScript, styles, fonts, and other required dependencies with the mod.
-- Worker-style browser APIs are blocked by the Prisma sandbox.
-- Remote networking from the page is not a general-purpose plugin networking interface. Put required HTTP/WebSocket work in C++ and send results to the view through the Prisma bridge.
-- Arbitrary `file://` access is not a supported content path.
-- The shipping renderer can use the validated D3D11 GPU-accelerated Ultralight path and falls back to CPU BitmapSurface rendering when acceleration is not eligible.
-
-See [Networking](networking) and [Limitations](limitations).
+Both paths control the same framework. Pick one and stay with it.
 
 ## What PrismaUI is not
 
-- **Not a Scaleform editor.** It renders a separate UI layer and can optionally suppress selected vanilla UI at runtime.
-- **Not the retired legacy runtime.** The old host/subprocess architecture is not part of production.
-- **Not unrestricted browser hosting.** The framework deliberately confines local assets and network behavior.
-- **Not a replacement for your native plugin logic.** Game access, networking, and engine-heavy work belong in C++; PrismaUI handles the presentation and bridge.
+- **Not a Scaleform editor.** It draws its own layer and can optionally hide parts of the vanilla UI while your interface is open.
+- **Not a browser.** It runs Ultralight, not Chrome. Web Workers, WebSockets and remote fetches from the page are blocked on purpose. Do network work in C++ and pass the result to the page.
+- **Not a game-logic API.** Reading forms, editing the world and Papyrus calls stay in your plugin. PrismaUI handles the UI layer and the bridge between the page and your plugin.
+- **Not a CDN client.** Bundle your fonts, scripts and images with the mod. Do not depend on remote assets.
 
-## Start here
+## Where to start
 
-[Getting Started](getting-started) walks through creating and deploying a consumer plugin. New integrations should start with the [Modern API](modern-api) and `PrismaUI_F4_Modern_API.h`; the [API Reference](api-reference) and `PrismaUI_F4_API.h` remain the V1-V12 compatibility path.
+1. [Install PrismaUI](getting-started) and check the log line.
+2. Build [Your first panel](quick-start).
+3. Pick a recipe from the [Cookbook](/docs/cookbook/) that looks like what you want to make.
+4. Use the [API reference](api-reference) when you need the exact call.
+5. Stuck? Read [Troubleshooting](troubleshooting) or the [Limitations](limitations).

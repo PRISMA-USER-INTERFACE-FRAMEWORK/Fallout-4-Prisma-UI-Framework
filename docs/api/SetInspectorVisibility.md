@@ -16,4 +16,6 @@ Current PrismaUI builds package an in-game Ultralight inspector opened with **F1
 
 ## See also
 
-`CreateInspectorView`, `IsInspectorVisible`, `SetInspectorBounds`, [`RegisterConsoleCallback`](RegisterConsoleCallback.md).
+`CreateInspectorView`, `IsInspectorVisible`, `SetInspectorBounds`, [`RegisterConsoleCallback`](RegisterConsoleCallback).
+
+**Try it:** [Debugging your view](../debugging).

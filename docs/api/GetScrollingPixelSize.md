@@ -16,4 +16,4 @@ Do not treat `0` as the view's actual DOM scroll amount or wheel-step configurat
 
 ## See also
 
-[`SetScrollingPixelSize`](SetScrollingPixelSize.md).
+[`SetScrollingPixelSize`](SetScrollingPixelSize).

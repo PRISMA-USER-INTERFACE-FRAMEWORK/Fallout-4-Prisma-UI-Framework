@@ -10,13 +10,13 @@ Answers the question you actually want before opening your own panel: **is anoth
 screen and interactive right now?**
 
 Returns `true` if any view other than `ignoreView` is currently focused, or is declared
-[`kPanel`](SetViewRole.md) and not hidden. Passive HUD widgets and views that never declared a role
+[`kPanel`](SetViewRole) and not hidden. Passive HUD widgets and views that never declared a role
 never make this true, so it does **not** fire just because a HUD mod is running. Pass `0` for
 `ignoreView` to consider every view.
 
 ## Why not just walk `EnumerateViews`?
 
-[`EnumerateViews`](EnumerateViews.md) reports **every** registered view, including always-on HUD
+[`EnumerateViews`](EnumerateViews) reports **every** registered view, including always-on HUD
 widgets (health bar, compass, ammo counter, ...). Treating "some other view exists and isn't hidden"
 as "another UI is in the way" gives a permanent false positive on any setup running a HUD mod - your
 own menu will refuse to open even though nothing interactive is actually up. `IsAnyPanelVisible`
@@ -33,8 +33,10 @@ api->Focus(myView);
 
 ## See also
 
-- [`SetViewRole`](SetViewRole.md) - declare your view a `kPanel` so other plugins' `IsAnyPanelVisible`
+- [`SetViewRole`](SetViewRole) - declare your view a `kPanel` so other plugins' `IsAnyPanelVisible`
   sees it, and so yours reports correctly.
-- [`HasAnyActiveFocus`](HasAnyActiveFocus.md) - the V1 "is anything focused" check, if you only care
+- [`HasAnyActiveFocus`](HasAnyActiveFocus) - the V1 "is anything focused" check, if you only care
   about focus and can't require V10.
-- [`GetFocusedView`](GetFocusedView.md) - which specific view holds focus.
+- [`GetFocusedView`](GetFocusedView) - which specific view holds focus.
+
+**Try it:** [Panel management](../panel-management).

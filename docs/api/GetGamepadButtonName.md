@@ -27,3 +27,5 @@ directly, without going through a prompt-token string first.
 
 `GetButtonPrompt` - the higher-level call for the common case of "which button is this game action
 on", rather than starting from a raw button code.
+
+**Try it:** [A controller-friendly menu](../cookbook/controller-menu).

@@ -25,3 +25,5 @@ For the common case of putting a view onto a piece of 3D geometry, prefer those 
 ## See also
 
 `SetViewOffscreen`, `BindViewToGeometry`, `BindViewToScreenTexture`.
+
+**Try it:** [Model preview / in-world screens](../model-preview).

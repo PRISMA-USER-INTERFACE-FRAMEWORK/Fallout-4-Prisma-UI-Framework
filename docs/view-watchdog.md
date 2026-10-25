@@ -1,19 +1,21 @@
 ---
 id: view-watchdog
-title: View Health & Watchdog
-sidebar_label: View Health & Watchdog
+title: View health and watchdog
+sidebar_label: View health
 sidebar_position: 9
 ---
 
-# View Health & Watchdog
+:::tip New to PrismaUI?
+Start with [Your first panel](quick-start) for a complete walkthrough, or copy a working example from the [Cookbook](/docs/cookbook/).
+:::
 
-`IVPrismaUI8::GetViewHealth` exposes framework-observed health for a Prisma view. In current PrismaUI builds those observations come from the in-process **Ultralight 1.4.0** backend, not from a legacy-runtime renderer subprocess.
+# View health and watchdog
 
-Use view health for diagnostics and bounded recovery. Do not treat it as a substitute for `IsValid()` or build an infinite recreate loop around it.
+`GetViewHealth(view)` tells you what the framework thinks of a view: still loading, live, failed, timed out, unresponsive, or hit a JavaScript error. It is a diagnostic tool with a small recovery pattern, not a state machine you should build your plugin around.
 
-## Public states
+The watchdog is the framework's own safety net for focused views: if presentation stalls, it releases focus and pause so the player is never stuck.
 
-The ABI keeps these values:
+## The states
 
 ```cpp
 enum class ViewHealth : int {
@@ -28,65 +30,28 @@ enum class ViewHealth : int {
 };
 ```
 
-### `kUnknown`
+| State | What it means | What to do |
+| --- | --- | --- |
+| `kUnknown` | The framework cannot report health for this handle. | Check `IsValid(view)` separately. |
+| `kCreating` | Created, not ready yet. | Do not focus. Wait for DOM-ready. |
+| `kDomReady` | The page DOM exists and PrismaUI published that state. | Safe to focus and call the bridge. |
+| `kLive` | Normal load path completed. | Normal use. |
+| `kLoadFailed` | The page failed to load, or navigation was rejected. | Treat as a path/asset problem, not a random failure. |
+| `kDomReadyTimeout` | The page never reached DOM-ready in the allowed window. | Make a bounded recreate attempt, capture evidence. |
+| `kUnresponsive` | The view stopped responding. | Log it; recreate with a bound. |
+| `kJsError` | A JavaScript error put the view in its error state. | Fix the page; `Invoke` errors land here. |
 
-The public API returns this when it cannot provide a known health state for the supplied handle/backend state.
+Focus is only accepted when the view is `kDomReady` or `kLive`. That is why a panel created one frame ago refuses `Focus`.
 
-Check `IsValid(view)` separately when the distinction matters.
-
-### `kCreating`
-
-The view has been admitted/created but has not yet reached the DOM-ready/live state.
-
-Do not focus a view in this state. The focus path rejects a view unless its health is `kDomReady` or `kLive`.
-
-### `kDomReady`
-
-The page has reached DOM-ready and the framework has published that state. Consumer DOM-ready callbacks are queued to the game thread.
-
-This is a valid state for focus and normal JS bridge work.
-
-### `kLive`
-
-The view completed the normal load path and is live.
-
-### `kLoadFailed`
-
-The current page/view load failed or the framework rejected the main document/navigation. Examples include a missing/invalid view, failed Ultralight load, or an attempted top-level navigation outside the trusted document boundary.
-
-Treat repeated `kLoadFailed` as a configuration/content problem until proven otherwise. Check `PrismaUI_F4.log`, view paths, and bundled assets before automatically recreating forever.
-
-### `kDomReadyTimeout`
-
-Retained in the public health ABI for a page that fails to reach DOM-ready within the framework's allowed lifecycle window.
-
-If it is reported, capture console/log evidence and recreate only with a bounded retry policy.
-
-### `kUnresponsive`
-
-Retained in the public health ABI for an unresponsive view condition.
-
-Do **not** interpret this as “the legacy-runtime subprocess crashed.” PrismaUI is in-process Ultralight. Log the state and collect framework diagnostics before deciding whether to recreate.
-
-### `kJsError`
-
-The public representation of a JavaScript/script-error health condition. For example, an `Invoke` evaluation exception can move the backend into its script-error state.
-
-Use `RegisterConsoleCallback` and the `Invoke` result to diagnose the actual exception.
-
-## Querying health
+## Reading it
 
 ```cpp
-if (!g_api || !g_view || !g_api->IsValid(g_view)) {
-    return;
-}
+if (!g_api || !g_api->IsValid(g_view)) return;
 
 const auto health = g_api->GetViewHealth(g_view);
 ```
 
-Health is most useful at low frequency or when you already have a reason to diagnose a view. There is no need to poll it every render frame for a normal menu.
-
-A simple bounded check:
+Health is cheap but not free; check it when something goes wrong or at low frequency. Do not poll it every frame for a normal menu.
 
 ```cpp
 using VH = PRISMA_UI_API::ViewHealth;
@@ -97,63 +62,46 @@ case VH::kLive:
     break;
 
 case VH::kCreating:
-    // Still starting. Do not focus yet.
-    break;
+    break;   // not a failure: still loading
 
 case VH::kLoadFailed:
 case VH::kDomReadyTimeout:
-    logger::error("Prisma view failed to become live");
+    REX::ERROR("view failed to become live");
     break;
 
 case VH::kUnresponsive:
-    logger::error("Prisma view became unresponsive");
+    REX::ERROR("view became unresponsive");
     break;
 
 case VH::kJsError:
-    logger::warn("Prisma view reported a JavaScript error");
+    REX::WARN("view has a JavaScript error");
     break;
 
-case VH::kUnknown:
 default:
     break;
 }
 ```
 
-## Console diagnostics
+## Finding the cause
 
-`RegisterConsoleCallback` is the primary in-game replacement for old legacy-runtime DevTools-oriented debugging instructions.
+Health tells you *that* something broke. These tell you *what*:
 
-```cpp
-g_api->RegisterConsoleCallback(g_view,
-    [](PrismaView view,
-       PRISMA_UI_API::ConsoleMessageLevel level,
-       const char* message) {
-        logger::info("[Prisma JS][{}][{}] {}",
-                     view,
-                     static_cast<int>(level),
-                     message ? message : "");
-    });
-```
+- **`RegisterConsoleCallback`** — the in-game console, including your page's errors, in your log.
+- **`PrismaUI_F4.log`** — framework-level: rejected navigation, preflight failures, JS errors, focus failures.
+- **F12 inspector** — Elements, Console, Network when a view has focus.
+- **`Invoke` errors** — an exception from an `Invoke` often shows up as `kJsError`.
 
-Console callbacks are delivered through the framework's verified callback path.
+## The watchdog
 
-Also inspect:
+You do not need to feed a focused static view fake animation. The presentation heartbeat is refreshed when the focused view is part of the successfully drawn frames — a static panel stays healthy.
 
-```text
-Documents\My Games\Fallout4\F4SE\PrismaUI_F4.log
-```
+Emergency focus release exists for a real whole-frame presentation stall, not for a single dropped frame. When it fires, the player gets input and pause control back instead of being trapped in a view that is not being drawn.
 
-The framework records rejected navigation, runtime preflight failures, JS errors, focus failures, and other lifecycle diagnostics there.
+That is the point of the watchdog: protect the player, not the plugin.
 
-## Focus watchdog behavior
+## Recovering a broken view
 
-A focused static view does not need fake animation or periodic pixel changes to stay focused. The presentation heartbeat is refreshed only when the currently focused view is present in the committed view set after a successful draw.
-
-Emergency focus release is reserved for a genuine whole-frame presentation stall. Reusing a committed frame from a different view does not keep an unpresented focused view alive indefinitely.
-
-## Recovery pattern
-
-A failed handle can be destroyed and recreated, but keep retries bounded:
+Destroy and recreate — with a limit:
 
 ```cpp
 void RecreateView()
@@ -175,19 +123,23 @@ void RecreateView()
 }
 ```
 
-Do not immediately recreate forever on every update. A bad HTML path, missing asset, blocked navigation, or repeatable JS startup error will simply reproduce the same failure.
+What you should **not** do is recreate on every update. If the HTML path is wrong, an asset is missing or the page throws during startup, recreating just repeats the failure — and now the player sees flicker on top of it.
 
-## Important differences from older watchdog docs
+A sane policy:
 
-- There is no production legacy-runtime renderer subprocess to diagnose.
-- Do not tell users to inspect legacy-runtime crash logs.
-- Do not describe every view as an iframe in a shared legacy-runtime shell.
-- Do not rely on the retired external browser debugging workflow. Current builds provide the packaged F12 Ultralight inspector.
-- Keep framework logs, `RegisterConsoleCallback`, `Invoke` errors, `IsValid`, and `GetViewHealth` in the diagnostic path.
+1. recreate once per failure;
+2. if the same view fails again quickly, stop and log;
+3. investigate the log before adding retries.
 
-## Related pages
+## What changed from older watchdog guides
 
-- [View Lifecycle](view-lifecycle)
-- [Troubleshooting](troubleshooting)
-- [API Reference](api-reference)
-- [`GetViewHealth`](api/GetViewHealth.md)
+- There is no renderer subprocess and no legacy-runtime crash log to read. PrismaUI renders in-process.
+- Do not investigate old host/iframe/shell failures; they do not exist in current builds.
+- Debugging is the framework log, `RegisterConsoleCallback`, `Invoke` errors, `IsValid`, `GetViewHealth`, and the F12 inspector.
+
+## Where to go next
+
+- [Debugging your view](debugging) — the full debugging path
+- [View lifecycle](view-lifecycle) — states and destruction in order
+- [`GetViewHealth`](api/GetViewHealth) — the method page
+- [Troubleshooting](troubleshooting) — symptom-driven checks

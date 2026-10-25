@@ -44,3 +44,5 @@ api->Invoke(view, "document.getElementById('hp').textContent", [](const char* va
 ## See also
 
 `InteropCall` - lower-overhead one-way call for anything frequent.
+
+**Try it:** [Talk between the page and the plugin](../cookbook/talk-to-your-plugin).

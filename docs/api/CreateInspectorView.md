@@ -18,4 +18,6 @@ The retired external Chrome/legacy-runtime debugging workflow does not apply.
 
 ## See also
 
-[`RegisterConsoleCallback`](RegisterConsoleCallback.md), [`GetViewHealth`](GetViewHealth.md), `SetInspectorVisibility`, `IsInspectorVisible`, `SetInspectorBounds`.
+[`RegisterConsoleCallback`](RegisterConsoleCallback), [`GetViewHealth`](GetViewHealth), `SetInspectorVisibility`, `IsInspectorVisible`, `SetInspectorBounds`.
+
+**Try it:** [Debugging your view](../debugging).

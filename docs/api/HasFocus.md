@@ -11,3 +11,5 @@ Returns `true` if this view currently has input focus.
 ## See also
 
 `Focus`, `Unfocus`, `HasAnyActiveFocus`.
+
+**Try it:** [Panel management](../panel-management).

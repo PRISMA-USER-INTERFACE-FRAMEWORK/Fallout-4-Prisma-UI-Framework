@@ -15,3 +15,5 @@ visible to every other Prisma plugin right away.
 ## See also
 
 `GetControllerStyle`.
+
+**Try it:** [A controller-friendly menu](../cookbook/controller-menu).

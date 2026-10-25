@@ -30,3 +30,5 @@ holds a modifier key, rather than suppressing it unconditionally for the whole s
 ## See also
 
 `SuppressVanillaMenu` - the fixed-flag version.
+
+**Try it:** [Vanilla UI suppression](../vanilla-ui-suppression).

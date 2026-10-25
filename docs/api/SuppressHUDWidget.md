@@ -34,3 +34,5 @@ Suppression is designed to survive HUDMenu rebuilds and save/load lifecycle chan
 
 - `SuppressVanillaMenu`
 - `SuppressVanillaMenuIf`
+
+**Try it:** [Vanilla UI suppression](../vanilla-ui-suppression).

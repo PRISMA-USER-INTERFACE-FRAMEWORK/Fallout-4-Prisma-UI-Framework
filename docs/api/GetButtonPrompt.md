@@ -49,3 +49,5 @@ given style fall back to a labelled pill.
 ## See also
 
 `GetGamepadButtonName`, `NoteInputDevice`, `GetControllerStyle`.
+
+**Try it:** [A controller-friendly menu](../cookbook/controller-menu).
