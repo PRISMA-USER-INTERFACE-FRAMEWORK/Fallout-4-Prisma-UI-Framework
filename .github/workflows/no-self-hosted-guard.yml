@@ -1,0 +1,35 @@
+name: Public repository guard
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Reject self-hosted runners
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS= read -r -d '' workflow; do
+            if grep -nEi \
+              -e '^[[:space:]]*runs-on:[[:space:]].*self-hosted' \
+              -e '^[[:space:]]*-[[:space:]]*self-hosted([[:space:]]|$)' \
+              "$workflow"; then
+              echo "Public repository workflow uses a self-hosted runner: $workflow" >&2
+              failed=1
+            fi
+          done < <(find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) ! -name 'no-self-hosted-guard.yml' -print0)
+
+          if [[ "$failed" -ne 0 ]]; then
+            exit 1
+          fi

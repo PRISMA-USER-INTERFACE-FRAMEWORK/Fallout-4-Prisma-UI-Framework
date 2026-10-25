@@ -1,0 +1,148 @@
+name: Deploy website to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Build
+        working-directory: website
+        run: npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check or enable GitHub Pages
+        id: pages
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/pages"
+          headers=(
+            -H "Accept: application/vnd.github+json"
+            -H "Authorization: Bearer $GH_TOKEN"
+            -H "X-GitHub-Api-Version: 2022-11-28"
+          )
+
+          status="$(curl -sS -o /tmp/pages.json -w '%{http_code}' "${headers[@]}" "$api")"
+          if [[ "$status" == "200" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$status" == "404" ]]; then
+            create_status="$(curl -sS -o /tmp/pages-create.json -w '%{http_code}' \
+              -X POST "${headers[@]}" \
+              -H 'Content-Type: application/json' \
+              -d '{"build_type":"workflow"}' \
+              "$api")"
+            if [[ "$create_status" == "200" || "$create_status" == "201" ]]; then
+              echo "enabled=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "Pages is not enabled and the workflow token could not enable it automatically (HTTP $create_status)."
+            cat /tmp/pages-create.json || true
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Unexpected GitHub Pages API response: HTTP $status" >&2
+          cat /tmp/pages.json >&2 || true
+          exit 1
+
+      - name: Deploy to GitHub Pages
+        if: steps.pages.outputs.enabled == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Pages enablement notice
+        if: steps.pages.outputs.enabled != 'true'
+        run: |
+          echo "GitHub Pages is not enabled for this repository yet."
+          echo "The website build is valid and the workflow will deploy automatically once Pages is enabled with GitHub Actions as the source."
+
+  normalize-history:
+    needs: [build, deploy]
+    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.result == 'success' && needs.deploy.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout complete history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Keep main as one root commit
+        id: history
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent_count="$(git rev-list --parents -n 1 HEAD | awk '{print NF - 1}')"
+          if [[ "$parent_count" -eq 0 ]]; then
+            echo "rewritten=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "Nomads_Reach"
+          git config user.email "144523850+NomadsReach@users.noreply.github.com"
+          tree="$(git rev-parse 'HEAD^{tree}')"
+          root="$(printf '%s\n' 'PrismaUI_F4 2.1.0 public framework' | git commit-tree "$tree")"
+          git push --force origin "$root:refs/heads/main"
+          echo "rewritten=true" >> "$GITHUB_OUTPUT"
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+
+      - name: Validate the final root commit
+        if: steps.history.outputs.rewritten == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for workflow in deploy.yml no-self-hosted-guard.yml docs-validation.yml; do
+            curl --fail-with-body -sS -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              -H 'Content-Type: application/json' \
+              -d '{"ref":"main"}' \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/dispatches"
+          done

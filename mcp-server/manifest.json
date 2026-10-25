@@ -1,0 +1,92 @@
+{
+  "manifest_version": "0.2",
+  "name": "prisma-mcp",
+  "version": "1.1.0",
+  "description": "PrismaUI_F4 2.2.0 modern/legacy/VR API, release metadata, guides, search, and plugin scaffolding for MCP-compatible assistants.",
+  "long_description": "Gives an MCP client verified access to the PrismaUI_F4 2.2.0 release contract, byte-pinned modern, V1-V12 compatibility, and VR SDK headers, modern feature-table introspection, current developer guides, and modern-first plugin scaffolding.",
+  "author": {
+    "name": "NomadsReach",
+    "url": "https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK"
+  },
+  "homepage": "https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Fallout-4-Prisma-UI-Framework/tree/main/mcp-server",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Fallout-4-Prisma-UI-Framework.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "prismaui",
+    "fallout4",
+    "f4se",
+    "mcp",
+    "ultralight"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/index.js"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "${user_config.github_token}"
+      }
+    }
+  },
+  "user_config": {
+    "github_token": {
+      "type": "string",
+      "title": "GitHub token (optional)",
+      "description": "Raises GitHub API rate limits for public Fallout-4-Prisma-UI-Framework lookups. Matrix access is not required.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "tools": [
+    {
+      "name": "get_framework_release",
+      "description": "Get the pinned PrismaUI_F4 2.2.0 release identity, desktop/controller runtime boundaries, release artifacts, modern feature list, and verified SDK provenance."
+    },
+    {
+      "name": "list_modern_features",
+      "description": "List every released modern feature table with IDs, versions, members, typedefs, and signatures."
+    },
+    {
+      "name": "get_modern_feature",
+      "description": "Get one modern feature table such as Controller, Localization, GameThread, View, Render, Input, or Menu."
+    },
+    {
+      "name": "get_modern_header",
+      "description": "Get the exact released PrismaUI_F4_Modern_API.h after verifying its pinned Git blob."
+    },
+    {
+      "name": "get_header",
+      "description": "Get the exact released PrismaUI_F4_API.h V1-V12 compatibility header after verifying its pinned Git blob."
+    },
+    {
+      "name": "get_vr_header",
+      "description": "Get the exact released PrismaUI_F4VR_API.h after verifying its pinned Git blob."
+    },
+    {
+      "name": "list_api_methods",
+      "description": "List documented V1-V12 compatibility API methods, optionally filtered by interface version."
+    },
+    {
+      "name": "get_api_method",
+      "description": "Get full docs for one numbered V1-V12 compatibility API method."
+    },
+    {
+      "name": "search_docs",
+      "description": "Search legacy method docs, current developer guides, and verified modern/VR SDK contracts."
+    },
+    {
+      "name": "get_guide",
+      "description": "Get the full text of a current PrismaUI developer or release guide."
+    },
+    {
+      "name": "scaffold_plugin",
+      "description": "Write a consumer plugin project using modern feature tables by default, with an explicit legacy mode."
+    }
+  ]
+}
