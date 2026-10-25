@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <cstdint>
 #include <map>
@@ -151,6 +152,16 @@ inline bool ParseNumber(std::string_view j, std::size_t& i, double& out) {
         }
     }
     if (!digits) return false;
+    if (i < j.size() && (j[i] == 'e' || j[i] == 'E')) {
+        ++i;
+        if (i < j.size() && (j[i] == '-' || j[i] == '+')) ++i;
+        bool expDigits = false;
+        while (i < j.size() && std::isdigit(static_cast<unsigned char>(j[i]))) {
+            expDigits = true;
+            ++i;
+        }
+        if (!expDigits) return false;
+    }
     try {
         out = std::stod(std::string(j.substr(start, i - start)));
     } catch (...) {
@@ -241,6 +252,12 @@ inline std::string GetString(const Object& o, std::string_view key) {
 inline double GetNumber(const Object& o, std::string_view key) {
     auto it = o.numbers.find(std::string(key));
     return it == o.numbers.end() ? 0.0 : it->second;
+}
+
+inline std::string FormatNumber(double v) {
+    char buf[32];
+    const auto res = std::to_chars(buf, buf + sizeof(buf), v);
+    return std::string(buf, res.ptr);
 }
 
 }

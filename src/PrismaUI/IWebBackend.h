@@ -124,6 +124,12 @@ namespace PrismaUI::Web {
         virtual void BeginResize(IDXGISwapChain*) {}
         virtual void CompleteResize(IDXGISwapChain*, HRESULT, uint32_t, uint32_t) {}
         virtual RenderTargetSnapshot ViewRenderTarget(ViewId view, uint64_t generation) = 0;
+        virtual std::string ReserveExternalImage(uint64_t) { return {}; }
+        virtual void PublishExternalImage(uint64_t, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>, uint32_t,
+                                          uint32_t, uint64_t) {}
+        virtual void RetractExternalImage(uint64_t) {}
+        virtual void ReleaseExternalImage(uint64_t) {}
+        virtual bool IsExternalImageLive(uint64_t) { return false; }
 
         virtual ViewId CreateView(const ViewSource& source, const std::string& owner, DomReadyCallback) = 0;
         virtual void DestroyView(ViewId) = 0;
@@ -161,6 +167,7 @@ namespace PrismaUI::Web {
         virtual void RegisterListener(ViewId, const std::string& name, ListenerCallback) = 0;
         virtual void RegisterConsole(ViewId, ConsoleCallback) = 0;
         virtual void SetViewErrorCallback(ViewErrorCallback) = 0;
+        virtual void SetDocumentReadyCallback(DomReadyCallback) {}
 
         virtual void SendKey(ViewId, const KeyInput&) = 0;
         virtual bool SetNativeGamepad(ViewId, bool) { return false; }
@@ -170,6 +177,7 @@ namespace PrismaUI::Web {
         virtual void SendControllerKey(ViewId, std::uint64_t, std::uint32_t, bool, bool) {}
         virtual void SendMouse(ViewId, const MouseInput&) = 0;
         virtual void SendScroll(ViewId, const ScrollInput&) = 0;
+        virtual bool PageHasInputFocus() const noexcept { return false; }
 
     protected:
         [[nodiscard]] PresentLease MakePresentLease(uint64_t generation, uint64_t epoch) noexcept {

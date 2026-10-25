@@ -16,6 +16,8 @@ namespace PrismaUI {
         bool WaitUntilHostLoaded(int timeoutMs);
         bool EnsureLoaded();
         bool LoadAndInit();
+        void RequestStartup(bool force = false) noexcept;
+        std::uint32_t GetRuntimeState() noexcept;
         class FrameAdvanceGuard {
         public:
             FrameAdvanceGuard() noexcept = default;
@@ -78,6 +80,7 @@ namespace PrismaUI {
         void* GetViewSRV(ViewId view);
         Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> AcquireViewSRV(ViewId view);
         ViewId GetFocusedView();
+        bool PageHasInputFocus();
         bool IsOffscreen(ViewId view);
         bool GetOffscreenPageSize(ViewId view, int& outW, int& outH);
         void SetInputTargetView(ViewId view);
@@ -113,7 +116,7 @@ namespace PrismaUI {
         void SendMouseClick(int x, int y, int button, bool mouseUp, int clickCount, uint32_t modifiers,
                             bool rescale = true);
         void SendMouseWheel(int x, int y, int deltaX, int deltaY, uint32_t modifiers, bool rescale = true);
-        void SendKey(int keyType, int windowsKeyCode, int nativeKeyCode, uint32_t modifiers, uint16_t character,
+        void SendKey(int keyType, int windowsKeyCode, int nativeKeyCode, uint32_t modifiers, char32_t character,
                      bool systemKey = false);
         void ShowDock();
         void HideDock();

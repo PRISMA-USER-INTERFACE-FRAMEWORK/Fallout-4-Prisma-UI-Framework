@@ -6,6 +6,8 @@
 
 namespace PrismaUI::Web {
 
+inline constexpr float kCenterArm = 0.22F;
+
 struct GamepadInput {
     enum class Type { Button, Stick, Connection };
     Type type = Type::Connection;
@@ -40,7 +42,7 @@ struct GamepadState {
         }
         if (input.index >= centered.size() || std::abs(input.x) > 1 || std::abs(input.y) > 1) return;
         connected = true;
-        if (input.x == 0 && input.y == 0) centered[input.index] = true;
+        if (std::hypot(input.x, input.y) <= kCenterArm) centered[input.index] = true;
         if (!centered[input.index]) return;
         axes[input.index * 2] = input.x;
         axes[input.index * 2 + 1] = input.y;

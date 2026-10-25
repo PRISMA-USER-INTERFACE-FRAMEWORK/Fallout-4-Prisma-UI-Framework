@@ -342,6 +342,7 @@ namespace PrismaUI::WebRuntime::Internal {
         PrismaUI::PresentProfiler::BeginStage(PrismaUI::PresentProfiler::Stage::TickCore, dev, ctx);
         ModelPreview::TickCore(dev, ctx);
         PrismaUI::PresentProfiler::EndStage(PrismaUI::PresentProfiler::Stage::TickCore, ctx);
+        ModelPreview::SyncImageSources(backend);
         ModelPreview::GetActiveViews(activeViews);
         orderedViews.reserve(activeViews.size());
         for (const auto view : activeViews) {

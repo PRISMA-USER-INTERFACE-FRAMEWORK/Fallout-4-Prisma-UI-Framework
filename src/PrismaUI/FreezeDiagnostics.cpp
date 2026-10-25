@@ -35,9 +35,6 @@ namespace PrismaUI::FreezeDiagnostics {
         std::atomic<uint64_t> g_gpuCompleted{0};
         std::atomic<uint64_t> g_gpuActive{0};
         std::atomic<bool>     g_frameRequested{false};
-        std::atomic<uint32_t> g_dsOp{0};
-        std::atomic<int64_t>  g_dsSince{0};
-        std::atomic<uint32_t> g_dsThread{0};
         std::atomic<uint64_t> g_dropView{0};
         std::atomic<int64_t>  g_dropSince{0};
         std::atomic<int64_t>  g_shutdownJoinSince{0};
@@ -95,9 +92,6 @@ namespace PrismaUI::FreezeDiagnostics {
             s.completedGeneration = g_gpuCompleted.load(std::memory_order_relaxed);
             s.activeGeneration = g_gpuActive.load(std::memory_order_relaxed);
             s.frameRequested = g_frameRequested.load(std::memory_order_relaxed);
-            s.dispatchSyncOp = static_cast<Stage>(g_dsOp.load(std::memory_order_relaxed));
-            s.dispatchSyncSinceMs = g_dsSince.load(std::memory_order_relaxed);
-            s.dispatchSyncThread = g_dsThread.load(std::memory_order_relaxed);
             s.dropViewView = g_dropView.load(std::memory_order_relaxed);
             s.dropViewSinceMs = g_dropSince.load(std::memory_order_relaxed);
             s.shutdownJoinSinceMs = g_shutdownJoinSince.load(std::memory_order_relaxed);
@@ -297,18 +291,6 @@ namespace PrismaUI::FreezeDiagnostics {
         g_gpuCompleted.store(completed, std::memory_order_relaxed);
         g_gpuActive.store(active, std::memory_order_relaxed);
         g_frameRequested.store(frameRequested, std::memory_order_relaxed);
-    }
-
-    void BeginDispatchSync(Stage op, uint32_t threadId) noexcept {
-        g_dsThread.store(threadId, std::memory_order_relaxed);
-        g_dsSince.store(NowMs(), std::memory_order_relaxed);
-        g_dsOp.store(static_cast<uint32_t>(op), std::memory_order_release);
-    }
-
-    void EndDispatchSync() noexcept {
-        g_dsOp.store(static_cast<uint32_t>(Stage::Idle), std::memory_order_relaxed);
-        g_dsSince.store(0, std::memory_order_relaxed);
-        g_dsThread.store(0, std::memory_order_relaxed);
     }
 
     void BeginDropViewWait(uint64_t view) noexcept {

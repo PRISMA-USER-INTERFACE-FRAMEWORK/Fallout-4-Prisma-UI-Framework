@@ -188,9 +188,27 @@ public:
     }
 };
 
+static void RegisterPauseHoldMenu()
+{
+    if (auto* ui = RE::UI::GetSingleton()) {
+        ui->RegisterMenu(PauseHold::MENU_NAME.data(), PauseHold::Creator);
+        ui->RegisterSink(PrismaDockMenuSink::GetSingleton());
+        logger::info("[PrismaUI] Registered PauseHold + pause-menu sink for the Prisma Dock");
+    }
+}
+
 static void F4SEMessageHandler(F4SE::MessagingInterface::Message* message)
 {
     if (!message) return;
+
+    if (message->type == F4SE::MessagingInterface::kPostPostLoad) {
+        if (auto* tasks = F4SE::GetTaskInterface()) {
+            tasks->AddTaskPermanent([] {
+                if (PrismaUI::WebRuntime::GetRuntimeState() != static_cast<std::uint32_t>(PRISMA_UI_FLAT_API::RuntimeState::Waiting)) return;
+                PrismaUI::WebRuntime::RequestStartup();
+            });
+        }
+    }
 
     if (message->type == F4SE::MessagingInterface::kPreLoadGame) {
         const auto epoch = g_gameLoadEpoch.fetch_add(1, std::memory_order_acq_rel) + 1;
@@ -208,15 +226,10 @@ static void F4SEMessageHandler(F4SE::MessagingInterface::Message* message)
         PrismaUI::WebRuntime::StartRecoveryWatchdog();
         PrismaUI::WebRuntime::TryInstallGameInput();
 
-        logger::info("[PrismaUI] Bringing up Ultralight backend on worker thread");
-        std::thread([] { PrismaUI::WebRuntime::LoadAndInit(); }).detach();
+        logger::info("[PrismaUI] Ensuring Ultralight backend startup has been requested");
+        PrismaUI::WebRuntime::RequestStartup(true);
 
-        if (auto* ui = RE::UI::GetSingleton()) {
-
-            ui->RegisterMenu(PauseHold::MENU_NAME.data(), PauseHold::Creator);
-            ui->RegisterSink(PrismaDockMenuSink::GetSingleton());
-            logger::info("[PrismaUI] Registered PauseHold + pause-menu sink for the Prisma Dock");
-        }
+        RegisterPauseHoldMenu();
 
         PrismaUI::VanillaUISuppressor::Install();
         PrismaUI::ControllerGlyphs::InstallInputTracking();
@@ -259,8 +272,10 @@ F4SE_PLUGIN_VERSION = []() noexcept {
     v.PluginName("PrismaUI_F4");
     v.AuthorName("PrismaUI");
     v.UsesAddressLibrary(true);
+    v.UsesAddressLibraryNG(true);
     v.UsesSigScanning(false);
     v.IsLayoutDependent(true);
+    v.IsLayoutDependentNG(true);
     v.HasNoStructUse(false);
     return v;
 }();
@@ -319,7 +334,6 @@ F4SE_PLUGIN_LOAD(const F4SE::LoadInterface* a_intfc)
     }
 
     logger::info("[PrismaUI] Ultralight backend");
-
     logger::info("PrismaUI_F4 Framework loaded successfully");
     return true;
 }

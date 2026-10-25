@@ -6,61 +6,88 @@
 
 #include "RE/I/Interface3D.h"
 
+#include "Interface3DOffscreenSlotPolicy.h"
+
 namespace PrismaUI::Engine {
-
-    struct RendererArray {
-        RE::Interface3D::Renderer** data;
-        std::uint64_t               capacity;
-        std::uint32_t               size;
-    };
-
-    template <class F>
-    void ForEachInterface3DRenderer(F&& fn) {
-#if defined(PRISMAUI_FO4VR)
-        (void)fn;
-#else
-        if (!REX::FModule::IsRuntimeOG() && !REX::FModule::IsRuntimeAE()) return;
-        REL::Relocation<RendererArray*> renderers{ REL::ID{ 996993, 0, 4803727 } };
-        auto* arr = renderers.get();
-        if (!arr || !arr->data) return;
-        for (std::uint32_t i = 0; i < arr->size; ++i) {
-            if (auto* r = arr->data[i]) fn(r);
-        }
-#endif
-    }
-
-    inline std::uint32_t Interface3DRendererCount() {
-#if defined(PRISMAUI_FO4VR)
-        return 0;
-#else
-        if (!REX::FModule::IsRuntimeOG() && !REX::FModule::IsRuntimeAE()) return 0;
-        REL::Relocation<RendererArray*> renderers{ REL::ID{ 996993, 0, 4803727 } };
-        auto* arr = renderers.get();
-        return arr ? arr->size : 0;
-#endif
-    }
 
     inline constexpr const char* kActorPreviewRendererName = "PrismaActorPreview";
 
-    inline void* GetOrCreateActorPreviewRenderer(float a_fov = 45.0f) {
+    struct OffscreenSlotPoll {
+        Interface3DOffscreenSlotPolicy::SlotState state = Interface3DOffscreenSlotPolicy::SlotState::UnknownLayout;
+        std::int32_t slot = Interface3DOffscreenSlotPolicy::kNoSlot;
+    };
+
+    inline RE::Interface3D::Renderer* FindRendererByName(const RE::BSFixedString& a_name) {
+        return RE::Interface3D::Renderer::GetByName(a_name);
+    }
+
 #if defined(PRISMAUI_FO4VR)
+    template <class F>
+    void ForEachInterface3DRenderer(F&& fn) {
+        (void)fn;
+    }
+
+    inline std::uint32_t Interface3DRendererCount() {
+        return 0;
+    }
+
+    inline void* GetOrCreateActorPreviewRenderer(float a_fov = 45.0f) {
         (void)a_fov;
         return nullptr;
-#else
-        if (!REX::FModule::IsRuntimeOG() && !REX::FModule::IsRuntimeAE()) return nullptr;
-        const RE::BSFixedString name{ kActorPreviewRendererName };
-        if (auto* existing = RE::Interface3D::Renderer::GetByName(name)) return existing;
-
-        return RE::Interface3D::Renderer::Create(
-            name, RE::UI_DEPTH_PRIORITY::kStandard3DModel, a_fov, /*alwaysRenderWhenEnabled*/ true);
-#endif
     }
 
     inline bool AttachPlayer3DToRenderer(void* a_renderer) {
-#if defined(PRISMAUI_FO4VR)
         (void)a_renderer;
         return false;
+    }
+
+    inline bool EnableActorPreview(void* a_renderer) {
+        (void)a_renderer;
+        return false;
+    }
+
+    inline void StopActorPreview(void* a_renderer) {
+        (void)a_renderer;
+    }
+
+    inline OffscreenSlotPoll PollOffscreenSlot(void* a_renderer) {
+        (void)a_renderer;
+        return {};
+    }
 #else
+    inline RE::BSTArray<RE::Interface3D::Renderer*>* Interface3DRenderers() {
+        static REL::Relocation<RE::BSTArray<RE::Interface3D::Renderer*>*> renderers{ REL::VariantID{ 996993, 2696455, 4803746 } };
+        return renderers.get();
+    }
+
+    template <class F>
+    void ForEachInterface3DRenderer(F&& fn) {
+        auto* arr = Interface3DRenderers();
+        if (!arr) return;
+        for (auto* r : *arr) {
+            if (r) fn(r);
+        }
+    }
+
+    inline std::uint32_t Interface3DRendererCount() {
+        auto* arr = Interface3DRenderers();
+        return arr ? arr->size() : 0;
+    }
+
+    inline RE::Interface3D::Renderer* CreateRenderer(const RE::BSFixedString& a_name, RE::UI_DEPTH_PRIORITY a_depth, float a_fov, bool a_alwaysRender) {
+        return RE::Interface3D::Renderer::Create(a_name, a_depth, a_fov, a_alwaysRender);
+    }
+
+    inline void* GetOrCreateActorPreviewRenderer(float a_fov = 45.0f) {
+        if (!REX::FModule::IsRuntimeOG() && !REX::FModule::IsRuntimeAE() && !REX::FModule::IsRuntimeNG()) return nullptr;
+        const RE::BSFixedString name{ kActorPreviewRendererName };
+        if (auto* existing = FindRendererByName(name)) return existing;
+
+        return CreateRenderer(
+            name, RE::UI_DEPTH_PRIORITY::kStandard3DModel, a_fov, /*alwaysRenderWhenEnabled*/ true);
+    }
+
+    inline bool AttachPlayer3DToRenderer(void* a_renderer) {
         if (!a_renderer) return false;
         auto* player = RE::PlayerCharacter::GetSingleton();
         if (!player) return false;
@@ -68,30 +95,31 @@ namespace PrismaUI::Engine {
         if (!root) return false;
         static_cast<RE::Interface3D::Renderer*>(a_renderer)->MainScreen_SetWorldAttached3D(root);
         return true;
-#endif
     }
 
     inline bool EnableActorPreview(void* a_renderer) {
-#if defined(PRISMAUI_FO4VR)
-        (void)a_renderer;
-        return false;
-#else
         if (!a_renderer) return false;
         static_cast<RE::Interface3D::Renderer*>(a_renderer)->Enable(false);
         return true;
-#endif
     }
 
     inline void StopActorPreview(void* a_renderer) {
-#if defined(PRISMAUI_FO4VR)
-        (void)a_renderer;
-#else
         if (!a_renderer) return;
         auto* r = static_cast<RE::Interface3D::Renderer*>(a_renderer);
         r->MainScreen_SetWorldAttached3D(nullptr);
         r->Disable();
-#endif
     }
+
+    inline OffscreenSlotPoll PollOffscreenSlot(void* a_renderer) {
+        OffscreenSlotPoll poll{};
+        if (!a_renderer) return poll;
+        const auto layout = Interface3DOffscreenSlotPolicy::FlatRuntimeLayout(
+            REX::FModule::IsRuntimeOG(), REX::FModule::IsRuntimeNG());
+        poll.slot = static_cast<RE::Interface3D::Renderer*>(a_renderer)->customRenderTarget;
+        poll.state = Interface3DOffscreenSlotPolicy::Classify(layout, poll.slot);
+        return poll;
+    }
+#endif
 
     inline RE::Interface3D::Renderer* FindRendererOwning(RE::BSGeometry* geom) {
         RE::Interface3D::Renderer* found = nullptr;

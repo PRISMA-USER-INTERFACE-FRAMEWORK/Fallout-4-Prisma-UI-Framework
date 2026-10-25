@@ -65,6 +65,12 @@
         constexpr size_t kBaseSwapchainVtableSlots = 18;
         constexpr size_t kMaxSwapchainVtableSlots = 41;
 
+        PrismaUI::Hooks::TrampolineQuarantine s_presentQuarantine;
+        PrismaUI::Hooks::TrampolineQuarantine s_resizeQuarantine;
+
+        PrismaUI::Hooks::TrampolineQuarantine& PresentQuarantine() { return s_presentQuarantine; }
+        PrismaUI::Hooks::TrampolineQuarantine& ResizeQuarantine() { return s_resizeQuarantine; }
+
         std::atomic<PrismaUI::Hooks::HookInstallStrategy> s_installStrategy{
             PrismaUI::Hooks::HookInstallStrategy::Reject};
 
@@ -79,6 +85,7 @@
         std::atomic<bool> s_chainOrphaned[2]{false, false};
         std::atomic<ChainRetirementState> s_chainState[2]{ChainRetirementState::Free,
                                                            ChainRetirementState::Free};
+        std::atomic<std::uint32_t> s_chainInstallSeq[2]{0, 0};
         std::atomic<unsigned int> s_chainSlotCount[2]{0, 0};
         void* s_chainVtables[2][kMaxSwapchainVtableSlots]{};
 

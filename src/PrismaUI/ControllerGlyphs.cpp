@@ -4,9 +4,7 @@
 #include "ControllerForwardGuard.h"
 #include "ControllerRoutePolicy.h"
 #include "NativeMenuHookInstall.h"
-#ifndef PRISMAUI_FO4VR
 #include "VirtualPointer.h"
-#endif
 #include "WebRuntime.h"
 #include "Engine/EngineControllerInput.h"
 #include "Menus/FocusMenu/FocusMenu.h"
@@ -94,9 +92,7 @@ namespace PrismaUI::ControllerGlyphs {
 
         std::mutex g_controllerRoutingMutex;
         ControllerInputPolicy::CrossChainEventGate g_crossChainEventGate;
-#ifndef PRISMAUI_FO4VR
         std::atomic<bool> g_nativeMenuReady{false};
-#endif
 
         bool RouteGamepadToView(const RE::ButtonEvent* a_ev, ControllerInputPolicy::InputChain chain)
         {
@@ -136,12 +132,10 @@ namespace PrismaUI::ControllerGlyphs {
                 code, a_ev->QJustPressed(), a_ev->QReleased());
             if (focusEntry.mappingActive) return consume(focusEntry.consumeGameEvent);
 
-#ifndef PRISMAUI_FO4VR
             if (ControllerInputPolicy::VirtualPointerEligible(g_nativeMenuReady.load()) &&
                 VirtualPointer::OnButton(code, a_ev->QJustPressed(), a_ev->QReleased())) {
                 return consume(true);
             }
-#endif
             return false;
         }
 
@@ -354,28 +348,21 @@ namespace PrismaUI::ControllerGlyphs {
         bool menuOk = false, gameOk = false;
 
         if (auto* mc = RE::MenuControls::GetSingleton()) {
-#if defined(PRISMAUI_FO4VR)
-
-            auto* sink = InputSink::GetSingleton();
-            bool present = false;
-            for (std::uint32_t i = 0; i < mc->handlers.size(); ++i) {
-                if (mc->handlers[i] == sink) { present = true; break; }
-            }
-            if (!present) mc->handlers.push_back(sink);
-#else
-            mc->RegisterHandler(InputSink::GetSingleton());
-#endif
+            Engine::RegisterMenuInputHandler(mc, InputSink::GetSingleton());
             menuOk = true;
         } else {
             logger::warn("[PrismaUI ControllerGlyphs] MenuControls unavailable -- menu-chain tracking not installed");
         }
 
-        if (auto* pc = RE::PlayerControls::GetSingleton()) {            static GameplayInputSink* s_gameplay = nullptr;
+        if (auto* pc = RE::PlayerControls::GetSingleton()) {
+            static GameplayInputSink* s_gameplay = nullptr;
+#ifdef PRISMAUI_FO4VR
+            static RE::PlayerControlsData s_unreadData{};
+            if (!s_gameplay) s_gameplay = new GameplayInputSink(s_unreadData);
+#else
             if (!s_gameplay) s_gameplay = new GameplayInputSink(pc->data);
-            bool present = false;
-            for (std::uint32_t i = 0; i < pc->handlers.size(); ++i)
-                if (pc->handlers[i] == s_gameplay) { present = true; break; }
-            if (!present) pc->RegisterHandler(s_gameplay);
+#endif
+            Engine::RegisterGameplayInputHandler(pc, s_gameplay);
             gameOk = true;
         } else {
             logger::warn("[PrismaUI ControllerGlyphs] PlayerControls unavailable -- gameplay-chain "

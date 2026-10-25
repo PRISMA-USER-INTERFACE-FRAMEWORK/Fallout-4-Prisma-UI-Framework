@@ -1,8 +1,6 @@
 #include "WebRuntime.h"
 #include "WebRuntimeInternal.h"
-#ifndef PRISMAUI_FO4VR
 #include "VirtualPointer.h"
-#endif
 #include "DevToolsConfig.h"
 #include "GameThreadDispatcher.h"
 #include "InputMask.h"
@@ -29,9 +27,7 @@ namespace PrismaUI::WebRuntime {
                     st.backend->SetInspectorVisibility(owner, false);
                     const ViewId intendedOwner = activeOwner ? activeOwner : pendingOwner;
                     if (!teardownOwner && intendedOwner && intendedOwner != owner) {
-#ifndef PRISMAUI_FO4VR
                         VirtualPointer::CancelHeldClick();
-#endif
                         st.backend->SetInspectorVisibility(intendedOwner, true);
                     }
                     return;
@@ -96,9 +92,7 @@ namespace PrismaUI::WebRuntime {
             if (st.focusedView.load(std::memory_order_acquire) == owner && !IsRuntimeViewVisible(owner))
                 Unfocus(owner);
             const ViewId focused = st.focusedView.load(std::memory_order_acquire);
-#ifndef PRISMAUI_FO4VR
             VirtualPointer::CancelHeldClick();
-#endif
             if (st.backend) {
                 if (owner != focused) st.backend->UnfocusView(owner);
                 if (focused) st.backend->FocusView(focused);
@@ -154,7 +148,6 @@ namespace PrismaUI::WebRuntime {
         int64_t expectedRetryAt = retryAt;
         if (!st.inspectorTeardownRetryAt.compare_exchange_strong(expectedRetryAt, now, std::memory_order_acq_rel))
             return;
-#ifndef PRISMAUI_FO4VR
         if (GameThreadDispatcher::DispatchSafety([owner, now] {
                 int64_t expected = now;
                 st.inspectorTeardownRetryAt.compare_exchange_strong(expected, 0, std::memory_order_acq_rel);
@@ -162,7 +155,6 @@ namespace PrismaUI::WebRuntime {
                     ApplyInspectorBackendStateChanged(owner, false, true);
             }))
             return;
-#endif
         st.inspectorTeardownRetryAt.store(0, std::memory_order_release);
         if (auto* task = F4SE::GetTaskInterface()) {
             const int64_t fallbackAt = HealthNowMs();
@@ -194,9 +186,7 @@ namespace PrismaUI::WebRuntime {
                         st.backend->SetInspectorVisibility(owner, false);
                         const ViewId intendedOwner = activeOwner ? activeOwner : pendingOwner;
                         if (!teardownOwner && intendedOwner && intendedOwner != owner) {
-#ifndef PRISMAUI_FO4VR
                             VirtualPointer::CancelHeldClick();
-#endif
                             st.backend->SetInspectorVisibility(intendedOwner, true);
                         }
                     }
@@ -256,9 +246,7 @@ namespace PrismaUI::WebRuntime {
                 OnInspectorBackendStateChanged(view, false);
                 return;
             }
-#ifndef PRISMAUI_FO4VR
             VirtualPointer::CancelHeldClick();
-#endif
             st.backend->SetInspectorVisibility(view, true);
             if (!st.backend->IsReady() || !IsValid(view)) OnInspectorBackendStateChanged(view, false);
             return;

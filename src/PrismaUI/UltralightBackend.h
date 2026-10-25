@@ -5,12 +5,14 @@
 #include "IWebBackend.h"
 #include "UltralightDispatchQueue.h"
 #include "UltralightDocumentCallbacks.h"
+#include "UltralightImageSources.h"
 #include "UltralightInspector.h"
 #include "UltralightRuntime.h"
 #include "UltralightViewManager.h"
 #include "UltralightViewCallbacks.h"
 
 #include "GPU/AcceleratedDeviceLifecycle.h"
+#include "GPU/ExternalTextureRegistry.h"
 #include "GPU/FalloutD3DContext.h"
 
 #include <d3d11.h>
@@ -28,6 +30,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -62,6 +65,12 @@ namespace PrismaUI::WebRuntimeUltralight {
                                                        IDXGISwapChain* swapChain) override;
         PrismaUI::Web::RenderTargetSnapshot ViewRenderTarget(
             PrismaUI::Web::ViewId view, uint64_t generation) override;
+        std::string ReserveExternalImage(std::uint64_t key) override;
+        void PublishExternalImage(std::uint64_t key, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv,
+                                  std::uint32_t width, std::uint32_t height, std::uint64_t generation) override;
+        void RetractExternalImage(std::uint64_t key) override;
+        void ReleaseExternalImage(std::uint64_t key) override;
+        bool IsExternalImageLive(std::uint64_t key) override;
 
         PrismaUI::Web::ViewId CreateView(const PrismaUI::Web::ViewSource& source, const std::string& owner,
                                          PrismaUI::Web::DomReadyCallback onReady) override;
@@ -99,6 +108,7 @@ namespace PrismaUI::WebRuntimeUltralight {
                               PrismaUI::Web::ListenerCallback callback) override;
         void RegisterConsole(PrismaUI::Web::ViewId id, PrismaUI::Web::ConsoleCallback callback) override;
         void SetViewErrorCallback(PrismaUI::Web::ViewErrorCallback callback) override;
+        void SetDocumentReadyCallback(PrismaUI::Web::DomReadyCallback callback) override;
         void SendKey(PrismaUI::Web::ViewId id, const PrismaUI::Web::KeyInput& input) override;
         bool SetNativeGamepad(PrismaUI::Web::ViewId id, bool enabled) override;
         bool UsesNativeGamepad(PrismaUI::Web::ViewId id) const override;
@@ -108,6 +118,7 @@ namespace PrismaUI::WebRuntimeUltralight {
                                bool pressed, bool fresh) override;
         void SendMouse(PrismaUI::Web::ViewId id, const PrismaUI::Web::MouseInput& input) override;
         void SendScroll(PrismaUI::Web::ViewId id, const PrismaUI::Web::ScrollInput& input) override;
+        bool PageHasInputFocus() const noexcept override;
 
     private:
         struct PublishedFrame {
@@ -139,13 +150,13 @@ namespace PrismaUI::WebRuntimeUltralight {
         [[nodiscard]] bool ObserveAcceleratedLifecycleLocked(ID3D11DeviceContext* immediate,
                                                              IDXGISwapChain* swapChain);
 
-        void Dispatch(UltralightDispatchQueue::Task function);
+        [[nodiscard]] bool Dispatch(UltralightDispatchQueue::Task function);
         void DispatchForView(PrismaUI::Web::ViewId id, UltralightDispatchQueue::Task function);
-        bool DispatchDeferred(UltralightDispatchQueue::Task function);
+        [[nodiscard]] bool DispatchDeferred(UltralightDispatchQueue::Task function);
+        [[nodiscard]] bool ExternalImagesReady() const;
 
         void OwnerMain(PrismaUI::Web::ReadyCallback callback);
         void PublishFrames();
-        void ApplyClearColor(ViewRecord& record);
 
         void DeliverKey(PrismaUI::Web::ViewId id, const PrismaUI::Web::KeyInput& input);
         void ReleaseControllerKeys(PrismaUI::Web::ViewId owner, uint64_t generation);
@@ -153,6 +164,8 @@ namespace PrismaUI::WebRuntimeUltralight {
         bool PrepareGamepad(PrismaUI::Web::ViewId id, uint64_t generation);
         void CancelNativeGamepad(PrismaUI::Web::ViewId id = 0, bool loseFocus = false);
         void PublishGamepad();
+        void PublishInputFocus();
+        void ClearInputFocus(PrismaUI::Web::ViewId id);
         void OnDocumentBeginLoading(PrismaUI::Web::ViewId id);
         void OnTrustedDocumentReady(PrismaUI::Web::ViewId id);
         void ReleaseNativeGamepadForInspector();
@@ -204,6 +217,11 @@ namespace PrismaUI::WebRuntimeUltralight {
         Microsoft::WRL::ComPtr<ID3D11Device> device_;
         Microsoft::WRL::ComPtr<ID3D11DeviceContext> immediateContext_;
         PrismaUI::GPU::FalloutD3DContext gpuContext_;
+        // Declared before gpuDriver_: the driver keeps a raw pointer to this registry and must be destroyed first.
+        PrismaUI::GPU::ExternalTextureRegistry externalTextures_;
+        UltralightImageSources imageSources_;
+        std::map<std::uint64_t, std::uint32_t> externalTextureIds_;
+        std::set<std::uint64_t> rejectedExternalKeys_;
         std::unique_ptr<PrismaUI::GPU::FalloutGPUDriver> gpuDriver_;
         HWND window_ = nullptr;
         uint32_t width_ = 1280;
@@ -221,12 +239,14 @@ namespace PrismaUI::WebRuntimeUltralight {
         bool accelerated_ = false;
         std::atomic_bool ownerExited_{false};
         std::atomic_bool shutdownStarted_{false};
+        std::atomic<PrismaUI::Web::ViewId> inputFocusView_{0};
         std::atomic<const char*> currentOp_{"starting"};
         bool initializationDone_ = false;
         bool initializationResolved_ = false;
         bool initializationSuccess_ = false;
         std::string initializationMessage_;
         PrismaUI::Web::ViewErrorCallback errorCallback_;
+        PrismaUI::Web::DomReadyCallback documentReadyCallback_;
         PrismaUI::Web::InspectorStateCallback inspectorStateCallback_;
         std::map<PrismaUI::Web::ViewId, PublishedFrame> published_;
         mutable std::mutex gamepadMutex_;

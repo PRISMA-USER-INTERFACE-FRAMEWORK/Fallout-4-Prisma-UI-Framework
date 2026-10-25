@@ -16,9 +16,7 @@
 #include <vector>
 
 bool DispatchApiCallback(std::function<void()> task, PrismaView view) {
-#ifndef PRISMAUI_FO4VR
         if (PrismaUI::GameThreadDispatcher::Dispatch(task, view)) return true;
-#endif
         if (const auto* taskInterface = F4SE::GetTaskInterface()) {
             if (view != 0) {
                 taskInterface->AddTask([task = std::move(task), view]() mutable {
@@ -34,88 +32,7 @@ bool DispatchApiCallback(std::function<void()> task, PrismaView view) {
     }
 void PluginAPI::DiagTickMeshBindings()
 {
-	PrismaUI::MeshBinding::DiagTick();
-}
-
-void PluginAPI::PrismaUIInterface::RegisterJSListener(PrismaView view, const char* fnName, PRISMA_UI_API::JSListenerCallback callback) noexcept
-{
-    if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view) || !fnName || !callback) {
-        logger::warn("RegisterJSListener: invalid args — view={} fn={}", view, fnName ? fnName : "null");
-        return;
-    }
-
-    logger::info("RegisterJSListener: View [{}] registering '{}'", view, fnName);
-
-    std::string name = fnName;
-    std::function<void(std::string)> callbackWrapper = [callback, view, name](const std::string& arg) {
-        (void)DispatchApiCallback([targetCallback = callback, data = arg, view, name]() {
-
-            logger::debug("RegisterJSListener fired: View [{}] '{}' — data: '{}'", view, name, data);
-            targetCallback(data.c_str());
-        }, view);
-    };
-
-    if (!PrismaUI::WebRuntime::IsActive()) {
-        logger::warn("RegisterJSListener: Ultralight backend not active -- view [{}] fn '{}' not registered", view, fnName);
-        return;
-    }
-    PrismaUI::WebRuntime::RegisterJSListener(view, fnName, callbackWrapper);
-}
-
-bool PluginAPI::PrismaUIInterface::HasFocus(PrismaView view) noexcept
-{
-    if (!view) {
-        return false;
-    }
-    return PrismaUI::WebRuntime::HasFocus(view);
-}
-
-bool PluginAPI::PrismaUIInterface::Focus(PrismaView view, bool pauseGame, bool disableFocusMenu) noexcept
-{
-    if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view)) {
-        return false;
-    }
-    return PrismaUI::WebRuntime::Focus(view, pauseGame, disableFocusMenu);
-}
-
-bool PluginAPI::PrismaUIInterface::FocusOverlay(PrismaView view, bool pauseGame, bool disableFocusMenu) noexcept
-{
-    if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view)) {
-        return false;
-    }
-    return PrismaUI::WebRuntime::FocusOverlay(view, pauseGame, disableFocusMenu);
-}
-
-void PluginAPI::PrismaUIInterface::Unfocus(PrismaView view) noexcept
-{
-    if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view)) {
-        return;
-    }
-    PrismaUI::WebRuntime::Unfocus(view);
-}
-
-void PluginAPI::PrismaUIInterface::Show(PrismaView view) noexcept
-{
-	if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view)) {
-		return;
-	}
-	PrismaUI::WebRuntime::Show(view);
-}
-
-void PluginAPI::PrismaUIInterface::Hide(PrismaView view) noexcept
-{
-	if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view)) {
-		return;
-	}
-	PrismaUI::WebRuntime::Hide(view);
-}
-
-bool PluginAPI::PrismaUIInterface::IsHidden(PrismaView view) noexcept
-{
-	if (!view) {
-		return true;
-	}
-	return PrismaUI::WebRuntime::IsHidden(view);
+	PrismaUI::MeshBinding::DiagTick(&PrismaUI::WebRuntime::AcquireViewSRV);
 }
 
 int PluginAPI::PrismaUIInterface::GetScrollingPixelSize(PrismaView view) noexcept
@@ -166,40 +83,6 @@ int PluginAPI::PrismaUIInterface::GetOrder(PrismaView view) noexcept
 		return -1;
 	}
 	return PrismaUI::WebRuntime::GetOrder(view);
-}
-
-void PluginAPI::PrismaUIInterface::CreateInspectorView(PrismaView view) noexcept
-{
-    if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view)) {
-        return;
-    }
-    PrismaUI::WebRuntime::CreateInspectorView(view);
-}
-
-void PluginAPI::PrismaUIInterface::SetInspectorVisibility(PrismaView view, bool visible) noexcept
-{
-    if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view)) {
-        return;
-    }
-    PrismaUI::WebRuntime::SetInspectorVisibility(view, visible);
-}
-
-bool PluginAPI::PrismaUIInterface::IsInspectorVisible(PrismaView view) noexcept
-{
-    if (!view) {
-        return false;
-    }
-
-    return PrismaUI::WebRuntime::IsInspectorVisible(view);
-}
-
-void PluginAPI::PrismaUIInterface::SetInspectorBounds(PrismaView view, float topLeftX, float topLeftY, unsigned int width, unsigned int height) noexcept
-{
-    if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view)) {
-        return;
-    }
-
-    PrismaUI::WebRuntime::SetInspectorBounds(view, topLeftX, topLeftY, width, height);
 }
 
 bool PluginAPI::PrismaUIInterface::HasAnyActiveFocus() noexcept
@@ -488,23 +371,23 @@ bool PluginAPI::PrismaUIInterface::BindViewToGeometry(PrismaView view, void* roo
 {
 	if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view) || !rootObject || !geometryName) return false;
 	if (!PrismaUI::MeshBinding::Enabled()) return false;
-	auto* srv = static_cast<ID3D11ShaderResourceView*>(GetViewSRV(view));
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv = PrismaUI::WebRuntime::AcquireViewSRV(view);
 	if (!srv) {
 		logger::warn("BindViewToGeometry: view [{}] has no dedicated offscreen frame yet", view);
 		return false;
 	}
 	return PrismaUI::MeshBinding::BindToGeometry(view, static_cast<RE::NiAVObject*>(rootObject),
-	                                             geometryName, srv);
+	                                             geometryName, srv.Get());
 }
 
 bool PluginAPI::PrismaUIInterface::BindViewToScreenTexture(PrismaView view, void* rootObject, const char* textureSubstring) noexcept
 {
 	if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view) || !rootObject || !textureSubstring) return false;
 	if (!PrismaUI::MeshBinding::Enabled()) return false;
-	auto* srv = static_cast<ID3D11ShaderResourceView*>(GetViewSRV(view));
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv = PrismaUI::WebRuntime::AcquireViewSRV(view);
 	if (!srv) return false;
 	return PrismaUI::MeshBinding::BindToScreenTexture(view, static_cast<RE::NiAVObject*>(rootObject),
-	                                                  textureSubstring, srv);
+	                                                  textureSubstring, srv.Get());
 }
 
 void PluginAPI::PrismaUIInterface::UnbindViewFromGeometry(PrismaView view) noexcept

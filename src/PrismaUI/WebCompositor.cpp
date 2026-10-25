@@ -217,6 +217,8 @@ float4 PSMain(VSOut i) : SV_TARGET {
 
             const auto gb = ConflictChecker::InspectGetBufferOwner(swapChain);
             o.vtableOwnerIsKnownFrameGen = gb.owner == ConflictChecker::GetBufferOwnerClass::KnownFrameGen;
+            o.vtableOwnerIsVerifiedOwnedProxy =
+                gb.owner == ConflictChecker::GetBufferOwnerClass::VerifiedOwnedProxy;
             o.getBufferOwnerForeign = gb.owner == ConflictChecker::GetBufferOwnerClass::Foreign;
             m_classifiedGetBufferFn = gb.getBufferFn;
             if (swapChain) {

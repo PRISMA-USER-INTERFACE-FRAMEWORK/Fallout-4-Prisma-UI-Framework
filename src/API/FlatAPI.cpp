@@ -88,6 +88,7 @@ namespace {
         return Api()->SetInputRegions(view, converted.data(), count);
     }
     bool BindControllerAction(PrismaView view, const char* button, const char* action) noexcept { return Api()->BindControllerAction(view, button, action); }
+    bool BindControllerActionVR(PrismaView, const char*, const char*) noexcept { return false; }
     bool UnbindControllerAction(PrismaView view, const char* button) noexcept { return Api()->UnbindControllerAction(view, button); }
     void ClearControllerActions(PrismaView view) noexcept { Api()->ClearControllerActions(view); }
     Flat::ControllerActionBridgeState GetControllerActionBridgeState(PrismaView view) noexcept { return static_cast<Flat::ControllerActionBridgeState>(Api()->GetControllerActionBridgeState(view)); }
@@ -199,6 +200,7 @@ namespace {
         SetNativeGamepad};
     const Flat::ControllerAPI ControllerVR = [] {
         auto table = Controller;
+        table.BindControllerAction = BindControllerActionVR;
         table.BindControllerFocusEntry = nullptr;
         table.UnbindControllerFocusEntry = nullptr;
         table.SetNativeGamepad = nullptr;

@@ -1,11 +1,13 @@
 #include "PrismaFileSystem.h"
 
+#include "NetworkAuditConfig.h"
 #include "NetworkSandbox.h"
 #include "UltralightString.h"
 #include "../Engine/LogicalPathPolicy.h"
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <fstream>
 #include <string_view>
 #include <utility>
@@ -66,14 +68,22 @@ namespace PrismaUI::WebRuntimeUltralight {
             return value;
         }
 
+        bool RegisteredImageSource(const ImageSourceLookup& lookup, const std::string& request,
+                                   std::string& identifier) {
+            return lookup && lookup(UrlPath(request), identifier);
+        }
+
     }
 
-    PrismaFileSystem::PrismaFileSystem(std::filesystem::path root) :
+    PrismaFileSystem::PrismaFileSystem(std::filesystem::path root, ImageSourceLookup imageSourceLookup) :
         root_(std::move(root)), resourcesRoot_(root_.parent_path() / L"resources"),
-        inspectorRoot_(root_.parent_path() / L"inspector") {}
+        inspectorRoot_(root_.parent_path() / L"inspector"), imageSourceLookup_(std::move(imageSourceLookup)) {}
 
     bool PrismaFileSystem::FileExists(const ultralight::String& filePath) {
-        const auto resolved = Resolve(ToUtf8(filePath));
+        const std::string request = ToUtf8(filePath);
+        std::string identifier;
+        if (RegisteredImageSource(imageSourceLookup_, request, identifier)) return true;
+        const auto resolved = Resolve(request);
         std::error_code ec;
         return !resolved.empty() && std::filesystem::is_regular_file(resolved, ec) && !ec;
     }
@@ -87,16 +97,41 @@ namespace PrismaUI::WebRuntimeUltralight {
     }
 
     ultralight::RefPtr<ultralight::Buffer> PrismaFileSystem::OpenFile(const ultralight::String& filePath) {
+        const auto started = std::chrono::steady_clock::now();
         const std::string request = ToUtf8(filePath);
+        std::string identifier;
+        if (RegisteredImageSource(imageSourceLookup_, request, identifier)) {
+            const std::string payload = "IMGSRC-V1\n" + identifier;
+            return ultralight::Buffer::CreateFromCopy(payload.data(), payload.size());
+        }
+        const auto logDenied = [&](const char* reason) {
+            if (NetworkAuditConfig::Enabled())
+                logger::info("[NetworkAudit] denied file path={} reason={}", UrlPath(request), reason);
+        };
         const auto resolved = Resolve(request);
         std::error_code ec;
-        if (resolved.empty() || !std::filesystem::is_regular_file(resolved, ec) || ec) return {};
+        if (resolved.empty() || !std::filesystem::is_regular_file(resolved, ec) || ec) {
+            logDenied("not-found");
+            return {};
+        }
         const auto size = std::filesystem::file_size(resolved, ec);
-        if (ec || size > kMaximumFileBytes) return {};
+        if (ec) {
+            logDenied("read-failed");
+            return {};
+        }
+        if (size > kMaximumFileBytes) {
+            logger::warn("[WebRuntime] rejected oversize file '{}': {} bytes exceeds the {} byte ceiling",
+                         UrlPath(request), size, kMaximumFileBytes);
+            logDenied("oversize");
+            return {};
+        }
 
         std::vector<char> bytes(static_cast<std::size_t>(size));
         std::ifstream stream(resolved, std::ios::binary);
-        if (!stream || (size != 0 && !stream.read(bytes.data(), static_cast<std::streamsize>(size)))) return {};
+        if (!stream || (size != 0 && !stream.read(bytes.data(), static_cast<std::streamsize>(size)))) {
+            logDenied("read-failed");
+            return {};
+        }
 
         std::string payload(bytes.begin(), bytes.end());
         const auto logicalPath = UrlPath(request);
@@ -106,7 +141,12 @@ namespace PrismaUI::WebRuntimeUltralight {
                           ? PrismaUI::NetworkSandbox::InjectInspectorContentSecurityPolicyIntoHtml(payload)
                           : PrismaUI::NetworkSandbox::InjectContentSecurityPolicyIntoHtml(payload);
         }
-        return ultralight::Buffer::CreateFromCopy(payload.data(), payload.size());
+        auto result = ultralight::Buffer::CreateFromCopy(payload.data(), payload.size());
+        logger::debug("[LoadTiming] resource={} bytes={} elapsedUs={}", logicalPath, payload.size(),
+            std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - started).count());
+        if (NetworkAuditConfig::Enabled())
+            logger::info("[NetworkAudit] allowed file path={} bytes={}", logicalPath, payload.size());
+        return result;
     }
 
     std::filesystem::path PrismaFileSystem::Resolve(const std::string& request) const {

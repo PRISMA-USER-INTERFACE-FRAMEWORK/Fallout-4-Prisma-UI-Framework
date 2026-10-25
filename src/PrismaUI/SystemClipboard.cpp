@@ -4,6 +4,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cwchar>
 
 namespace PrismaUI::SystemClipboard {
@@ -25,14 +26,38 @@ namespace PrismaUI::SystemClipboard {
 
         class Clipboard final : public ultralight::Clipboard {
         public:
-            void Clear() override {}
+            void Clear() override {
+                if (!::OpenClipboard(nullptr)) return;
+                ::EmptyClipboard();
+                ::CloseClipboard();
+            }
 
             ultralight::String ReadPlainText() override {
                 const std::wstring text = ReadText(kMaxReadChars);
                 return ultralight::String(reinterpret_cast<const ultralight::Char16*>(text.data()), text.size());
             }
 
-            void WritePlainText(const ultralight::String&) override {}
+            void WritePlainText(const ultralight::String& text) override {
+                const auto utf16 = text.utf16();
+                const std::size_t length = utf16.length();
+                HANDLE data = ::GlobalAlloc(GMEM_MOVEABLE, (length + 1) * sizeof(wchar_t));
+                if (!data) return;
+                auto* out = static_cast<wchar_t*>(::GlobalLock(data));
+                if (!out) {
+                    ::GlobalFree(data);
+                    return;
+                }
+                std::copy_n(reinterpret_cast<const wchar_t*>(utf16.data()), length, out);
+                out[length] = L'\0';
+                ::GlobalUnlock(data);
+                if (!::OpenClipboard(nullptr)) {
+                    ::GlobalFree(data);
+                    return;
+                }
+                ::EmptyClipboard();
+                if (!::SetClipboardData(CF_UNICODETEXT, data)) ::GlobalFree(data);
+                ::CloseClipboard();
+            }
         };
     }
 

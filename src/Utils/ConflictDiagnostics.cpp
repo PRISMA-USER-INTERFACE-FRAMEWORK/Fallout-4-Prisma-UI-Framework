@@ -6,6 +6,8 @@
 #include <windows.h>
 #include <wrl/client.h>
 
+#include "Engine/EngineBackbuffer.h"
+
 #include <string>
 
 namespace PrismaUI::ConflictChecker {
@@ -15,11 +17,6 @@ namespace {
 const wchar_t* kKnownConflictDlls[] = {
     L"ReShade.dll", L"ReShade64.dll", L"FallSouls.dll", L"FallSouls_NG.dll", L"enbseries.dll",
     L"dxvk.dll", L"d3d11_log.dll", L"RTSSHooks64.dll",
-};
-
-const wchar_t* kKnownFrameGenDlls[] = {
-    L"AAAFrameGeneration.dll", L"amd_fidelityfx_dx12.dll", L"nvngx_dlssg.dll",
-    L"dlssg_to_fsr3.dll", L"sl.interposer.dll", L"sl.dlss_g.dll",
 };
 
 std::string WideToUtf8(const std::wstring& value)
@@ -65,8 +62,8 @@ void LogSystemSummary()
     logger::info("[SysInfo] os: {}", os);
 
     auto* rendererData = RE::BSGraphics::GetRendererData();
-    auto* rawSwap = (rendererData && rendererData->renderWindow[0].swapChain)
-                        ? rendererData->renderWindow[0].swapChain : nullptr;
+    auto* window = ::PrismaUI::Engine::MainRendererWindow();
+    auto* rawSwap = window ? window->swapChain : nullptr;
     auto* swapChain = reinterpret_cast<IDXGISwapChain*>(rawSwap);
     if (!swapChain) {
         logger::warn("[SysInfo] no IDXGISwapChain yet -- GPU/driver/window info unavailable");
@@ -122,8 +119,9 @@ void LogSystemSummary()
     }
 
     std::string fg, inj;
-    for (const auto* dll : kKnownFrameGenDlls) {
-        if (::GetModuleHandleW(dll)) { if (!fg.empty()) fg += ", "; fg += WideToUtf8(dll); }
+    for (const auto& dll : LoadedKnownFrameGenModules()) {
+        if (!fg.empty()) fg += ", ";
+        fg += dll;
     }
     for (const auto* dll : kKnownConflictDlls) {
         if (::GetModuleHandleW(dll)) { if (!inj.empty()) inj += ", "; inj += WideToUtf8(dll); }

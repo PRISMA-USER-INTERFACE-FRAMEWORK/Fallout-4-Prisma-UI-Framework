@@ -1,6 +1,7 @@
 #include "Translations.h"
 
 #include "TranslationsJson.h"
+#include "TranslationsLanguage.h"
 #include "TranslationsScript.h"
 #include "TranslationsText.h"
 
@@ -10,6 +11,7 @@
 #include <map>
 #include <vector>
 #include <windows.h>
+#include <shlobj.h>
 
 namespace PrismaUI::Translations {
 
@@ -33,13 +35,32 @@ namespace PrismaUI::Translations {
             }
         }
 
-        bool ReadTranslationResource(const std::string& resourcePath, std::string& result) {
 #ifdef PRISMAUI_FO4VR
+        constexpr bool kVrBuild = true;
+        bool ReadTranslationResource(const std::string& resourcePath, std::string& result) {
             RE::BSResourceNiBinaryStream stream(resourcePath.c_str());
-#else
-            RE::BSResourceNiBinaryStream stream(resourcePath.c_str(), false, nullptr, true);
-#endif
             return DrainTranslationStream(stream, result);
+        }
+#else
+        constexpr bool kVrBuild = false;
+        bool ReadTranslationResource(const std::string& resourcePath, std::string& result) {
+            RE::BSResourceNiBinaryStream stream(resourcePath.c_str(), false, nullptr, true);
+            return DrainTranslationStream(stream, result);
+        }
+#endif
+
+        std::string DocumentsDir() {
+            std::string dir;
+            PWSTR documents = nullptr;
+            if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &documents))) {
+                const int bytes = WideCharToMultiByte(CP_ACP, 0, documents, -1, nullptr, 0, nullptr, nullptr);
+                if (bytes > 1) {
+                    dir.resize(static_cast<size_t>(bytes - 1));
+                    WideCharToMultiByte(CP_ACP, 0, documents, -1, dir.data(), bytes, nullptr, nullptr);
+                }
+            }
+            CoTaskMemFree(documents);
+            return dir;
         }
 
     }
@@ -56,32 +77,25 @@ namespace PrismaUI::Translations {
         }
         std::string gameDir = path.substr(0, slashPos);
 
-        std::vector<std::string> candidates;
-
-        char appData[MAX_PATH] = {};
-        if (GetEnvironmentVariableA("USERPROFILE", appData, MAX_PATH)) {
-            std::string myGames = std::string(appData) + "\\Documents\\My Games\\Fallout4\\";
-            candidates.push_back(myGames + "Fallout4Custom.ini");
-            candidates.push_back(myGames + "Fallout4Prefs.ini");
-        }
-        candidates.push_back(gameDir + "\\Fallout4.ini");
-
+        const auto candidates = LanguageIniCandidates(kVrBuild, DocumentsDir(), gameDir);
+        std::vector<std::string> values;
         for (const auto& iniPath : candidates) {
             char langBuf[64] = {};
-            DWORD result = GetPrivateProfileStringA("General", "sLanguage", "", langBuf, sizeof(langBuf),
-                                                    iniPath.c_str());
-            if (result > 0) {
-                std::string lang(langBuf);
-                for (auto& c : lang) {
-                    c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
-                }
-                if (!lang.empty()) {
-                    logger::info("Translations::DetectGameLanguage: '{}' from {}", lang, iniPath);
-                    return lang;
-                }
-            } else {
+            GetPrivateProfileStringA("General", "sLanguage", "", langBuf, sizeof(langBuf), iniPath.c_str());
+            std::string lang(langBuf);
+            for (auto& c : lang) {
+                c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+            }
+            if (lang.empty()) {
                 logger::debug("Translations::DetectGameLanguage: no sLanguage in {}", iniPath);
             }
+            values.push_back(lang);
+        }
+
+        const size_t winner = LastNonEmptyIndex(values);
+        if (winner < values.size()) {
+            logger::info("Translations::DetectGameLanguage: '{}' from {}", values[winner], candidates[winner]);
+            return values[winner];
         }
 
         logger::warn("Translations::DetectGameLanguage: no language found in any INI, falling back to '{}'",

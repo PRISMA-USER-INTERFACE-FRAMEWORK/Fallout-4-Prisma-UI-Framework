@@ -15,7 +15,9 @@
 #include <vector>
 
 #include "Utils/ModulePath.h"
+#include "Hooks/ChainSlotOriginals.h"
 #include "Hooks/InlineHookClassifier.h"
+#include "Engine/EngineBackbuffer.h"
 #pragma comment(lib, "Psapi.lib")
 #pragma intrinsic(_ReturnAddress)
 namespace PrismaUI::ConflictChecker {
@@ -149,7 +151,7 @@ namespace PrismaUI::ConflictChecker {
         L"sl.dlss_g.dll",            
     };
 
-    static bool EqualsIgnoreCase(const std::string& a, const std::string& b) {
+    bool EqualsIgnoreCase(const std::string& a, const std::string& b) {
         if (a.size() != b.size()) return false;
         for (size_t i = 0; i < a.size(); ++i) {
             if (std::tolower(static_cast<unsigned char>(a[i])) !=
@@ -158,7 +160,7 @@ namespace PrismaUI::ConflictChecker {
         return true;
     }
 
-    static bool IsFrameGenModule(void* address) {
+    bool IsFrameGenModule(void* address) {
         const std::string owner = OwnerOf(address);
         for (const auto* dllName : kKnownFrameGenDlls) {
             if (EqualsIgnoreCase(owner, WideToUtf8(dllName))) return true;
@@ -171,48 +173,6 @@ namespace PrismaUI::ConflictChecker {
     bool IsKnownBaseOnlyFrameGenAddress(void* address) {
         return IsFrameGenModule(address) &&
                EqualsIgnoreCase(OwnerOf(address), "AAAFrameGeneration.dll");
-    }
-
-    static bool ReadHookMemory(uintptr_t address, void* out, size_t size) {
-        if (!address || !out || size == 0 || size > 4096) return false;
-        __try {
-            std::memcpy(out, reinterpret_cast<const void*>(address), size);
-            return true;
-        } __except (EXCEPTION_EXECUTE_HANDLER) {
-            return false;
-        }
-    }
-
-    HookTargetDecision ClassifyHookTargetForInstall(
-        void* target, PrismaUI::Hooks::HookClassification* outClassification,
-        void* selfDetour, void* alternateSelfDetour) {
-        HookTargetDecision decision;
-        if (!target) return decision;
-        uint8_t prologue[16]{};
-        if (!ReadHookMemory(reinterpret_cast<uintptr_t>(target), prologue, sizeof(prologue))) return decision;
-        decision.readable = true;
-        const std::string owner = OwnerOf(target);
-        decision.ownerAllowed = EqualsIgnoreCase(owner, "dxgi.dll") || IsFrameGenModule(target);
-        const auto classification = PrismaUI::Hooks::ClassifyHookTarget(
-            reinterpret_cast<uintptr_t>(target), prologue, sizeof(prologue), ReadHookMemory,
-            [](uintptr_t address) { return OwnerOf(reinterpret_cast<void*>(address)); });
-        if (outClassification) *outClassification = classification;
-        const auto targetAddress = reinterpret_cast<uintptr_t>(target);
-        const auto selfAddress = reinterpret_cast<uintptr_t>(selfDetour);
-        const auto alternateAddress = reinterpret_cast<uintptr_t>(alternateSelfDetour);
-        decision.alreadyOurs = (selfDetour &&
-                                (targetAddress == selfAddress || classification.jmpTarget == selfAddress)) ||
-                               (alternateSelfDetour &&
-                                (targetAddress == alternateAddress ||
-                                 classification.jmpTarget == alternateAddress));
-        decision.clean = classification.status == PrismaUI::Hooks::DecodeStatus::Clean;
-        decision.safe = decision.ownerAllowed && decision.clean;
-        decision.chainAllowed =
-            decision.readable && !decision.alreadyOurs &&
-            (classification.status == PrismaUI::Hooks::DecodeStatus::Clean ||
-             (classification.status == PrismaUI::Hooks::DecodeStatus::InlineJmp &&
-              classification.isInlineJmp && classification.jmpTarget != 0));
-        return decision;
     }
 
     PrismaUI::Hooks::HookInstallStrategy SelectHookInstallStrategy(IDXGISwapChain* swapChain) {
@@ -289,6 +249,14 @@ namespace PrismaUI::ConflictChecker {
         return false;
     }
 
+    std::vector<std::string> LoadedKnownFrameGenModules() {
+        std::vector<std::string> loaded;
+        for (const auto* dllName : kKnownFrameGenDlls) {
+            if (GetModuleHandleW(dllName)) loaded.push_back(WideToUtf8(dllName));
+        }
+        return loaded;
+    }
+
     GetBufferOwnerSnapshot InspectGetBufferOwner(IDXGISwapChain* swapChain) {
         GetBufferOwnerSnapshot s;
         if (!swapChain) return s;
@@ -297,18 +265,29 @@ namespace PrismaUI::ConflictChecker {
         void* present = vtable[8];
         s.getBufferFn = vtable[9];
         void* resizeBuffers = vtable[13];
+        void* chainPresent = nullptr;
+        void* chainResize = nullptr;
+        if (PrismaUI::Hooks::ChainSlotOriginalOwners(swapChain, &chainPresent, &chainResize)) {
+            present = chainPresent;
+            resizeBuffers = chainResize;
+        }
+        const auto verifiedProxy = MatchVerifiedOwnedProxy(present, s.getBufferFn, resizeBuffers);
         if (IsFrameGenModule(s.getBufferFn)) {
             s.owner = GetBufferOwnerClass::KnownFrameGen;
         } else if (EqualsIgnoreCase(OwnerOf(s.getBufferFn), "dxgi.dll")) {
             s.owner = GetBufferOwnerClass::Dxgi;
+        } else if (verifiedProxy.verified) {
+            s.owner = GetBufferOwnerClass::VerifiedOwnedProxy;
         } else {
             s.owner = GetBufferOwnerClass::Foreign;
         }
-        const char* label = s.owner == GetBufferOwnerClass::KnownFrameGen
-                                ? "known frame-gen proxy -> Borrowed (no Release)"
-                            : s.owner == GetBufferOwnerClass::Dxgi
-                                ? "dxgi.dll -> normal COM ownership (Owned)"
-                                : "foreign/unresolved -> SafeSkip (no GetBuffer unless force-overridden)";
+        const std::string label = s.owner == GetBufferOwnerClass::KnownFrameGen
+                                      ? "known frame-gen proxy -> Borrowed (no Release)"
+                                  : s.owner == GetBufferOwnerClass::Dxgi
+                                      ? "dxgi.dll -> normal COM ownership (Owned)"
+                                  : s.owner == GetBufferOwnerClass::VerifiedOwnedProxy
+                                      ? "verified owned proxy (" + verifiedProxy.label + ") -> Owned"
+                                      : "foreign/unresolved -> SafeSkip (no GetBuffer unless force-overridden)";
         logger::info("[ConflictChecker] swapchain vtable owners -- Present[8]='{}', GetBuffer[9]='{}', "
                      "ResizeBuffers[13]='{}' -- GetBuffer[9] {}",
                      OwnerOf(present), OwnerOf(s.getBufferFn), OwnerOf(resizeBuffers), label);
@@ -387,12 +366,12 @@ namespace PrismaUI::ConflictChecker {
             }
         }
 
-        auto* rendererData = RE::BSGraphics::GetRendererData();
-        if (!rendererData || !rendererData->renderWindow[0].swapChain) {
+        auto* window = ::PrismaUI::Engine::MainRendererWindow();
+        if (!window || !window->swapChain) {
             logger::warn("[ConflictChecker] CheckPreHooks: cannot get IDXGISwapChain for vtable check"
                          " — skipping vtable integrity check");
         } else {
-            auto* swapChain = rendererData->renderWindow[0].swapChain;
+            auto* swapChain = window->swapChain;
             void** vtable = *reinterpret_cast<void***>(swapChain);
 
             uintptr_t dxgiBase = 0, dxgiEnd = 0;

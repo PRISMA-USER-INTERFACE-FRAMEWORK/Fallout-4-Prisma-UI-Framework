@@ -2,6 +2,7 @@
 
 #include "DevToolsConfig.h"
 #include "FreezeDiagnostics.h"
+#include "NetworkAuditConfig.h"
 #include "GPU/FalloutGPUDriver.h"
 #include "GPU/GenerationDrainState.h"
 #include "PrismaFileSystem.h"
@@ -106,6 +107,7 @@ namespace PrismaUI::WebRuntimeUltralight {
     void UltralightBackend::Shutdown() {
         if (shutdownStarted_.exchange(true, std::memory_order_acq_rel)) return;
         CancelNativeGamepad(0, true);
+        inputFocusView_.store(0, std::memory_order_release);
         {
             std::lock_guard lock(stateMutex_);
             acceptingFrames_ = false;
@@ -156,7 +158,7 @@ namespace PrismaUI::WebRuntimeUltralight {
 
     void UltralightBackend::Resize(uint32_t width, uint32_t height) {
         if (!width || !height) return;
-        Dispatch([this, width, height] {
+        (void)Dispatch([this, width, height] {
             width_ = width;
             height_ = height;
             viewManager_.ForEach([this](PrismaUI::Web::ViewId, ViewRecord& record) {
@@ -164,6 +166,65 @@ namespace PrismaUI::WebRuntimeUltralight {
             });
             inspector_.SetViewport(width_, height_);
         });
+    }
+
+    bool UltralightBackend::ExternalImagesReady() const {
+        std::lock_guard lock(stateMutex_);
+        return ready_ && accelerated_;
+    }
+
+    std::string UltralightBackend::ReserveExternalImage(std::uint64_t key) {
+        if (!ExternalImagesReady()) return {};
+        return imageSources_.Reserve(key);
+    }
+
+    void UltralightBackend::PublishExternalImage(std::uint64_t key,
+                                                 Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv,
+                                                 std::uint32_t width, std::uint32_t height, std::uint64_t generation) {
+        if (!ExternalImagesReady()) return;
+        (void)Dispatch([this, key, srv = std::move(srv), width, height, generation] {
+            if (!gpuDriver_ || !imageSources_.IsReserved(key)) return;
+            Microsoft::WRL::ComPtr<ID3D11Device> canonical;
+            {
+                std::lock_guard lock(stateMutex_);
+                canonical = gpuContext_.Device();
+            }
+            auto found = externalTextureIds_.find(key);
+            if (found == externalTextureIds_.end())
+                found = externalTextureIds_.emplace(key, gpuDriver_->NextTextureId()).first;
+            const auto textureId = found->second;
+            if (!externalTextures_.Bind(textureId, key, srv.Get(), width, height, generation, canonical.Get())) {
+                if (rejectedExternalKeys_.insert(key).second)
+                    logger::warn("[WebRuntime] [GPU] external image {} bind rejected", key);
+                return;
+            }
+            imageSources_.Publish(key, textureId, width, height);
+        });
+    }
+
+    void UltralightBackend::RetractExternalImage(std::uint64_t key) {
+        if (!ExternalImagesReady()) return;
+        (void)Dispatch([this, key] {
+            imageSources_.Remove(key);
+            if (const auto found = externalTextureIds_.find(key); found != externalTextureIds_.end())
+                externalTextures_.Unbind(found->second);
+        });
+    }
+
+    void UltralightBackend::ReleaseExternalImage(std::uint64_t key) {
+        if (!ExternalImagesReady()) return;
+        (void)Dispatch([this, key] {
+            imageSources_.Release(key);
+            if (const auto found = externalTextureIds_.find(key); found != externalTextureIds_.end()) {
+                externalTextures_.Unbind(found->second);
+                externalTextureIds_.erase(found);
+            }
+            rejectedExternalKeys_.erase(key);
+        });
+    }
+
+    bool UltralightBackend::IsExternalImageLive(std::uint64_t key) {
+        return ExternalImagesReady() && externalTextures_.HasLiveView(key);
     }
 
     void UltralightBackend::OwnerMain(PrismaUI::Web::ReadyCallback callback) {
@@ -189,7 +250,10 @@ namespace PrismaUI::WebRuntimeUltralight {
                 auto& platform = ultralight::Platform::instance();
                 platformConfigured = true;
                 platform.set_config(config);
-                fileSystem_ = std::make_unique<PrismaFileSystem>(UltralightViewRoot());
+                fileSystem_ = std::make_unique<PrismaFileSystem>(
+                    UltralightViewRoot(), [this](std::string_view path, std::string& identifier) {
+                        return imageSources_.IsRegisteredPath(path, identifier);
+                    });
                 platform.set_file_system(fileSystem_.get());
                 platform.set_font_loader(ultralight::GetPlatformFontLoader());
                 platform.set_clipboard(&SystemClipboard::UltralightClipboard());
@@ -206,9 +270,15 @@ namespace PrismaUI::WebRuntimeUltralight {
                 if (accelerated_) {
                     gpuDriver_ = std::make_unique<PrismaUI::GPU::FalloutGPUDriver>(&gpuContext_);
                 }
+                accelerated_ = accelerated_ && gpuDriver_->InitializePipeline();
+                if (accelerated_) gpuDriver_->SetExternalTextureRegistry(&externalTextures_);
+                if (!accelerated_ && gpuDriver_) {
+                    logger::warn("[WebRuntime] [GPU] accelerated pipeline init failed; using the CPU backend");
+                }
                 if (!accelerated_) {
                     gpuDriver_.reset();
                     gpuContext_.Reset();
+                    externalTextures_.Clear();
                 }
                 platform.set_gpu_driver(accelerated_ ? gpuDriver_.get() : nullptr);
                 renderer_ = ultralight::Renderer::Create();
@@ -222,6 +292,9 @@ namespace PrismaUI::WebRuntimeUltralight {
                     const auto iniPath = Utils::PluginIniPath();
                     if (DevToolsConfig::Enabled(iniPath.wstring()))
                         logger::info("[WebRuntime] [DevTools] local inspector enabled; press F12 in-game");
+                    NetworkAuditConfig::SetEnabled(NetworkAuditConfig::LogRequests(iniPath.wstring()));
+                    if (NetworkAuditConfig::Enabled())
+                        logger::info("[NetworkAudit] request logging on (file loads, top-level navigations, CSP refusals; paths and navigation URLs drop query strings)");
                 }
             }
         } catch (const std::exception& exception) {
@@ -247,19 +320,23 @@ namespace PrismaUI::WebRuntimeUltralight {
         initializationCv_.notify_all();
         if (deliver && callback) callback(success, message);
         if (!success) {
-            std::lock_guard lock(stateMutex_);
-            acceptingFrames_ = false;
-            dispatchQueue_.Stop();
-            if (platformConfigured) {
-                auto& platform = ultralight::Platform::instance();
-                platform.set_gpu_driver(nullptr);
-                platform.set_font_loader(nullptr);
-                platform.set_file_system(nullptr);
-                platform.set_clipboard(nullptr);
+            {
+                std::lock_guard lock(stateMutex_);
+                acceptingFrames_ = false;
+                dispatchQueue_.Stop();
+                if (platformConfigured) {
+                    auto& platform = ultralight::Platform::instance();
+                    platform.set_gpu_driver(nullptr);
+                    platform.set_font_loader(nullptr);
+                    platform.set_file_system(nullptr);
+                    platform.set_clipboard(nullptr);
+                }
+                gpuDriver_.reset();
+                gpuContext_.Reset();
+                externalTextures_.Clear();
+                fileSystem_.reset();
             }
-            gpuDriver_.reset();
-            gpuContext_.Reset();
-            fileSystem_.reset();
+            dispatchQueue_.DrainAbandoned();
             return;
         }
 
@@ -333,9 +410,13 @@ namespace PrismaUI::WebRuntimeUltralight {
                     stateCv_.notify_all();
                 }
             }
+            PublishInputFocus();
         }
         currentOp_.store("teardown", std::memory_order_release);
+        inputFocusView_.store(0, std::memory_order_release);
+        dispatchQueue_.DrainAbandoned();
         viewManager_.ClearRecords();
+        imageSources_.RemoveAll();
         inspector_.Clear();
         session_ = nullptr;
         renderer_ = nullptr;
@@ -346,8 +427,12 @@ namespace PrismaUI::WebRuntimeUltralight {
             platform.set_file_system(nullptr);
             platform.set_clipboard(nullptr);
         }
-        gpuDriver_.reset();
-        gpuContext_.Reset();
+        {
+            std::lock_guard lock(stateMutex_);
+            gpuDriver_.reset();
+            externalTextures_.Clear();
+            gpuContext_.Reset();
+        }
         fileSystem_.reset();
     }
 

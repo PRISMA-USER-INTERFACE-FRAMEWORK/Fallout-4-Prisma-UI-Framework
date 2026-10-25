@@ -7,14 +7,16 @@
 #include <unordered_set>
 
 #include "PCH.h"
+#include "Hooks/ChainSlotOriginals.h"
 #include "PrismaUI/ActorPreviewSpike.h"
-#include "PrismaUI/CameraSpike.h"
 #include "PrismaUI/WebCompositor.h"
-#include "PrismaUI/LocalMapSpike.h"
 #include "PrismaUI/ModelPreview.h"
 #include "PrismaUI/TextureOverlay.h"
 #include "PrismaUI/VanillaUISuppressor.h"
 #include "PrismaUI/KnownMenusLog.h"
+#include "PrismaUI/GameThreadDispatcher.h"
+#include "PrismaUI/VirtualPointer.h"
+#include "PrismaUI/MenuCursorDiagnostics.h"
 
 namespace PrismaUI::VanillaUISuppressor {
     namespace {
@@ -94,6 +96,8 @@ namespace PrismaUI::VanillaUISuppressor {
         }
     }
 
+    void SetPrismaUIFocusActive(bool) {}
+
     bool SuppressHUDWidget(const char*, bool) { return false; }
 
     bool SuppressVanillaMenu(const char* a_menuName, bool a_suppress) {
@@ -162,6 +166,8 @@ namespace PrismaUI::ModelPreview {
 
     void TickCore(ID3D11Device*, ID3D11DeviceContext*) {}
 
+    void SyncImageSources(PrismaUI::Web::IWebBackend&) {}
+
     void GetOverlays(ViewId, std::vector<Overlay>& out) { out.clear(); }
 
     void GetActiveViews(std::vector<ViewId>& out) { out.clear(); }
@@ -208,14 +214,6 @@ namespace PrismaUI::ActorPreviewSpike {
     void Shutdown() {}
 }
 
-namespace PrismaUI::LocalMapSpike {
-    void Tick(ID3D11Device*, ID3D11DeviceContext*) {}
-}
-
-namespace PrismaUI::CameraSpike {
-    void Tick(ID3D11Device*, ID3D11DeviceContext*) {}
-}
-
 namespace PrismaUI {
     bool WebCompositor::Init(ID3D11Device*, ID3D11DeviceContext*) { return false; }
 
@@ -237,4 +235,36 @@ namespace PrismaUI {
     void WebCompositor::DrawCursor(int, int, bool) {}
 
     void WebCompositor::DrawModelOverlays(const std::vector<ModelPreview::Overlay>&) {}
+}
+
+namespace PrismaUI::GameThreadDispatcher {
+    bool Dispatch(std::function<void()>, uint64_t) { return false; }
+
+    bool DispatchSafety(std::function<void()>) { return false; }
+
+    void DropView(uint64_t) noexcept {}
+
+    void DetachWindow(HWND) noexcept {}
+
+    bool HandleWindowMessage(HWND, UINT) noexcept { return false; }
+}
+
+namespace PrismaUI::VirtualPointer {
+    bool OnButton(std::uint32_t, bool, bool) noexcept { return false; }
+
+    void CancelHeldClick() noexcept {}
+
+    void DiscardHeldClick(std::uint64_t) noexcept {}
+}
+
+namespace PrismaUI::MenuCursorDiagnostics {
+    void OnFocusedCaptureArmed(std::uint64_t) {}
+
+    void OnFocusedCaptureReleased() {}
+
+    void OnPresentCursorSample() {}
+}
+
+namespace PrismaUI::Hooks {
+    bool ChainSlotOriginalOwners(IDXGISwapChain*, void**, void**) { return false; }
 }

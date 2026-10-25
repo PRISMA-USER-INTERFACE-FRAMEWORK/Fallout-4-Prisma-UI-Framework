@@ -19,6 +19,7 @@ namespace PrismaUI::Backbuffer {
         NoSwapChain,
         NoFrameGen,
         KnownFrameGenGetBufferOwner,
+        KnownOwnedProxy,
         ForeignGetBufferOwner,
         FrameGenLoadedUnresolved,
     };
@@ -27,6 +28,8 @@ namespace PrismaUI::Backbuffer {
         bool haveSwapChain = false;
 
         bool vtableOwnerIsKnownFrameGen = false;
+
+        bool vtableOwnerIsVerifiedOwnedProxy = false;
 
         bool frameGenModuleLoaded = false;
 
@@ -58,6 +61,10 @@ namespace PrismaUI::Backbuffer {
 
         if (o.vtableOwnerIsKnownFrameGen) {
             return { Ownership::Borrowed, Reason::KnownFrameGenGetBufferOwner };
+        }
+
+        if (o.vtableOwnerIsVerifiedOwnedProxy) {
+            return { Ownership::Owned, Reason::KnownOwnedProxy };
         }
 
         if (o.getBufferOwnerForeign) {
@@ -92,6 +99,7 @@ namespace PrismaUI::Backbuffer {
             case Reason::NoSwapChain:                  return "no-swapchain";
             case Reason::NoFrameGen:                   return "no-framegen";
             case Reason::KnownFrameGenGetBufferOwner:  return "known-fg-getbuffer-owner";
+            case Reason::KnownOwnedProxy:              return "known-owned-proxy";
             case Reason::ForeignGetBufferOwner:        return "foreign-getbuffer-owner";
             case Reason::FrameGenLoadedUnresolved: return "framegen-loaded-unresolved";
             default:                                   return "not-classified";

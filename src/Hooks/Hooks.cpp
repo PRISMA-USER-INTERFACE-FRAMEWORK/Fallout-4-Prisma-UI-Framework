@@ -1,7 +1,9 @@
 #include "Hooks.h"
+#include "Hooks/ChainSlotOriginals.h"
 #include "Hooks/InlineHookClassifier.h"
 #include "PrismaUI/WebRuntime.h"
 #include "Utils/ConflictChecker.h"
+#include "Engine/EngineBackbuffer.h"
 
 #include <chrono>
 #include <thread>
@@ -85,83 +87,18 @@ namespace Hooks {
             return ResolveDetour(address - 5, 0) == reinterpret_cast<uintptr_t>(detour);
         }
 
+        void DiscardUnpublishedHook(PrismaUI::Hooks::TrampolineQuarantine& quarantine, void* target,
+                                    const char* label);
+        bool ReleaseDrainedEntry(PrismaUI::Hooks::TrampolineQuarantine& quarantine, void* target,
+                                 const char* label);
         RetirementResult RemoveRetiredSlot(void* target, const unsigned char* expected, std::atomic<int>& inFlight,
-                                            const char* label, int slot) {
-            if (!target) return RetirementResult::Removed;
-            if (!PrologueOwnedBy(target, expected)) {
-                logger::warn("D3DHooks: {} slot {} target {} is externally owned; leaving MinHook entry orphaned",
-                             label, slot, target);
-                D3DHooks::s_minHookOrphaned.store(true, std::memory_order_release);
-                return RetirementResult::Orphaned;
-            }
+                                           PrismaUI::Hooks::TrampolineQuarantine& quarantine, const char* label,
+                                           int slot);
+        bool RemoveRetiredPresentSlot(int slot);
+        bool RemoveRetiredResizeSlot(int slot);
+        void QuarantinePresentSlot(int slot, void* target, D3DHooks::PresentFunc trampoline);
+        void QuarantineResizeSlot(int slot, void* target, D3DHooks::ResizeBuffersFunc trampoline);
 
-            const MH_STATUS disabled = MH_DisableHook(target);
-            if (!IsDisableSuccess(disabled)) {
-                logger::warn("D3DHooks: could not disable retired {} slot {} target {} (MinHook status {})",
-                             label, slot, target, static_cast<int>(disabled));
-                return RetirementResult::Deferred;
-            }
-
-            const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(250);
-            while (inFlight.load(std::memory_order_acquire) != 0) {
-                if (std::chrono::steady_clock::now() >= deadline) {
-                    logger::warn("D3DHooks: retired {} slot {} still has an invocation in flight; deferring removal",
-                                 label, slot);
-                    return RetirementResult::Deferred;
-                }
-                std::this_thread::yield();
-            }
-
-            const MH_STATUS removed = MH_RemoveHook(target);
-            if (removed != MH_OK && removed != MH_ERROR_NOT_CREATED) {
-                logger::warn("D3DHooks: could not remove retired {} slot {} target {} (MinHook status {})",
-                             label, slot, target, static_cast<int>(removed));
-                return RetirementResult::Deferred;
-            }
-            return RetirementResult::Removed;
-        }
-
-        bool RemoveRetiredPresentSlot(int slot) {
-            if (PresentOrphaned(slot).load(std::memory_order_acquire)) return false;
-            void* target = PresentTarget(slot).load(std::memory_order_acquire);
-            const auto result = RemoveRetiredSlot(target, PresentPatch(slot), PresentInFlight(slot), "Present", slot);
-            if (result == RetirementResult::Deferred) return false;
-            if (result == RetirementResult::Orphaned) {
-                PresentOrphaned(slot).store(true, std::memory_order_release);
-                return false;
-            }
-            PresentTarget(slot).store(nullptr, std::memory_order_release);
-            PresentTrampoline(slot).store(nullptr, std::memory_order_release);
-            return true;
-        }
-
-        void QuarantinePresentSlot(int slot, void* target, D3DHooks::PresentFunc trampoline) {
-            PresentTrampoline(slot).store(trampoline, std::memory_order_release);
-            PresentTarget(slot).store(target, std::memory_order_release);
-            PresentOrphaned(slot).store(true, std::memory_order_release);
-            D3DHooks::s_minHookOrphaned.store(true, std::memory_order_release);
-        }
-
-        void QuarantineResizeSlot(int slot, void* target, D3DHooks::ResizeBuffersFunc trampoline) {
-            ResizeTrampoline(slot).store(trampoline, std::memory_order_release);
-            ResizeTarget(slot).store(target, std::memory_order_release);
-            ResizeOrphaned(slot).store(true, std::memory_order_release);
-            D3DHooks::s_minHookOrphaned.store(true, std::memory_order_release);
-        }
-
-        bool RemoveRetiredResizeSlot(int slot) {
-            if (ResizeOrphaned(slot).load(std::memory_order_acquire)) return false;
-            void* target = ResizeTarget(slot).load(std::memory_order_acquire);
-            const auto result = RemoveRetiredSlot(target, ResizePatch(slot), ResizeInFlight(slot), "ResizeBuffers", slot);
-            if (result == RetirementResult::Deferred) return false;
-            if (result == RetirementResult::Orphaned) {
-                ResizeOrphaned(slot).store(true, std::memory_order_release);
-                return false;
-            }
-            ResizeTarget(slot).store(nullptr, std::memory_order_release);
-            ResizeTrampoline(slot).store(nullptr, std::memory_order_release);
-            return true;
-        }
 
         bool EnablePresentSlot(int slot, void* target) {
             if (PresentOrphaned(slot).load(std::memory_order_acquire)) return false;
@@ -169,24 +106,70 @@ namespace Hooks {
                 logger::warn("D3DHooks: Present slot {} failed the install-time ownership policy", slot);
                 return false;
             }
-            D3DHooks::PresentFunc trampoline = nullptr;
-            const MH_STATUS created = MH_CreateHook(target, PresentDetour(slot),
-                                                    reinterpret_cast<LPVOID*>(&trampoline));
-            if (created != MH_OK || !trampoline) {
-                logger::warn("D3DHooks: MH_CreateHook(Present slot {}) failed ({})",
-                             slot, static_cast<int>(created));
-                if (created == MH_OK) MH_RemoveHook(target);
+            auto& quarantine = PresentQuarantine();
+            const auto targetKey = reinterpret_cast<uintptr_t>(target);
+            auto action = PrismaUI::Hooks::DecideHookEntry(quarantine, targetKey, slot);
+            if (action == PrismaUI::Hooks::HookEntryAction::Recreate) {
+                const auto* entry = quarantine.At(quarantine.Find(targetKey));
+                if (!entry) return false;
+                if (SlotStrategy(entry->slot).load(std::memory_order_acquire) ==
+                        PrismaUI::Hooks::HookInstallStrategy::DirectMinHook &&
+                    PresentTrampoline(entry->slot).load(std::memory_order_acquire) ==
+                        reinterpret_cast<D3DHooks::PresentFunc>(entry->trampoline)) {
+                    logger::warn("D3DHooks: Present slot {} cannot re-create target {}; slot {} still publishes its trampoline",
+                                 slot, target, entry->slot);
+                    return false;
+                }
+                const int ownerSlot = entry->slot;
+                auto released = reinterpret_cast<D3DHooks::PresentFunc>(entry->trampoline);
+                if (!ReleaseDrainedEntry(quarantine, target, "Present")) return false;
+                PresentTrampoline(ownerSlot).compare_exchange_strong(released, nullptr, std::memory_order_acq_rel);
+                action = PrismaUI::Hooks::HookEntryAction::Create;
+            }
+            if (action == PrismaUI::Hooks::HookEntryAction::Refuse) {
+                logger::warn("D3DHooks: Present slot {} cannot own target {}: {}", slot, target,
+                             PrismaUI::Hooks::DescribeHookEntryRefusal(quarantine, targetKey, slot));
                 return false;
+            }
+            D3DHooks::PresentFunc trampoline = nullptr;
+            if (action == PrismaUI::Hooks::HookEntryAction::Reenable) {
+                const auto* entry = quarantine.At(quarantine.Find(targetKey));
+                if (!entry) return false;
+                trampoline = reinterpret_cast<D3DHooks::PresentFunc>(entry->trampoline);
+                logger::warn("D3DHooks: Present slot {} re-enables its quarantined entry at {}", slot, target);
+            } else {
+                const MH_STATUS created = MH_CreateHook(target, PresentDetour(slot),
+                                                        reinterpret_cast<LPVOID*>(&trampoline));
+                if (created == MH_ERROR_ALREADY_CREATED) {
+                    logger::warn("D3DHooks: MinHook already owns a Present entry at {} outside the quarantine", target);
+                    return false;
+                }
+                if (created != MH_OK || !trampoline) {
+                    logger::warn("D3DHooks: MH_CreateHook(Present slot {}) failed ({})",
+                                 slot, static_cast<int>(created));
+                    if (created == MH_OK) DiscardUnpublishedHook(quarantine, target, "Present");
+                    return false;
+                }
+                if (quarantine.Record(targetKey, reinterpret_cast<uintptr_t>(trampoline), slot) !=
+                    PrismaUI::Hooks::QuarantineAdd::Recorded) {
+                    logger::critical("D3DHooks: Present quarantine cannot record another trampoline; refusing the hook");
+                    DiscardUnpublishedHook(quarantine, target, "Present");
+                    return false;
+                }
             }
             PresentTrampoline(slot).store(trampoline, std::memory_order_release);
             const MH_STATUS enabled = MH_EnableHook(target);
-            if (enabled != MH_OK) {
+            if (enabled != MH_OK && enabled != MH_ERROR_ENABLED) {
                 logger::warn("D3DHooks: MH_EnableHook(Present slot {}) failed ({})",
                              slot, static_cast<int>(enabled));
-                MH_RemoveHook(target);
-                PresentTrampoline(slot).store(nullptr, std::memory_order_release);
+                quarantine.MarkEnabled(targetKey, false);
+                if (action == PrismaUI::Hooks::HookEntryAction::Create) {
+                    PresentTrampoline(slot).store(nullptr, std::memory_order_release);
+                    DiscardUnpublishedHook(quarantine, target, "Present");
+                }
                 return false;
             }
+            quarantine.MarkEnabled(targetKey, true);
             if (!PatchReachesDetour(target, PresentDetour(slot))) {
                 logger::warn("D3DHooks: Present slot {} patch ownership was lost during enable; quarantining slot", slot);
                 QuarantinePresentSlot(slot, target, trampoline);
@@ -212,24 +195,71 @@ namespace Hooks {
                 logger::warn("D3DHooks: ResizeBuffers slot {} failed the install-time ownership policy", slot);
                 return false;
             }
-            D3DHooks::ResizeBuffersFunc trampoline = nullptr;
-            const MH_STATUS created = MH_CreateHook(target, ResizeDetour(slot),
-                                                    reinterpret_cast<LPVOID*>(&trampoline));
-            if (created != MH_OK || !trampoline) {
-                logger::warn("D3DHooks: MH_CreateHook(ResizeBuffers slot {}) failed ({})",
-                             slot, static_cast<int>(created));
-                if (created == MH_OK) MH_RemoveHook(target);
+            auto& quarantine = ResizeQuarantine();
+            const auto targetKey = reinterpret_cast<uintptr_t>(target);
+            auto action = PrismaUI::Hooks::DecideHookEntry(quarantine, targetKey, slot);
+            if (action == PrismaUI::Hooks::HookEntryAction::Recreate) {
+                const auto* entry = quarantine.At(quarantine.Find(targetKey));
+                if (!entry) return false;
+                if (SlotStrategy(entry->slot).load(std::memory_order_acquire) ==
+                        PrismaUI::Hooks::HookInstallStrategy::DirectMinHook &&
+                    ResizeTrampoline(entry->slot).load(std::memory_order_acquire) ==
+                        reinterpret_cast<D3DHooks::ResizeBuffersFunc>(entry->trampoline)) {
+                    logger::warn("D3DHooks: ResizeBuffers slot {} cannot re-create target {}; slot {} still publishes its trampoline",
+                                 slot, target, entry->slot);
+                    return false;
+                }
+                const int ownerSlot = entry->slot;
+                auto released = reinterpret_cast<D3DHooks::ResizeBuffersFunc>(entry->trampoline);
+                if (!ReleaseDrainedEntry(quarantine, target, "ResizeBuffers")) return false;
+                ResizeTrampoline(ownerSlot).compare_exchange_strong(released, nullptr, std::memory_order_acq_rel);
+                action = PrismaUI::Hooks::HookEntryAction::Create;
+            }
+            if (action == PrismaUI::Hooks::HookEntryAction::Refuse) {
+                logger::warn("D3DHooks: ResizeBuffers slot {} cannot own target {}: {}", slot, target,
+                             PrismaUI::Hooks::DescribeHookEntryRefusal(quarantine, targetKey, slot));
                 return false;
+            }
+            D3DHooks::ResizeBuffersFunc trampoline = nullptr;
+            if (action == PrismaUI::Hooks::HookEntryAction::Reenable) {
+                const auto* entry = quarantine.At(quarantine.Find(targetKey));
+                if (!entry) return false;
+                trampoline = reinterpret_cast<D3DHooks::ResizeBuffersFunc>(entry->trampoline);
+                logger::warn("D3DHooks: ResizeBuffers slot {} re-enables its quarantined entry at {}", slot, target);
+            } else {
+                const MH_STATUS created = MH_CreateHook(target, ResizeDetour(slot),
+                                                        reinterpret_cast<LPVOID*>(&trampoline));
+                if (created == MH_ERROR_ALREADY_CREATED) {
+                    logger::warn("D3DHooks: MinHook already owns a ResizeBuffers entry at {} outside the quarantine",
+                                 target);
+                    return false;
+                }
+                if (created != MH_OK || !trampoline) {
+                    logger::warn("D3DHooks: MH_CreateHook(ResizeBuffers slot {}) failed ({})",
+                                 slot, static_cast<int>(created));
+                    if (created == MH_OK) DiscardUnpublishedHook(quarantine, target, "ResizeBuffers");
+                    return false;
+                }
+                if (quarantine.Record(targetKey, reinterpret_cast<uintptr_t>(trampoline), slot) !=
+                    PrismaUI::Hooks::QuarantineAdd::Recorded) {
+                    logger::critical("D3DHooks: ResizeBuffers quarantine cannot record another trampoline; refusing the hook");
+                    DiscardUnpublishedHook(quarantine, target, "ResizeBuffers");
+                    return false;
+                }
             }
             ResizeTrampoline(slot).store(trampoline, std::memory_order_release);
             const MH_STATUS enabled = MH_EnableHook(target);
-            if (enabled != MH_OK) {
+            if (enabled != MH_OK && enabled != MH_ERROR_ENABLED) {
                 logger::warn("D3DHooks: MH_EnableHook(ResizeBuffers slot {}) failed ({})",
                              slot, static_cast<int>(enabled));
-                MH_RemoveHook(target);
-                ResizeTrampoline(slot).store(nullptr, std::memory_order_release);
+                quarantine.MarkEnabled(targetKey, false);
+                if (action == PrismaUI::Hooks::HookEntryAction::Create) {
+                    ResizeTrampoline(slot).store(nullptr, std::memory_order_release);
+                    DiscardUnpublishedHook(quarantine, target, "ResizeBuffers");
+                }
                 return false;
             }
+            quarantine.MarkEnabled(targetKey, true);
             if (!PatchReachesDetour(target, ResizeDetour(slot))) {
                 logger::warn("D3DHooks: ResizeBuffers slot {} patch ownership was lost during enable; quarantining slot", slot);
                 QuarantineResizeSlot(slot, target, trampoline);
@@ -327,6 +357,7 @@ namespace Hooks {
                                              std::memory_order_release);
             SlotStrategy(slot).store(PrismaUI::Hooks::HookInstallStrategy::SwapchainChain,
                                       std::memory_order_release);
+            s_chainInstallSeq[slot].fetch_add(1, std::memory_order_release);
             s_chainState[slot].store(ChainRetirementState::Active, std::memory_order_release);
             void** current = *reinterpret_cast<void***>(swapChain);
             if (!current || current != original || current[8] != expectedPresent ||
@@ -445,4 +476,10 @@ namespace Hooks {
     }
 
     #include "HooksLifecycle.inl"
+}
+
+namespace PrismaUI::Hooks {
+    bool ChainSlotOriginalOwners(IDXGISwapChain* swapChain, void** present, void** resize) {
+        return ::Hooks::D3DHooks::OriginalSwapchainSlots(swapChain, present, resize);
+    }
 }

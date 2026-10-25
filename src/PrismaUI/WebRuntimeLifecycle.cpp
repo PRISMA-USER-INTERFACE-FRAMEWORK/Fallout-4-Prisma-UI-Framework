@@ -6,6 +6,7 @@
 #include "InputMask.h"
 #include "Menus/PauseHold/PauseHold.h"
 #include "PresentationHeartbeatPolicy.h"
+#include "Engine/EngineBackbuffer.h"
 #ifndef PRISMAUI_FO4VR
     #include "Hooks/Hooks.h"
     #include "Hooks/InlineHookClassifier.h"
@@ -23,8 +24,8 @@ namespace PrismaUI::WebRuntime {
         void DiscoverInputWindow() {
             HWND h = st.inputHwnd.load();
             if (!h) {
-                if (auto* rendererData = RE::BSGraphics::GetRendererData()) {
-                    h = reinterpret_cast<HWND>(rendererData->renderWindow[0].hwnd);
+                if (auto* window = ::PrismaUI::Engine::MainRendererWindow()) {
+                    h = reinterpret_cast<HWND>(window->hwnd);
                     if (h) st.inputHwnd.store(h);
                 }
             }
@@ -48,8 +49,8 @@ namespace PrismaUI::WebRuntime {
         void ProbeAndMaybeReattachPresentHook(int64_t nowMs) {
             const HWND hwnd = st.inputHwnd.load(std::memory_order_acquire);
             if (hwnd && IsIconic(hwnd)) return;
-            auto* rd = RE::BSGraphics::GetRendererData();
-            auto* swap = (rd && rd->renderWindow[0].swapChain) ? rd->renderWindow[0].swapChain : nullptr;
+            auto* window = ::PrismaUI::Engine::MainRendererWindow();
+            auto* swap = window ? window->swapChain : nullptr;
             if (!swap) return;
             void** vtable = *reinterpret_cast<void***>(swap);
             void* liveTarget = vtable[8];

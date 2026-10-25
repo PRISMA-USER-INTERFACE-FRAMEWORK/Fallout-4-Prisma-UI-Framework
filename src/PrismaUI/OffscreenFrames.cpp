@@ -40,16 +40,7 @@ namespace PrismaUI::OffscreenFrames {
             return epoch;
         }
 
-        bool ResolveSourceCoordinate(float uv, uint32_t extent, uint32_t& coordinate) {
-            const double scaled = static_cast<double>(uv) * static_cast<double>(extent);
-            const long long rounded = std::llround(scaled);
-            if (rounded < 0 || rounded > static_cast<long long>(extent) ||
-                std::abs(scaled - static_cast<double>(rounded)) > 0.0001) {
-                return false;
-            }
-            coordinate = static_cast<uint32_t>(rounded);
-            return true;
-        }
+        using PrismaUI::OffscreenFrameState::ResolveSourceCoordinate;
 
         struct PixelStats {
             bool mapped = false;

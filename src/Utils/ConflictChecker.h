@@ -4,6 +4,7 @@
 #include "Hooks/ReattachPolicy.h"
 
 #include <string>
+#include <vector>
 
 struct IDXGISwapChain;
 namespace PrismaUI::Hooks {
@@ -33,9 +34,12 @@ namespace PrismaUI::ConflictChecker {
     bool IsKnownEnbProxyAddress(void* address);
     bool IsKnownFrameGenAddress(void* address);
     bool IsKnownBaseOnlyFrameGenAddress(void* address);
+    bool EqualsIgnoreCase(const std::string& a, const std::string& b);
+    bool IsFrameGenModule(void* address);
     bool SameModuleIdentity(void* left, void* right);
 
     bool AnyKnownFrameGenModuleLoaded();
+    std::vector<std::string> LoadedKnownFrameGenModules();
 
     struct HookTargetDecision {
         bool readable = false;
@@ -58,7 +62,14 @@ namespace PrismaUI::ConflictChecker {
                                                            void* resizeDetour, void* alternateResizeDetour);
     unsigned int DetermineShadowSlotCount(IDXGISwapChain* swapChain);
 
-    enum class GetBufferOwnerClass { Dxgi, KnownFrameGen, Foreign };
+    struct VerifiedOwnedProxyMatch {
+        bool verified = false;
+        std::string label;
+    };
+
+    VerifiedOwnedProxyMatch MatchVerifiedOwnedProxy(void* present, void* getBuffer, void* resizeBuffers);
+
+    enum class GetBufferOwnerClass { Dxgi, KnownFrameGen, VerifiedOwnedProxy, Foreign };
     struct GetBufferOwnerSnapshot {
         void* getBufferFn = nullptr;
         GetBufferOwnerClass owner = GetBufferOwnerClass::Dxgi;

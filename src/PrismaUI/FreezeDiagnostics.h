@@ -14,9 +14,6 @@ namespace PrismaUI::FreezeDiagnostics {
 
     void SetGpuState(uint64_t completed, uint64_t active, bool frameRequested) noexcept;
 
-    void BeginDispatchSync(Stage op, uint32_t threadId) noexcept;
-    void EndDispatchSync() noexcept;
-
     void BeginDropViewWait(uint64_t view) noexcept;
     void EndDropViewWait() noexcept;
 

@@ -6,10 +6,12 @@
 #include <cstdint>
 #include <map>
 #include <mutex>
+#include <set>
 #include <vector>
 
 #include "FalloutD3DContext.h"
 #include "AcceleratedDeviceLifecycle.h" 
+#include "ExternalTextureRegistry.h"
 #include "GPUDriverBase.h"
 #include "Utils/D3D11StateGuard.h"
 
@@ -148,6 +150,7 @@ namespace PrismaUI::GPU {
         [[nodiscard]] bool RebuildForDeviceEpoch(std::uint64_t epoch);
         [[nodiscard]] std::uint64_t ResourceEpoch() const noexcept { return resourceEpoch_; }
         [[nodiscard]] HRESULT LastFailureResult() const noexcept { return lastFailureResult_; }
+        void SetExternalTextureRegistry(ExternalTextureRegistry* registry) noexcept { externalTextures_ = registry; }
 
         struct TextureSnapshot {
             Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv;
@@ -226,6 +229,8 @@ namespace PrismaUI::GPU {
         bool ValidateDeviceChild(ID3D11DeviceChild* child, AcceleratedBreadcrumbOperation operation) noexcept;
         int CaptureAccessViolation(EXCEPTION_POINTERS* pointers) noexcept;
         bool ResolveRenderBufferForTexture(std::uint32_t textureId);
+        [[nodiscard]] Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> AcquireExternalTextureSRV(
+            std::uint32_t textureId);
         bool ResolveDirtyRenderBuffers();
         bool ExecuteCreateTexture(const AcceleratedGenerationOperation& operation);
         bool ExecuteUpdateTexture(const AcceleratedGenerationOperation& operation);
@@ -242,10 +247,12 @@ namespace PrismaUI::GPU {
         void ResetPipelineForEpoch() noexcept;
 
         FalloutD3DContext* context_ = nullptr;
+        ExternalTextureRegistry* externalTextures_ = nullptr;
         mutable std::mutex resourcesMutex_;
         std::map<std::uint32_t, TextureEntry> textures_;
         std::map<std::uint32_t, RenderTargetEntry> renderTargets_;
         std::map<std::uint32_t, GeometryEntry> geometry_;
+        std::set<std::uint32_t> staleExternalTextureIds_;
 
         bool pipelineReady_ = false;
         Microsoft::WRL::ComPtr<ID3D11VertexShader> fillVS_;

@@ -3,6 +3,7 @@
 #include "Menus/FocusMenu/FocusMenu.h"
 #include "OffscreenFrames.h"
 #include "PresentProfiler.h"
+#include "ThreadObserver.h"
 namespace PrismaUI::WebRuntime {
     namespace {
         auto& st = Internal::RT();
@@ -29,6 +30,8 @@ namespace PrismaUI::WebRuntime {
         return FrameAdvanceGuard(dev, ctx, std::move(presentLease));
     }
     void OnResizeBegin(IDXGISwapChain* swapChain) {
+        if (ThreadObserver::Result::NewThread == ResizeThreads().Observe(::GetCurrentThreadId()))
+            logger::info("[ThreadProbe] ResizeBuffers on thread {} (distinct={})", ::GetCurrentThreadId(), ResizeThreads().Count());
         if (!st.backend) return;
         EndInspectorGesture();
         st.backend->BeginResize(swapChain);

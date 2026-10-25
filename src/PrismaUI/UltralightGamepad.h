@@ -5,7 +5,8 @@
 
 namespace PrismaUI::Web {
 
-inline void PublishGamepad(ultralight::Renderer& renderer, const GamepadState& state, GamepadState& published) {
+template <typename RendererT>
+inline void PublishGamepad(RendererT& renderer, const GamepadState& state, GamepadState& published) {
     const bool connectionChanged = state.connected != published.connected;
     ultralight::GamepadEvent connection{};
     connection.index = 0;

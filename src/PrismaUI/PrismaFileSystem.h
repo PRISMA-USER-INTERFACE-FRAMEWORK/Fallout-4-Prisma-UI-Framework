@@ -1,7 +1,9 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <string>
+#include <string_view>
 
 #pragma warning(push)
 #pragma warning(disable : 4100)
@@ -10,9 +12,11 @@
 
 namespace PrismaUI::WebRuntimeUltralight {
 
+    using ImageSourceLookup = std::function<bool(std::string_view, std::string&)>;
+
     class PrismaFileSystem final : public ultralight::FileSystem {
     public:
-        explicit PrismaFileSystem(std::filesystem::path root);
+        explicit PrismaFileSystem(std::filesystem::path root, ImageSourceLookup imageSourceLookup);
 
         bool FileExists(const ultralight::String& filePath) override;
         ultralight::String GetFileMimeType(const ultralight::String& filePath) override;
@@ -25,6 +29,7 @@ namespace PrismaUI::WebRuntimeUltralight {
         std::filesystem::path root_;
         std::filesystem::path resourcesRoot_;
         std::filesystem::path inspectorRoot_;
+        ImageSourceLookup imageSourceLookup_;
     };
 
 }

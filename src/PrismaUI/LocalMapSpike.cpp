@@ -67,7 +67,8 @@ namespace {
 }
 
 void Tick(ID3D11Device* , ID3D11DeviceContext* ctx) {
-    if (!Enabled() || !ctx || (!REX::FModule::IsRuntimeOG() && !REX::FModule::IsRuntimeAE())) return;
+    if (!REX::FModule::IsRuntimeOG() && !REX::FModule::IsRuntimeAE() && !REX::FModule::IsRuntimeNG()) return;
+    if (!Enabled() || !ctx) return;
 
     static bool wasDown = false;
     const bool down = (::GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0 && (::GetAsyncKeyState(HotkeyVK()) & 0x8000) != 0;

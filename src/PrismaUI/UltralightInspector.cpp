@@ -1,8 +1,11 @@
 #include "UltralightInspector.h"
 
+#include "OnceCompletion.h"
+
 #include <AppCore/JSHelpers.h>
 
 #include <algorithm>
+#include <memory>
 #include <utility>
 
 namespace PrismaUI::WebRuntimeUltralight {
@@ -83,17 +86,19 @@ namespace PrismaUI::WebRuntimeUltralight {
     }
 
     void UltralightInspector::SetVisibility(PrismaUI::Web::ViewId owner, bool visible) {
-        host_.DispatchInspector(owner, [this, owner, visible] {
+        auto done = std::make_shared<OnceCompletion<bool>>(
+            [this, owner](bool state) { host_.NotifyInspectorState(owner, state); }, false);
+        host_.DispatchInspector(owner, [this, owner, visible, done] {
             auto* record = host_.FindInspectorRecord(owner);
             if (!record || record->isInspector || !record->view) {
-                host_.NotifyInspectorState(owner, false);
+                done->Complete(false);
                 return;
             }
             if (visible && !record->inspectorId) {
                 try {
                     record->view->CreateLocalInspectorView();
                 } catch (...) {
-                    host_.NotifyInspectorState(owner, false);
+                    done->Complete(false);
                     return;
                 }
             }
@@ -111,7 +116,7 @@ namespace PrismaUI::WebRuntimeUltralight {
                 }
             }
             if (missing) {
-                host_.NotifyInspectorState(owner, false);
+                done->Complete(false);
                 return;
             }
             if (visible) {
@@ -122,7 +127,7 @@ namespace PrismaUI::WebRuntimeUltralight {
                 inspector->Unfocus();
                 host_.FocusOwnerView(owner);
             }
-            host_.NotifyInspectorState(owner, visible);
+            done->Complete(visible);
         });
     }
 
@@ -175,10 +180,8 @@ namespace PrismaUI::WebRuntimeUltralight {
 
     PrismaUI::Web::ViewId UltralightInspector::UpdateGesture(
         int x, int y, int& localX, int& localY) {
-        ultralight::RefPtr<ultralight::View> inspector;
-        uint32_t inspectorWidth = 0;
-        uint32_t inspectorHeight = 0;
         PrismaUI::Web::ViewId result = 0;
+        bool resized = false;
         {
             std::lock_guard lock(mutex_);
             const auto viewportWidth = host_.InspectorViewportWidth();
@@ -191,6 +194,8 @@ namespace PrismaUI::WebRuntimeUltralight {
                     state.x = std::clamp(state.x + dx, 0, static_cast<int>(viewportWidth - state.width));
                     state.y = std::clamp(state.y + dy, 0, static_cast<int>(viewportHeight - state.height));
                 } else {
+                    const uint32_t previousWidth = state.width;
+                    const uint32_t previousHeight = state.height;
                     const int minimumWidth = static_cast<int>(std::min(kInspectorMinimumDimension, viewportWidth));
                     const int minimumHeight = static_cast<int>(std::min(kInspectorMinimumDimension, viewportHeight));
                     state.width = static_cast<uint32_t>(std::clamp(
@@ -199,9 +204,7 @@ namespace PrismaUI::WebRuntimeUltralight {
                         static_cast<int>(state.height) + dy, minimumHeight, static_cast<int>(viewportHeight)));
                     state.x = std::clamp(state.x, 0, static_cast<int>(viewportWidth - state.width));
                     state.y = std::clamp(state.y, 0, static_cast<int>(viewportHeight - state.height));
-                    inspector = state.view;
-                    inspectorWidth = state.width;
-                    inspectorHeight = state.height;
+                    resized = state.width != previousWidth || state.height != previousHeight;
                 }
                 state.lastCursorX = x;
                 state.lastCursorY = y;
@@ -212,7 +215,24 @@ namespace PrismaUI::WebRuntimeUltralight {
                 break;
             }
         }
-        if (inspector) inspector->Resize(inspectorWidth, inspectorHeight);
+        if (resized) {
+            host_.DispatchInspectorTask([this, result] {
+                ultralight::RefPtr<ultralight::View> inspector;
+                uint32_t inspectorWidth = 0;
+                uint32_t inspectorHeight = 0;
+                {
+                    std::lock_guard lock(mutex_);
+                    for (const auto& [_, state] : inspectors_) {
+                        if (state.id != result || !state.view) continue;
+                        inspector = state.view;
+                        inspectorWidth = state.width;
+                        inspectorHeight = state.height;
+                        break;
+                    }
+                }
+                if (inspector) inspector->Resize(inspectorWidth, inspectorHeight);
+            });
+        }
         return result;
     }
 

@@ -77,10 +77,9 @@ static std::unordered_map<std::string, std::chrono::steady_clock::time_point> g_
 
 static constexpr int    kMaxEngineReadsPerService = 4;
 static constexpr double kEngineReadBudgetMs       = 0.5;
-static void RequestEngineReadService();
 static bool ReadGameFileOnEngineThread(const std::string& rawPath, std::vector<uint8_t>& out);
 
-static void ServiceEngineReadsOnGameThread() {
+void ServiceEngineReadsOnGameThread() {
     FreezeDiagnostics::ScopedStage readStage(FreezeDiagnostics::Lane::ModelPreviewServicing,
                                              FreezeDiagnostics::Stage::ModelPreviewRead);
     if (g_gameLoadActive.load(std::memory_order_acquire)) return;

@@ -2,36 +2,19 @@
 
 #include "VR/StereoProjection.h"
 
+#include "Engine/EngineVRStereoProjection.h"
+
 #include <Windows.h>
 
 #include <array>
 
 namespace PrismaUI::StereoProjection
 {
+    using namespace PrismaUI::Engine::VRStereoProjection;
+
     namespace
     {
-        constexpr std::uintptr_t kRuntimeRootRva = 0x6235AC8;
-        constexpr std::uintptr_t kFirstOriginOffset = 0x2590;
-        constexpr std::uintptr_t kSecondOriginOffset = 0x25A0;
-        constexpr std::uintptr_t kRecordsPointerOffset = 0x25D0;
-        constexpr std::uintptr_t kRecordStride = 0x210;
-        constexpr std::uintptr_t kCompositeOffset = 0xD0;
-        constexpr std::uintptr_t kFirstCompositeOffset =
-            kCompositeOffset;
-        constexpr std::uintptr_t kSecondCompositeOffset =
-            kRecordStride + kCompositeOffset;
-        constexpr std::size_t kRecordsReadBytes =
-            kSecondCompositeOffset +
-            sizeof(DirectX::XMFLOAT4X4);
         constexpr float kMaximumMagnitude = 1.0e8f;
-
-        struct RootFields
-        {
-            float firstOrigin[4]{};
-            float secondOrigin[4]{};
-            std::byte unused[0x20]{};
-            std::uintptr_t records = 0;
-        };
 
         static_assert(
             offsetof(RootFields, secondOrigin) ==
@@ -39,7 +22,6 @@ namespace PrismaUI::StereoProjection
         static_assert(
             offsetof(RootFields, records) ==
             kRecordsPointerOffset - kFirstOriginOffset);
-        static_assert(sizeof(RootFields) == 0x48);
 
         std::atomic<CaptureStage> g_lastFailure =
             CaptureStage::None;
@@ -204,10 +186,8 @@ namespace PrismaUI::StereoProjection
         }
 
         try {
-            const REL::Relocation<std::uintptr_t> rootAddress{
-                REL::Offset(kRuntimeRootRva)
-            };
-            if (!PlausiblePointer(rootAddress.address())) {
+            const auto rootAddress = RuntimeRootAddress();
+            if (!PlausiblePointer(rootAddress)) {
                 ReportFailure(stage, ERROR_INVALID_ADDRESS);
                 return false;
             }
@@ -215,7 +195,7 @@ namespace PrismaUI::StereoProjection
 
             std::uintptr_t root = 0;
             if (!Read(
-                    rootAddress.address(),
+                    rootAddress,
                     &root,
                     sizeof(root),
                     error) ||

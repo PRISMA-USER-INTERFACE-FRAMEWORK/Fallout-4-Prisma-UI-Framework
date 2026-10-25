@@ -1,5 +1,7 @@
 #include "UltralightDocumentCallbacks.h"
 
+#include "ClearColorPolicy.h"
+#include "NetworkAuditConfig.h"
 #include "NetworkSandbox.h"
 #include "UltralightString.h"
 #include "WebNetworkPolicy.h"
@@ -69,6 +71,8 @@ namespace PrismaUI::WebRuntimeUltralight {
 
     void UltralightDocumentCallbacks::BlockNavigation(ViewRecord& record, std::string url) {
         const auto id = record.id;
+        if (NetworkAuditConfig::Enabled())
+            logger::info("[NetworkAudit] denied navigation view={} url={}", id, NetworkAuditConfig::WithoutQuery(url));
         record.navigationBlocked = true;
         record.blockedNavigationUrl = url;
         record.trustedDocumentReady = false;
@@ -83,6 +87,8 @@ namespace PrismaUI::WebRuntimeUltralight {
 
     void UltralightDocumentCallbacks::OnConsole(
         PrismaUI::Web::ViewId id, const ultralight::ConsoleMessage& message) {
+        if (NetworkAuditConfig::Enabled() && message.source() == ultralight::kMessageSource_Security)
+            logger::info("[NetworkAudit] denied csp view={} {}", id, ToUtf8(message.message()));
         auto* record = host_.FindDocumentView(id);
         if (!record || !record->console) return;
         record->console(static_cast<int>(message.level()), ToUtf8(message.message()),
@@ -100,13 +106,17 @@ namespace PrismaUI::WebRuntimeUltralight {
         auto* record = host_.FindDocumentView(id);
         if (!record || !mainFrame) return;
         ++record->documentGeneration;
+        record->loadStarted = std::chrono::steady_clock::now();
         host_.OnDocumentBeginLoading(id);
         if (!IsTrustedDocument(*record, url)) {
             BlockNavigation(*record, std::move(url));
             return;
         }
+        if (NetworkAuditConfig::Enabled() && !record->navigationBlocked)
+            logger::info("[NetworkAudit] allowed navigation view={} url={}", id, NetworkAuditConfig::WithoutQuery(url));
         record->navigationBlocked = false;
         record->trustedDocumentReady = false;
+        record->documentDomReady = false;
         host_.SetDocumentHealth(*record, PrismaUI::Web::ViewHealth::Creating);
     }
 
@@ -119,7 +129,7 @@ namespace PrismaUI::WebRuntimeUltralight {
                 BlockNavigation(*record, std::move(url));
             return;
         }
-        if (record->domReadyFired && record->health != PrismaUI::Web::ViewHealth::LoadFailed)
+        if (record->documentDomReady && record->health != PrismaUI::Web::ViewHealth::LoadFailed)
             host_.SetDocumentHealth(*record, PrismaUI::Web::ViewHealth::Live);
     }
 
@@ -160,6 +170,14 @@ namespace PrismaUI::WebRuntimeUltralight {
             host_.InstallInspectorHost(*record->view, id);
             return;
         }
+        if (record->clearColor != 0 && record->view) {
+            const auto background = ClearColorPolicy::BackgroundScript(record->clearColor);
+            ultralight::String exception;
+            record->view->EvaluateScript(ultralight::String(background.c_str()), &exception);
+            if (!exception.empty())
+                ReportError(id, PrismaUI::Web::ViewHealth::ScriptError,
+                            "JavaScript evaluation failed", ToUtf8(exception));
+        }
         if (record->view)
             record->view->EvaluateScript(
                 "addEventListener('gamepadconnected',function(){}); navigator.getGamepads();");
@@ -199,14 +217,18 @@ namespace PrismaUI::WebRuntimeUltralight {
             return;
         }
         record->trustedDocumentReady = true;
+        record->documentDomReady = true;
         host_.OnTrustedDocumentReady(id);
-        if (record->domReadyFired) return;
         if (record->health != PrismaUI::Web::ViewHealth::Live)
             host_.SetDocumentHealth(*record, PrismaUI::Web::ViewHealth::DomReady);
-        record->domReadyFired = true;
         record->replayingPendingCalls = true;
-        const auto callback = std::move(record->domReady);
-        if (callback) callback(id);
+        if (!record->domReadyFired) {
+            record->domReadyFired = true;
+            logger::debug("[LoadTiming] view={} documentToDomReadyUs={}", id,
+                std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - record->loadStarted).count());
+            const auto callback = std::move(record->domReady);
+            if (callback) callback(id);
+        }
         FlushPendingCalls(id);
     }
 

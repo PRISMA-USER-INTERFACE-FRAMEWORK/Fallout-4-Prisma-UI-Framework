@@ -22,7 +22,6 @@ namespace PrismaUI::FreezeDiagnostics {
         UltralightRender,
         UltralightCallback,
         DispatchTask,
-        DispatchSync,
         CreateView,
         DestroyView,
         GameThreadCallback,
@@ -65,10 +64,6 @@ namespace PrismaUI::FreezeDiagnostics {
         uint64_t activeGeneration = 0;
         bool     frameRequested = false;
 
-        Stage    dispatchSyncOp = Stage::Idle;
-        int64_t  dispatchSyncSinceMs = 0;
-        uint32_t dispatchSyncThread = 0;
-
         uint64_t dropViewView = 0;
         int64_t  dropViewSinceMs = 0;
 
@@ -88,7 +83,6 @@ namespace PrismaUI::FreezeDiagnostics {
         int64_t laneStuckMs = 5000;
         int64_t presentStoppedMs = 5000;
         int64_t dropViewMs = 5000;
-        int64_t dispatchSyncMs = 5000;
         int64_t shutdownJoinMs = 5000;
         int64_t reportIntervalMs = 5000;
         int64_t loadDumpMs = 45000;

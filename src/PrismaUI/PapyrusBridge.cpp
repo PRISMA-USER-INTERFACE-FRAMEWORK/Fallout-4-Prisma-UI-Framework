@@ -102,7 +102,7 @@ static std::string BuildResolve(const std::string& id, bool found, bool isBool, 
     const std::string quotedId = PapyrusJson::JsStringLiteral(id);
     if (!found) return "__prisma_resolve(" + quotedId + ",null)";
     if (isBool) return "__prisma_resolve(" + quotedId + "," + (boolVal ? "true" : "false") + ")";
-    return "__prisma_resolve(" + quotedId + "," + std::to_string(numVal) + ")";
+    return "__prisma_resolve(" + quotedId + "," + PapyrusJson::FormatNumber(numVal) + ")";
 }
 
 static std::string BuildReject(const std::string& id, std::string_view msg) {
@@ -356,6 +356,11 @@ void InjectBridge(WebRuntime::ViewId viewId) {
 
     WebRuntime::Invoke(viewId, kBridgeScript, nullptr);
     logger::info("PapyrusBridge [{}]: window.prisma injected (owner='{}')", viewId, owner);
+}
+
+void ForgetViewOwner(WebRuntime::ViewId viewId) {
+    std::lock_guard lock(g_ownerMutex);
+    g_viewOwners.erase(viewId);
 }
 
 }

@@ -39,6 +39,7 @@ namespace PrismaUI::WebRuntimeUltralight {
     }
 
     void UltralightBackend::OnDocumentBeginLoading(PrismaUI::Web::ViewId id) {
+        ClearInputFocus(id);
         if (controllerKeyView_ == id) {
             controllerKeys_ = {};
             controllerKeyView_ = 0;
@@ -51,6 +52,14 @@ namespace PrismaUI::WebRuntimeUltralight {
         if (ControllerActions::HasMappings(id)) {
             ControllerActions::InstallBridge(id);
         }
+        const auto* record = viewManager_.Find(id);
+        if (!record || record->isInspector) return;
+        PrismaUI::Web::DomReadyCallback callback;
+        {
+            std::lock_guard lock(stateMutex_);
+            callback = documentReadyCallback_;
+        }
+        if (callback) callback(id);
     }
 
     void UltralightBackend::ReleaseNativeGamepadForInspector() {
@@ -108,7 +117,7 @@ namespace PrismaUI::WebRuntimeUltralight {
     }
 
     void UltralightBackend::DispatchInspectorTask(std::function<void()> task) {
-        Dispatch(std::move(task));
+        (void)Dispatch(std::move(task));
     }
 
     bool UltralightBackend::CopyPublishedInspectorTarget(

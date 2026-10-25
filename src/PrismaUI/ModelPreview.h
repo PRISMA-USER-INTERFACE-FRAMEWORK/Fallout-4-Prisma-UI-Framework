@@ -10,6 +10,10 @@ struct ID3D11ShaderResourceView;
 struct tagRECT;
 typedef struct tagRECT RECT;
 
+namespace PrismaUI::Web {
+    struct IWebBackend;
+}
+
 namespace PrismaUI::ModelPreview {
 
 using ViewId = uint64_t;
@@ -33,6 +37,8 @@ void Show(ViewId viewId, const std::string& jsonArgs);
 void Hide(ViewId viewId, const std::string& jsonArgs);
 
 void TickCore(ID3D11Device* dev, ID3D11DeviceContext* ctx);
+
+void SyncImageSources(PrismaUI::Web::IWebBackend& backend);
 
 void GetOverlays(ViewId viewId, std::vector<Overlay>& out);
 

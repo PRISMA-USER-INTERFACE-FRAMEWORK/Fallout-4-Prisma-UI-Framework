@@ -40,7 +40,6 @@ namespace PrismaUI::FreezeDiagnostics {
             case Stage::UltralightRender: return "UltralightRender";
             case Stage::UltralightCallback: return "UltralightCallback";
             case Stage::DispatchTask: return "DispatchTask";
-            case Stage::DispatchSync: return "DispatchSync";
             case Stage::CreateView: return "CreateView";
             case Stage::DestroyView: return "DestroyView";
             case Stage::GameThreadCallback: return "GameThreadCallback";
@@ -86,10 +85,6 @@ namespace PrismaUI::FreezeDiagnostics {
             return std::string("Present is stuck in ") + StageName(present.stage) +
                    " (generation=" + U64(snap.completedGeneration) + "/" + U64(snap.activeGeneration) + ")";
         }
-        if (snap.dispatchSyncOp != Stage::Idle && snap.dispatchSyncSinceMs != 0) {
-            return std::string("DispatchSync(") + StageName(snap.dispatchSyncOp) + ") has been outstanding for " +
-                   Seconds(nowMs - snap.dispatchSyncSinceMs);
-        }
         return {};
     }
 
@@ -117,11 +112,6 @@ namespace PrismaUI::FreezeDiagnostics {
             nowMs - snap.dropViewSinceMs > th.dropViewMs) {
             v.reasons.push_back("drop-view waiting view=" + U64(snap.dropViewView) + " age=" +
                                 I64(nowMs - snap.dropViewSinceMs) + "ms");
-        }
-        if (snap.dispatchSyncOp != Stage::Idle && snap.dispatchSyncSinceMs != 0 &&
-            nowMs - snap.dispatchSyncSinceMs > th.dispatchSyncMs) {
-            v.reasons.push_back(std::string("dispatch-sync outstanding op=") + StageName(snap.dispatchSyncOp) +
-                                " age=" + I64(nowMs - snap.dispatchSyncSinceMs) + "ms");
         }
         if (snap.shutdownJoinSinceMs != 0 && nowMs - snap.shutdownJoinSinceMs > th.shutdownJoinMs) {
             v.reasons.push_back("shutdown-join age=" + I64(nowMs - snap.shutdownJoinSinceMs) + "ms");
@@ -174,11 +164,6 @@ namespace PrismaUI::FreezeDiagnostics {
         if (snap.dropViewView != 0) {
             out.push_back("[FREEZE] drop-view: waiting=1 view=" + U64(snap.dropViewView) + " age=" +
                           I64(nowMs - snap.dropViewSinceMs) + "ms");
-        }
-        if (snap.dispatchSyncOp != Stage::Idle) {
-            out.push_back(std::string("[FREEZE] dispatch-sync: op=") + StageName(snap.dispatchSyncOp) +
-                          " thread=" + U64(snap.dispatchSyncThread) + " age=" +
-                          I64(nowMs - snap.dispatchSyncSinceMs) + "ms");
         }
         if (snap.shutdownJoinSinceMs != 0) {
             out.push_back("[FREEZE] shutdown-join: age=" + I64(nowMs - snap.shutdownJoinSinceMs) + "ms");

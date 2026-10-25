@@ -4,6 +4,7 @@
 #include "FreezeDiagnostics.h"
 #include "ModelPreview.h"
 #include "PresentProfiler.h"
+#include "ThreadObserver.h"
 #include "TextureOverlay.h"
 #include "Utils/ModulePath.h"
 #include "WebInput.h"
@@ -46,6 +47,8 @@ namespace PrismaUI::WebRuntime {
             logger::info("[D3D] FIRST HookPresent/OnPresent invocation -- swapchain={}",
                          static_cast<const void*>(swapChain));
         }
+        if (ThreadObserver::Result::NewThread == PresentThreads().Observe(::GetCurrentThreadId()))
+            logger::info("[ThreadProbe] Present on thread {} (distinct={})", ::GetCurrentThreadId(), PresentThreads().Count());
         TryInstallGameInput();
         auto frame = AdvanceFrame(swapChain);
         struct ProfilerFinalizeGuard {

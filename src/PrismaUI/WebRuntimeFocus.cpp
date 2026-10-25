@@ -1,8 +1,6 @@
 #include "WebRuntime.h"
 #include "WebRuntimeInternal.h"
-#ifndef PRISMAUI_FO4VR
 #include "VirtualPointer.h"
-#endif
 #include "GameThreadDispatcher.h"
 #include "InputMask.h"
 #include "InputOwnershipPolicy.h"
@@ -10,10 +8,12 @@
 #include "Menus/FocusMenu/FocusMenu.h"
 #include "Menus/PauseHold/PauseHold.h"
 #include "WebInput.h"
+#include "VanillaUISuppressor.h"
 namespace PrismaUI::WebRuntime {
     namespace {
         auto& st = Internal::RT();
         using namespace Internal;
+        std::mutex focusTransitionMutex;
     }
     void SetViewOwnsEscape(ViewId view, bool owns) {
         if (!view || (owns && !IsValid(view))) return;
@@ -29,6 +29,7 @@ namespace PrismaUI::WebRuntime {
     }
     bool HasFocus(ViewId view) { return st.focusedView.load() == view && view != 0; }
     ViewId GetFocusedView() { return st.focusedView.load(); }
+    bool PageHasInputFocus() { return st.backend && st.backend->PageHasInputFocus(); }
     void SetViewRole(ViewId view, uint32_t role) {
         if (!view || !IsValid(view)) return;
         std::lock_guard lock(st.roleMutex);
@@ -99,15 +100,18 @@ namespace PrismaUI::WebRuntime {
             st.localInspectorPending.load(std::memory_order_acquire) != 0 ||
             st.inspectorTeardownPending.load(std::memory_order_acquire) != 0;
         if (!inspectorOwnsBackendFocus) {
-#ifndef PRISMAUI_FO4VR
             VirtualPointer::CancelHeldClick();
-#endif
             if (prevFocused && prevFocused != view) {
                 st.backend->UnfocusView(prevFocused);
             }
             st.backend->FocusView(view);
         }
-        st.focusedView.store(view);
+        {
+            std::lock_guard lock{ focusTransitionMutex };
+            const bool wasUnfocused = st.focusedView.load() == 0;
+            st.focusedView.store(view);
+            if (wasUnfocused) PrismaUI::VanillaUISuppressor::SetPrismaUIFocusActive(true);
+        }
         st.activationRestoreView.store(0, std::memory_order_release);
         st.focusPauseGame.store(pauseGame, std::memory_order_release);
         st.focusDisableFocusMenu.store(disableFocusMenu, std::memory_order_release);
@@ -147,12 +151,14 @@ namespace PrismaUI::WebRuntime {
             if (st.backend && view) st.backend->UnfocusView(view);
             return;
         }
-#ifndef PRISMAUI_FO4VR
         VirtualPointer::CancelHeldClick();
-#endif
         if (st.backend) st.backend->UnfocusView(view);
-        ViewId expected = view;
-        st.focusedView.compare_exchange_strong(expected, 0);
+        {
+            std::lock_guard lock{ focusTransitionMutex };
+            ViewId expected = view;
+            const bool released = st.focusedView.compare_exchange_strong(expected, 0);
+            if (released && st.focusedView.load() == 0) PrismaUI::VanillaUISuppressor::SetPrismaUIFocusActive(false);
+        }
         if (st.focusedView.load() == 0 && st.localInspectorOwner.load(std::memory_order_acquire)) {
             ClearFocusedInputMode(view);
             EndInspectorGesture();

@@ -10,6 +10,8 @@ namespace PrismaUI::VanillaUISuppressor
 
     void Install();
 
+    void SetPrismaUIFocusActive(bool active);
+
     bool SuppressHUDWidget(const char* className, bool suppress);
 
     bool SuppressVanillaMenu(const char* menuName, bool suppress);

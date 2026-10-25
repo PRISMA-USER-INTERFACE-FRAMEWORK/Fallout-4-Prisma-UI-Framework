@@ -55,6 +55,9 @@ namespace PrismaUI::VRNetworkPolicy
         if (!outPolicy) {
             return false;
         }
+        if (!WebRuntime::IsValid(viewId)) {
+            return false;
+        }
         int hostPolicy = 0;
         if (WebRuntime::GetViewNetworkPolicy(viewId, hostPolicy)) {
             *outPolicy = static_cast<NetworkAccessPolicy>(hostPolicy);

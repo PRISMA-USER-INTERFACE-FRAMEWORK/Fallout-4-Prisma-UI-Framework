@@ -9,6 +9,8 @@
 
 #include "Hooks/ReattachPolicy.h"
 
+struct IDXGISwapChain;
+
 namespace Hooks {
     struct D3DHooks {
         using PresentFunc = HRESULT(APIENTRY*)(REX::W32::IDXGISwapChain*, UINT, UINT);
@@ -61,6 +63,7 @@ namespace Hooks {
         static bool Reattach(void* newPresentTarget, void* newResizeTarget, int64_t nowMs,
                              uint32_t expectedGeneration);
         static bool OwnsActiveSwapchainChain(REX::W32::IDXGISwapChain* swapChain);
+        static bool OriginalSwapchainSlots(IDXGISwapChain* swapChain, void** present, void** resize);
         static PrismaUI::Hooks::HookCoverage CaptureCoverage();
         static PrismaUI::Hooks::HookCoverage CurrentCoverage();
         static void Uninstall();

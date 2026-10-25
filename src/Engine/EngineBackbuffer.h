@@ -14,12 +14,17 @@ namespace PrismaUI::Engine {
         bool valid = false;
     };
 
+    inline RE::BSGraphics::RendererWindow* MainRendererWindow() {
+        auto* rd = RE::BSGraphics::GetRendererData();
+        return rd ? &rd->renderWindow[0] : nullptr;
+    }
+
     inline EngineBackbuffer ResolveEngineBackbuffer() {
         EngineBackbuffer out;
-        auto* rd = RE::BSGraphics::GetRendererData();
-        if (!rd) return out;
+        auto* window = MainRendererWindow();
+        if (!window) return out;
         auto* rtvRaw = reinterpret_cast<ID3D11RenderTargetView*>(
-            rd->renderWindow[0].swapChainRenderTarget.rtView);
+            window->swapChainRenderTarget.rtView);
         if (!rtvRaw) return out;
         Microsoft::WRL::ComPtr<ID3D11Resource> res;
         rtvRaw->GetResource(&res);
@@ -38,6 +43,7 @@ namespace PrismaUI::Engine {
     }
 
     inline ID3D11Device* GetLiveRenderDevice() {
+        if (!MainRendererWindow()) return nullptr;
         if (auto* rd = RE::BSGraphics::GetRendererData()) {
             return reinterpret_cast<ID3D11Device*>(rd->device);
         }

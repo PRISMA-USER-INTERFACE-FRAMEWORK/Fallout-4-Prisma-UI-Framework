@@ -70,6 +70,104 @@ namespace PrismaUI::Hooks {
         return cov.strategy != HookInstallStrategy::SwapchainChain || liveSwapChain == cov.coveredSwapChain;
     }
 
+    struct ChainSlotOriginals {
+        void* present = nullptr;
+        void* resize = nullptr;
+    };
+
+    constexpr ChainSlotOriginals SelectChainSlotOriginals(const void* liveVtable, const void* shadowVtable,
+                                                          void* originalPresent, void* originalResize) {
+        if (!liveVtable || liveVtable != shadowVtable || !originalPresent || !originalResize)
+            return ChainSlotOriginals{};
+        return ChainSlotOriginals{originalPresent, originalResize};
+    }
+
+    struct QuarantineEntry {
+        uintptr_t target = 0;
+        uintptr_t trampoline = 0;
+        int       slot = -1;
+        bool      enabled = false;
+        bool      drained = false;
+    };
+
+    constexpr int kQuarantineCapacity = 8;
+
+    enum class QuarantineAdd { Recorded, AlreadyRecorded, Full };
+
+    class TrampolineQuarantine {
+    public:
+        QuarantineAdd Record(uintptr_t target, uintptr_t trampoline, int slot) {
+            if (!target) return QuarantineAdd::Full;
+            if (Find(target) >= 0) return QuarantineAdd::AlreadyRecorded;
+            if (size_ >= kQuarantineCapacity) return QuarantineAdd::Full;
+            records_[size_++] = QuarantineEntry{target, trampoline, slot, false};
+            return QuarantineAdd::Recorded;
+        }
+
+        int Find(uintptr_t target) const {
+            if (!target) return -1;
+            for (int i = 0; i < size_; ++i) {
+                if (records_[i].target == target) return i;
+            }
+            return -1;
+        }
+
+        const QuarantineEntry* At(int index) const {
+            if (index < 0 || index >= size_) return nullptr;
+            return &records_[index];
+        }
+
+        bool MarkEnabled(uintptr_t target, bool enabled) {
+            const int index = Find(target);
+            if (index < 0) return false;
+            records_[index].enabled = enabled;
+            if (enabled) records_[index].drained = false;
+            return true;
+        }
+
+        bool MarkDrained(uintptr_t target, bool drained) {
+            const int index = Find(target);
+            if (index < 0) return false;
+            records_[index].drained = drained;
+            return true;
+        }
+
+        bool Forget(uintptr_t target) {
+            const int index = Find(target);
+            if (index < 0) return false;
+            records_[index] = records_[--size_];
+            records_[size_] = QuarantineEntry{};
+            return true;
+        }
+
+        int Size() const { return size_; }
+        bool Full() const { return size_ >= kQuarantineCapacity; }
+        bool Empty() const { return size_ == 0; }
+
+    private:
+        QuarantineEntry records_[kQuarantineCapacity]{};
+        int size_ = 0;
+    };
+
+    enum class HookEntryAction { Create, Reenable, Recreate, Refuse };
+
+    inline HookEntryAction DecideHookEntry(const TrampolineQuarantine& quarantine, uintptr_t target, int slot) {
+        const QuarantineEntry* entry = quarantine.At(quarantine.Find(target));
+        if (entry) {
+            if (entry->slot == slot) return HookEntryAction::Reenable;
+            return !entry->enabled && entry->drained ? HookEntryAction::Recreate : HookEntryAction::Refuse;
+        }
+        return quarantine.Full() ? HookEntryAction::Refuse : HookEntryAction::Create;
+    }
+
+    inline const char* DescribeHookEntryRefusal(const TrampolineQuarantine& quarantine, uintptr_t target,
+                                                int slot) {
+        const QuarantineEntry* entry = quarantine.At(quarantine.Find(target));
+        if (!entry) return "the trampoline quarantine is full";
+        if (entry->slot == slot) return "the target is already owned by this slot";
+        return "MinHook still owns a live or undrained entry at this target for the other slot";
+    }
+
     struct ReattachInputs {
         bool      presentStale       = false;
         bool      minimized          = false;

@@ -4,6 +4,7 @@
 #include "UltralightViewCallbacks.h"
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -34,9 +35,11 @@ namespace PrismaUI::WebRuntimeUltralight {
         PrismaUI::Web::DomReadyCallback domReady;
         PrismaUI::Web::ViewHealth health = PrismaUI::Web::ViewHealth::Creating;
         bool domReadyFired = false;
+        bool documentDomReady = false;
         bool replayingPendingCalls = false;
         bool trustedDocumentReady = false;
         std::uint64_t documentGeneration = 0;
+        std::chrono::steady_clock::time_point loadStarted;
         bool navigationBlocked = false;
         std::string blockedNavigationUrl;
         bool viewportSized = true;

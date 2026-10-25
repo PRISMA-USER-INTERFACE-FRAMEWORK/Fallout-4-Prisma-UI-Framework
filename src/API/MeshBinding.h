@@ -1,5 +1,7 @@
 #pragma once
 
+#include <wrl/client.h>
+
 #include <cstdint>
 
 struct ID3D11ShaderResourceView;
@@ -23,5 +25,5 @@ namespace PrismaUI::MeshBinding
 
 	void Unbind(ViewId view);
 
-	void DiagTick();
+	void DiagTick(Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> (*currentSrv)(ViewId));
 }

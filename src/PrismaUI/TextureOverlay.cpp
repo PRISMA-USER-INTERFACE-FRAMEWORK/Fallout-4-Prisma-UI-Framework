@@ -8,6 +8,8 @@
 #include <mutex>
 #include <unordered_map>
 
+#include "TextureOverlayGeometry.h"
+
 #include "../Engine/EngineLocalMapTexture.h"
 #include "../Engine/EngineTexture.h"
 
@@ -94,10 +96,19 @@ void Show(ViewId viewId, const std::string& json) {
     std::string source = JsonStr(json, "source");
     if (source.empty()) source = "localmap";
     r.localMap = source == "localmap";
-    r.l = static_cast<long>(JsonNum(json, "x", 0));
-    r.t = static_cast<long>(JsonNum(json, "y", 0));
-    r.r = r.l + static_cast<long>(JsonNum(json, "w", 0));
-    r.b = r.t + static_cast<long>(JsonNum(json, "h", 0));
+    const double x = JsonNum(json, "x", 0);
+    const double y = JsonNum(json, "y", 0);
+    const double w = JsonNum(json, "w", 0);
+    const double h = JsonNum(json, "h", 0);
+    const auto rect = TextureOverlayGeometry::ParseRect(x, y, w, h);
+    if (!rect) {
+        logger::warn("[TextureOverlay] Show view={} source='{}' rejected rect=({},{} {}x{})", viewId, source, x, y, w, h);
+        return;
+    }
+    r.l = rect->l;
+    r.t = rect->t;
+    r.r = rect->r;
+    r.b = rect->b;
     r.active = true;
     logger::info("[TextureOverlay] Show view={} source='{}' rect=({},{} {}x{})", viewId, source,
                  r.l, r.t, r.r - r.l, r.b - r.t);

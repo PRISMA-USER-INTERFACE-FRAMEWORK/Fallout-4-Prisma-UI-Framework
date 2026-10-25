@@ -1,6 +1,7 @@
 #include "UltralightBackend.h"
 
 #include <algorithm>
+#include <cassert>
 #include <utility>
 
 namespace PrismaUI::WebRuntimeUltralight {
@@ -82,6 +83,7 @@ namespace PrismaUI::WebRuntimeUltralight {
     }
 
     void UltralightBackend::RemoveOwnerView(PrismaUI::Web::ViewId id) {
+        assert(dispatchQueue_.IsOwnerThread());
         CancelNativeGamepad(id, true);
         const auto record = viewManager_.Find(id);
         if (!record) return;

@@ -3,6 +3,7 @@
 #include "API/API.h"
 #include "API/FlatAPI.h"
 #include "Menus/PauseHold/PauseHold.h"
+#include "PrismaUI/ControllerGlyphs.h"
 #include "PrismaUI/FreezeDiagnostics.h"
 #include "PrismaUI/WebRuntime.h"
 #include "PrismaUI/PapyrusVM.h"
@@ -51,6 +52,12 @@ namespace
             }
             if (!Hooks::D3DHooks::Install()) {
                 logger::warn("PrismaUI swap-chain resize invalidation is unavailable");
+            }
+
+            if (RE::MenuControls::GetSingleton() && RE::PlayerControls::GetSingleton()) {
+                PrismaUI::ControllerGlyphs::InstallInputTracking();
+            } else {
+                logger::warn("PrismaUI controller input tracking is unavailable this session");
             }
 
             std::thread([] { PrismaUI::WebRuntime::LoadAndInit(); }).detach();

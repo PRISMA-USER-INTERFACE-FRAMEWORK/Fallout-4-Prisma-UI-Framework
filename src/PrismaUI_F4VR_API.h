@@ -306,7 +306,7 @@ namespace PRISMA_UI_VR_API
         InterfaceVersion version = InterfaceVersion::V1) noexcept
     {
 
-        const auto module = PRISMA_UI_API::GetPrismaProviderModule();
+        const auto module = GetModuleHandleW(L"PrismaUI_F4VR.dll");
         if (!module) {
             return nullptr;
         }

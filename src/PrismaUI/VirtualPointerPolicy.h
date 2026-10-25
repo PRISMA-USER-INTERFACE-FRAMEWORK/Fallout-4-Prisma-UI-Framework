@@ -1,20 +1,17 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 
 namespace PrismaUI::VirtualPointerPolicy {
 
-inline constexpr float kDeadzone = 0.22F;
 inline constexpr float kSpeedPixelsPerSecond = 1100.0F;
 inline constexpr float kMaxDeltaSeconds = 0.05F;
 
 inline float Shape(float value) noexcept
 {
-    const float magnitude = std::fabs(value);
-    if (magnitude <= kDeadzone) return 0.0F;
-    const float scaled = (magnitude - kDeadzone) / (1.0F - kDeadzone);
-    const float limited = scaled > 1.0F ? 1.0F : scaled;
-    return value < 0.0F ? -limited : limited;
+    if (std::isnan(value)) return 0.0F;
+    return std::clamp(value, -1.0F, 1.0F);
 }
 
 inline float ClampDelta(float seconds) noexcept

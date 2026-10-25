@@ -28,16 +28,24 @@ namespace PrismaUI::WebRuntimeUltralight {
         ownerId_ = std::this_thread::get_id();
     }
 
-    void UltralightDispatchQueue::Dispatch(Task task) {
+    bool UltralightDispatchQueue::Dispatch(Task task) {
         if (IsOwnerThread()) {
             task();
-            return;
+            return true;
         }
-        (void)Enqueue(std::move(task));
+        return Enqueue(std::move(task));
     }
 
     bool UltralightDispatchQueue::DispatchDeferred(Task task) {
         return Enqueue(std::move(task));
+    }
+
+    void UltralightDispatchQueue::DrainAbandoned() {
+        std::queue<Task> abandoned;
+        {
+            std::lock_guard lock(mutex_);
+            abandoned.swap(tasks_);
+        }
     }
 
     void UltralightDispatchQueue::WaitForWork() {

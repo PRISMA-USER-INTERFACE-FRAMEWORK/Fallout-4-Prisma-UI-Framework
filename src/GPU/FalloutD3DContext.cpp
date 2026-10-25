@@ -4,6 +4,7 @@
 #include "Hooks/Hooks.h"
 #endif
 #include "Utils/ConflictChecker.h"
+#include "Engine/EngineBackbuffer.h"
 
 #include <string>
 #include <utility>
@@ -81,8 +82,8 @@ bool KnownEnbSwapchainChain() noexcept
 #ifdef PRISMAUI_FO4VR
     return false;
 #else
-    auto* rendererData = RE::BSGraphics::GetRendererData();
-    auto* swapChain = rendererData ? rendererData->renderWindow[0].swapChain : nullptr;
+    auto* window = ::PrismaUI::Engine::MainRendererWindow();
+    auto* swapChain = window ? window->swapChain : nullptr;
     if (!swapChain) return false;
     auto** dispatch = *reinterpret_cast<void***>(swapChain);
     if (!dispatch) return false;

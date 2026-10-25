@@ -2,13 +2,11 @@
 #include "API.h"
 
 #include "PrismaUI/WebRuntime.h"
-#ifndef PRISMAUI_FO4VR
 #include "PrismaUI/GameThreadDispatcher.h"
 #include "PrismaUI/ModelPreview.h"
 #include "Utils/ConflictChecker.h"
 #include <intrin.h>
 #pragma intrinsic(_ReturnAddress)
-#endif
 
 #include <exception>
 #include <string>
@@ -16,7 +14,6 @@
 #include <atomic>
 #include <chrono>
 
-#ifndef PRISMAUI_FO4VR
 namespace {
 
 void LogDispatchFailure(PrismaView view, const std::string& name, const char* api)
@@ -47,15 +44,11 @@ void LogDispatchFailure(PrismaView view, const std::string& name, const char* ap
 }
 
 }
-#endif
 
 PrismaView PluginAPI::VerifiedPrismaUIInterface::CreateView(
     const char* htmlPath,
     PRISMA_UI_API::OnDomReadyCallback onDomReadyCallback) noexcept
 {
-#ifdef PRISMAUI_FO4VR
-    return PrismaUIInterface::CreateView(htmlPath, onDomReadyCallback);
-#else
     if (!htmlPath) return 0;
 
     const std::string owner = PrismaUI::ConflictChecker::OwnerOf(_ReturnAddress());
@@ -99,19 +92,12 @@ PrismaView PluginAPI::VerifiedPrismaUIInterface::CreateView(
     logger::info("CreateView (verified Ultralight): path='{}' -> view [{}] owner='{}'", htmlPath, id, owner);
     PrismaUI::ModelPreview::NoteViewCreated();
     return id;
-#endif
 }
 
 bool PluginAPI::PrismaUIInterface::DispatchToGameThread(
     PRISMA_UI_API::GameThreadTaskCallback callback,
     void* userdata) noexcept
 {
-#ifdef PRISMAUI_FO4VR
-    (void)callback;
-    (void)userdata;
-    logger::warn("[V11] DispatchToGameThread is not exposed by the FO4VR provider");
-    return false;
-#else
     if (!callback) {
         logger::warn("[V11] DispatchToGameThread: null callback");
         return false;
@@ -128,16 +114,11 @@ bool PluginAPI::PrismaUIInterface::DispatchToGameThread(
         logger::error("[V11] DispatchToGameThread: failed to queue callback");
         return false;
     }
-#endif
 }
 
 bool PluginAPI::PrismaUIInterface::IsGameThread() noexcept
 {
-#ifdef PRISMAUI_FO4VR
-    return false;
-#else
     return PrismaUI::GameThreadDispatcher::IsGameThread();
-#endif
 }
 
 bool PluginAPI::PrismaUIInterface::BindGameThreadUIEvent(
@@ -146,14 +127,6 @@ bool PluginAPI::PrismaUIInterface::BindGameThreadUIEvent(
     PRISMA_UI_API::GameThreadUIEventCallback callback,
     void* userdata) noexcept
 {
-#ifdef PRISMAUI_FO4VR
-    (void)view;
-    (void)functionName;
-    (void)callback;
-    (void)userdata;
-    logger::warn("[V11] BindGameThreadUIEvent is not exposed by the FO4VR provider");
-    return false;
-#else
     if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view) || !functionName || !functionName[0] || !callback) {
         logger::warn("[V11] BindGameThreadUIEvent: invalid args view={} fn={}",
                      view, functionName ? functionName : "null");
@@ -199,7 +172,6 @@ bool PluginAPI::PrismaUIInterface::BindGameThreadUIEvent(
 
     logger::info("[V11] BindGameThreadUIEvent: view [{}] registered '{}'", view, name);
     return true;
-#endif
 }
 
 void PluginAPI::VerifiedPrismaUIInterface::BindUIEvent(
@@ -207,9 +179,6 @@ void PluginAPI::VerifiedPrismaUIInterface::BindUIEvent(
     const char* functionName,
     PRISMA_UI_API::JSListenerCallback callback) noexcept
 {
-#ifdef PRISMAUI_FO4VR
-    PrismaUIInterface::BindUIEvent(view, functionName, callback);
-#else
     if (!view || PrismaUI::WebRuntime::IsFrameworkSystemView(view) || !functionName || !functionName[0] || !callback) {
         logger::warn("[V4] BindUIEvent: invalid args view={} fn={}",
                      view, functionName ? functionName : "null");
@@ -254,5 +223,4 @@ void PluginAPI::VerifiedPrismaUIInterface::BindUIEvent(
         });
 
     logger::info("[V4] BindUIEvent: view [{}] registered verified window-thread listener '{}'", view, name);
-#endif
 }

@@ -4,15 +4,15 @@
 
 namespace PrismaUI::WebRuntimeUltralight {
 
-    void UltralightBackend::Dispatch(UltralightDispatchQueue::Task function) {
-        dispatchQueue_.Dispatch(std::move(function));
+    bool UltralightBackend::Dispatch(UltralightDispatchQueue::Task function) {
+        return dispatchQueue_.Dispatch(std::move(function));
     }
 
     void UltralightBackend::DispatchForView(PrismaUI::Web::ViewId id,
                                             UltralightDispatchQueue::Task function) {
         if (!dispatchQueue_.IsOwnerThread()) {
             if (viewManager_.DispatchState(id) == ViewDispatchState::Rejected) return;
-            Dispatch(std::move(function));
+            (void)Dispatch(std::move(function));
             return;
         }
         const auto state = viewManager_.DispatchState(id);

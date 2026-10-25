@@ -10,18 +10,18 @@ namespace PrismaUI::Engine {
 
     class LocalMapRenderer {
     public:
-        static LocalMapRenderer Create() { return LocalMapRenderer(InitRendererFn()(false)); }
+        static LocalMapRenderer Create() { auto* fn = InitRendererFn(); return LocalMapRenderer(fn ? (*fn)(false) : nullptr); }
 
         bool  valid() const { return m_renderer != nullptr; }
         void* raw()   const { return m_renderer; }
 
-        void SetInitialPosition(RE::NiPoint3& center)              { SetInitialPosFn()(camera(), &center); }
-        void SetExtents(RE::NiPoint3& worldMax, RE::NiPoint3& worldMin) { SetExtentsFn()(camera(), &worldMax, &worldMin); }
-        void SetMinFrustum(float halfWidth, float halfHeight)      { SetMinFrustumFn()(camera(), halfWidth, halfHeight); }
+        void SetInitialPosition(RE::NiPoint3& center)              { if (auto* fn = SetInitialPosFn()) (*fn)(camera(), &center); }
+        void SetExtents(RE::NiPoint3& worldMax, RE::NiPoint3& worldMin) { if (auto* fn = SetExtentsFn()) (*fn)(camera(), &worldMax, &worldMin); }
+        void SetMinFrustum(float halfWidth, float halfHeight)      { if (auto* fn = SetMinFrustumFn()) (*fn)(camera(), halfWidth, halfHeight); }
 
         void SetZoom(float zoom)                                   { if (auto* fn = SetZoomFn()) fn(camera(), zoom); }
 
-        RE::NiTexture* Render() { return RenderFn()(m_renderer, true); }
+        RE::NiTexture* Render() { auto* fn = RenderFn(); return fn ? (*fn)(m_renderer, true) : nullptr; }
 
         void Destroy() {
             DestroyRaw(m_renderer);
@@ -30,7 +30,7 @@ namespace PrismaUI::Engine {
 
         static void DestroyRaw(void* renderer) {
             if (!renderer) return;
-            RendererDtorFn()(renderer);
+            if (auto* fn = RendererDtorFn()) (*fn)(renderer);
             RE::MemoryManager::GetSingleton().Deallocate(renderer, false);
         }
 
@@ -41,23 +41,25 @@ namespace PrismaUI::Engine {
 
         static constexpr std::uintptr_t kCameraOffset = 0x1A0;
 
-        static REL::Relocation<void* (*)(bool)>& InitRendererFn() {
+        static REL::Relocation<void* (*)(bool)>* InitRendererFn() {
             static REL::Relocation<void* (*)(bool)> fn{ REL::ID{ 433445, 2224093 } };
-            return fn;
+            return &fn;
         }
-        static REL::Relocation<void (*)(void*, RE::NiPoint3*)>& SetInitialPosFn() {
+        static REL::Relocation<void (*)(void*, RE::NiPoint3*)>* SetInitialPosFn() {
             static REL::Relocation<void (*)(void*, RE::NiPoint3*)> fn{ REL::ID{ 1066266, 2194679 } };
-            return fn;
+            return &fn;
         }
-        static REL::Relocation<void (*)(void*, float, float)>& SetMinFrustumFn() {
+        static REL::Relocation<void (*)(void*, float, float)>* SetMinFrustumFn() {
             static REL::Relocation<void (*)(void*, float, float)> fn{ REL::ID{ 773115, 2194682 } };
-            return fn;
+            return &fn;
         }
 
         using SetZoomFnPtr = void (*)(void*, float);
         static SetZoomFnPtr SetZoomFn() {
             static SetZoomFnPtr s_fn = [] () -> SetZoomFnPtr {
-                const std::uintptr_t anchor = SetMinFrustumFn().address();
+                auto* minFrustum = SetMinFrustumFn();
+                if (!minFrustum) return nullptr;
+                const std::uintptr_t anchor = minFrustum->address();
                 const auto at = FindUniqueBytes(reinterpret_cast<const std::uint8_t*>(anchor),
                                                 kLocalMapSetZoomWindow, kLocalMapSetZoomBody,
                                                 sizeof(kLocalMapSetZoomBody));
@@ -75,17 +77,17 @@ namespace PrismaUI::Engine {
             }();
             return s_fn;
         }
-        static REL::Relocation<void (*)(void*, RE::NiPoint3*, RE::NiPoint3*)>& SetExtentsFn() {
+        static REL::Relocation<void (*)(void*, RE::NiPoint3*, RE::NiPoint3*)>* SetExtentsFn() {
             static REL::Relocation<void (*)(void*, RE::NiPoint3*, RE::NiPoint3*)> fn{ REL::ID{ 600273, 2194681 } };
-            return fn;
+            return &fn;
         }
-        static REL::Relocation<RE::NiTexture* (*)(void*, bool)>& RenderFn() {
+        static REL::Relocation<RE::NiTexture* (*)(void*, bool)>* RenderFn() {
             static REL::Relocation<RE::NiTexture* (*)(void*, bool)> fn{ REL::ID{ 213532, 2194685 } };
-            return fn;
+            return &fn;
         }
-        static REL::Relocation<void (*)(void*)>& RendererDtorFn() {
+        static REL::Relocation<void (*)(void*)>* RendererDtorFn() {
             static REL::Relocation<void (*)(void*)> fn{ REL::ID{ 1277377, 2194684 } };
-            return fn;
+            return &fn;
         }
 
         void* m_renderer;

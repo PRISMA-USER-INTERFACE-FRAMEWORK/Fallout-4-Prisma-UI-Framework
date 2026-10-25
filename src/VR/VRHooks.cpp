@@ -2,6 +2,7 @@
 
 #include "VR/VRHooks.h"
 
+#include "Engine/EngineVRStereoSubmissionAddress.h"
 #include "VR/EngineStereoSubmissionPolicy.h"
 #include "VR/VRCompositor.h"
 #include "VR/SceneDepthCapture.h"
@@ -102,7 +103,7 @@ namespace Hooks
                 &displacement,
                 instruction + 1,
                 sizeof(displacement));
-            return EngineStereoSubmissionPolicy::
+            return PrismaUI::Engine::VRStereoSubmission::
                        RelativeCallTarget(
                            callsite,
                            displacement) ==
@@ -209,24 +210,15 @@ namespace Hooks
             return false;
         }
 
-        using namespace EngineStereoSubmissionPolicy;
+        using namespace PrismaUI::Engine::VRStereoSubmission;
         std::uintptr_t fullCallsite = 0;
         std::uintptr_t specialCallsite = 0;
         auto fullPatched = false;
         auto specialPatched = false;
         try {
-            const REL::Relocation<std::uintptr_t> fullCall{
-                REL::Offset(kFullSubmitCallsiteRva)
-            };
-            const REL::Relocation<std::uintptr_t> specialCall{
-                REL::Offset(kSpecialSubmitCallsiteRva)
-            };
-            const REL::Relocation<std::uintptr_t> submit{
-                REL::Offset(kSubmitStereoTextureRva)
-            };
-            fullCallsite = fullCall.address();
-            specialCallsite = specialCall.address();
-            const auto submitAddress = submit.address();
+            fullCallsite = FullSubmitCallsiteAddress();
+            specialCallsite = SpecialSubmitCallsiteAddress();
+            const auto submitAddress = SubmitStereoTextureAddress();
 
             const auto guarded =
                 fullCallsite >= kCallsitePrefixSize &&

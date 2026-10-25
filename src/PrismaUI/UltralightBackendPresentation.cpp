@@ -72,8 +72,8 @@ namespace PrismaUI::WebRuntimeUltralight {
         FreezeDiagnostics::SetGpuState(completedGeneration_, activeGeneration_, dispatchQueue_.FrameRequested());
         if (!immediate || activeGeneration_ != 0) return {};
         const auto beforeEpoch = deviceEpoch_;
-        if (accelerated_ && !ObserveAcceleratedLifecycleLocked(immediate, swapChain)) return {};
         if (!PrismaUI::GPU::GenerationDrain::CanBeginPresent(acceptingFrames_, ready_, terminalGpuFailure_)) return {};
+        if (accelerated_ && !ObserveAcceleratedLifecycleLocked(immediate, swapChain)) return {};
         if (beforeEpoch != deviceEpoch_) dispatchQueue_.RequestFrame();
         if (completedGeneration_ == 0) {
             dispatchQueue_.RequestFrame();

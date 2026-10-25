@@ -1,10 +1,13 @@
 #include "UltralightBackend.h"
 
 #include "FreezeDiagnostics.h"
+#include "OnceCompletion.h"
 #include "PrismaFileSystem.h"
 #include "ViewOrigin.h"
 
+#include <memory>
 #include <utility>
+#include <chrono>
 
 namespace PrismaUI::WebRuntimeUltralight {
 
@@ -20,19 +23,25 @@ namespace PrismaUI::WebRuntimeUltralight {
             return ready_ && !dispatchQueue_.IsStopping();
         });
         if (!id) return 0;
+        const auto queuedAt = std::chrono::steady_clock::now();
+        auto done = std::make_shared<OnceCompletion<PrismaUI::Web::ViewId>>(std::move(onReady), 0);
         const bool admitted = DispatchDeferred(
-            [this, id, normalized, owner, onReady = std::move(onReady)]() mutable {
+            [this, id, normalized, owner, done, queuedAt] {
+                const auto started = std::chrono::steady_clock::now();
+                logger::debug("[LoadTiming] view={} path={} queueUs={}", id, normalized,
+                    std::chrono::duration_cast<std::chrono::microseconds>(started - queuedAt).count());
                 FreezeDiagnostics::ScopedStage createStage(
                     FreezeDiagnostics::Lane::UltralightOwner, FreezeDiagnostics::Stage::CreateView);
+                auto domReady = done->Take();
                 if (!BeginViewCreation(id)) return;
                 if (!renderer_ || dispatchQueue_.IsStopping() || !fileSystem_) {
-                    FailViewCreation(id, std::move(onReady), "backend is stopping or unavailable");
+                    FailViewCreation(id, std::move(domReady), "backend is stopping or unavailable");
                     return;
                 }
                 if (IsViewDestroyRequested(id)) return;
                 auto buffer = fileSystem_->OpenFile(ultralight::String(normalized.c_str()));
                 if (!buffer || !buffer->data()) {
-                    FailViewCreation(id, std::move(onReady), "view source could not be opened");
+                    FailViewCreation(id, std::move(domReady), "view source could not be opened");
                     return;
                 }
                 if (IsViewDestroyRequested(id)) return;
@@ -40,7 +49,7 @@ namespace PrismaUI::WebRuntimeUltralight {
                 record->id = id;
                 record->source.relativePath = normalized;
                 record->owner = owner;
-                record->domReady = std::move(onReady);
+                record->domReady = std::move(domReady);
                 record->width = width_;
                 record->height = height_;
                 ultralight::ViewConfig config;
@@ -76,6 +85,8 @@ namespace PrismaUI::WebRuntimeUltralight {
                 }
                 const std::string fileUrl = DocumentFileUrl(normalized);
                 stored->view->LoadHTML(ultralight::String(html.c_str()), ultralight::String(fileUrl.c_str()));
+                logger::debug("[LoadTiming] view={} createAndLoadHtmlUs={}", id,
+                    std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - started).count());
             });
         if (!admitted) {
             ErasePublishedView(id);
@@ -91,6 +102,7 @@ namespace PrismaUI::WebRuntimeUltralight {
         if (!DispatchDeferred([this, id] {
                 FreezeDiagnostics::ScopedStage destroyStage(
                     FreezeDiagnostics::Lane::UltralightOwner, FreezeDiagnostics::Stage::DestroyView, id);
+                ClearInputFocus(id);
                 RemoveOwnerView(id);
                 ErasePublishedView(id);
             })) {
@@ -125,6 +137,7 @@ namespace PrismaUI::WebRuntimeUltralight {
         CancelNativeGamepad(id, true);
         DispatchForView(id, [this, id] {
             if (const auto record = viewManager_.Find(id); record && record->view) record->view->Unfocus();
+            ClearInputFocus(id);
         });
     }
 

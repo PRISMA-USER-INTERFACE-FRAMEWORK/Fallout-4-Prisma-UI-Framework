@@ -9,9 +9,7 @@ namespace PrismaUI::WebInput {
 bool Install(HWND gameHwnd);
 bool QueueInstall(HWND gameHwnd);
 bool IsInstalled();
-#ifndef PRISMAUI_FO4VR
 bool QueueDispatcherReattach();
-#endif
 void Uninstall();
 
 bool GetClientScreenRect(int& outX, int& outY, int& outWidth, int& outHeight);

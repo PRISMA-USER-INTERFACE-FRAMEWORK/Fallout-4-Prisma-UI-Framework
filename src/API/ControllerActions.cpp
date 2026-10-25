@@ -1,9 +1,7 @@
 #include "PrismaUI/ControllerActions.h"
 
 #include "PrismaUI/WebRuntime.h"
-#ifndef PRISMAUI_FO4VR
 #include "PrismaUI/GameThreadDispatcher.h"
-#endif
 
 #include <condition_variable>
 #include <limits>
@@ -116,11 +114,6 @@ bool BindFocusEntry(ViewId view, std::uint32_t buttonCode,
 }
 
 bool UnbindFocusEntry(ViewId view, std::uint32_t buttonCode) noexcept {
-#ifdef PRISMAUI_FO4VR
-    (void)view;
-    (void)buttonCode;
-    return false;
-#else
     if (!view || !buttonCode) return false;
 
     std::unique_lock lock(g_focusEntryMutex);
@@ -128,7 +121,6 @@ bool UnbindFocusEntry(ViewId view, std::uint32_t buttonCode) noexcept {
     if (!entry) return false;
     CancelFocusEntryLocked(lock, entry);
     return true;
-#endif
 }
 
 BridgeState GetBridgeState(ViewId view) noexcept {
@@ -203,12 +195,6 @@ HandleResult Handle(ViewId view, std::uint32_t buttonCode,
 
 HandleResult HandleFocusEntry(std::uint32_t buttonCode,
                               bool justPressed, bool released) noexcept {
-#ifdef PRISMAUI_FO4VR
-    (void)buttonCode;
-    (void)justPressed;
-    (void)released;
-    return {};
-#else
     const bool anyFocus = WebRuntime::HasAnyActiveFocus();
     if (anyFocus) {
         ResetFocusEntrySequences();
@@ -292,7 +278,6 @@ HandleResult HandleFocusEntry(std::uint32_t buttonCode,
     }
 
     return {true, admitted && stillCurrent};
-#endif
 }
 
 }

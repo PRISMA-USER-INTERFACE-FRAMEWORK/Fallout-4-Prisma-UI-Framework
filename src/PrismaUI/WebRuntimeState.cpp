@@ -4,6 +4,8 @@
 #include "UltralightBackend.h"
 #include "ModelPreview.h"
 #include "TextureOverlay.h"
+#include "PapyrusBridge.h"
+#include "Engine/EngineBackbuffer.h"
 #include <string>
 namespace PrismaUI::WebRuntime {
     namespace {
@@ -17,6 +19,37 @@ namespace PrismaUI::WebRuntime {
         }
         void TextureOverlayStatusSink(uint64_t viewId, const char* json) {
             if (st.backend && json) st.backend->CallFunction(viewId, "__prismaUI_onTextureOverlayStatus", json);
+        }
+        void DocumentReadySink(PrismaUI::Web::ViewId view) {
+            PapyrusBridge::InjectBridge(view);
+            if (ModelPreview::Enabled()) {
+                std::string apiInit =
+                    "window.__prismaUI_onModelPreviewStatus=window.__prismaUI_onModelPreviewStatus||function(){"
+                    "};"
+                    "window.__prismaUI_modelPreview=Object.assign(window.__prismaUI_modelPreview||{},{"
+                    "version:" +
+                    std::to_string(ModelPreview::kApiVersion) +
+                    ","
+                    "show:function(o){return window.__prismaUI_showModelPreview(JSON.stringify(o||{}));},"
+                    "hide:function(o){return window.__prismaUI_hideModelPreview(JSON.stringify(o||{}));},"
+                    "onStatus:function(cb){window.__prismaUI_onModelPreviewStatus="
+                    "function(s){try{cb(JSON.parse(s));}catch(e){}};}"
+                    "});";
+                Invoke(view, apiInit, nullptr);
+            }
+            std::string texInit =
+                "window.__prismaUI_onTextureOverlayStatus=window.__prismaUI_onTextureOverlayStatus||"
+                "function(){};"
+                "window.__prismaUI_textureOverlay=Object.assign(window.__prismaUI_textureOverlay||{},{"
+                "version:" +
+                std::to_string(TextureOverlay::kApiVersion) +
+                ","
+                "show:function(o){return window.__prismaUI_showTextureOverlay(JSON.stringify(o||{}));},"
+                "hide:function(o){return window.__prismaUI_hideTextureOverlay(JSON.stringify(o||{}));},"
+                "onStatus:function(cb){window.__prismaUI_onTextureOverlayStatus="
+                "function(s){try{cb(JSON.parse(s));}catch(e){}};}"
+                "});";
+            Invoke(view, texInit, nullptr);
         }
         void ViewErrorSink(PrismaUI::Web::ViewId view, PrismaUI::Web::ViewHealth category, std::string message,
                            std::string detail) {
@@ -70,8 +103,9 @@ namespace PrismaUI::WebRuntime {
             st.initFailed.store(true, std::memory_order_release);
             return false;
         }
-        auto* device = reinterpret_cast<ID3D11Device*>(rendererData->device);
-        auto hwnd = reinterpret_cast<HWND>(rendererData->renderWindow[0].hwnd);
+        auto* window = ::PrismaUI::Engine::MainRendererWindow();
+        auto* device = window ? reinterpret_cast<ID3D11Device*>(rendererData->device) : nullptr;
+        auto hwnd = window ? reinterpret_cast<HWND>(window->hwnd) : nullptr;
         if (!device || !hwnd) {
             logger::critical("[WebRuntime] null device/HWND from BSGraphics");
             st.initFailed.store(true, std::memory_order_release);
@@ -114,6 +148,7 @@ namespace PrismaUI::WebRuntime {
             task->AddTask([] { TryInstallGameInput(); });
         }
         st.backend->SetViewErrorCallback(&ViewErrorSink);
+        st.backend->SetDocumentReadyCallback(&DocumentReadySink);
         st.backend->Initialize(device, context, hwnd, &InitResultSink);
         st.startupAccepted.store(true, std::memory_order_release);
         logger::info("[WebRuntime] web backend startup accepted; awaiting terminal init result");

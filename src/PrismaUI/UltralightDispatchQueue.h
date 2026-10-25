@@ -19,8 +19,9 @@ namespace PrismaUI::WebRuntimeUltralight {
         [[nodiscard]] bool IsOwnerThread() const noexcept;
         void SetOwnerThread() noexcept;
 
-        void Dispatch(Task task);
+        [[nodiscard]] bool Dispatch(Task task);
         [[nodiscard]] bool DispatchDeferred(Task task);
+        void DrainAbandoned();
 
         void WaitForWork();
         [[nodiscard]] bool TryPop(Task& task);

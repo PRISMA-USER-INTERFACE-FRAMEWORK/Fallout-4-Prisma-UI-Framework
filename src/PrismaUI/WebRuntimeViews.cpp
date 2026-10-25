@@ -1,12 +1,11 @@
 #include "WebRuntime.h"
 #include "WebRuntimeInternal.h"
-#ifndef PRISMAUI_FO4VR
 #include "VirtualPointer.h"
-#endif
 #include "GameThreadDispatcher.h"
 #include "ModelPreview.h"
 #include "OffscreenFrames.h"
 #include "PapyrusBridge.h"
+#include "ThreadObserver.h"
 #include "TextureOverlay.h"
 #include "ViewOrigin.h"
 #include <string>
@@ -36,44 +35,17 @@ namespace PrismaUI::WebRuntime {
             if (token == 0) token = st.nextToken++;
             st.domReadyByToken[token] = DomReadyRegistration{
                 0, [onDomReady](ViewId id) {
-                    PapyrusBridge::InjectBridge(id);
                     if (ModelPreview::Enabled()) {
                         RegisterJSListener(id, "__prismaUI_showModelPreview",
                                            [id](std::string args) { ModelPreview::Show(id, args); });
                         RegisterJSListener(id, "__prismaUI_hideModelPreview",
                                            [id](std::string args) { ModelPreview::Hide(id, args); });
-                        std::string apiInit =
-                            "window.__prismaUI_onModelPreviewStatus=window.__prismaUI_onModelPreviewStatus||function(){"
-                            "};"
-                            "window.__prismaUI_modelPreview=Object.assign(window.__prismaUI_modelPreview||{},{"
-                            "version:" +
-                            std::to_string(ModelPreview::kApiVersion) +
-                            ","
-                            "show:function(o){return window.__prismaUI_showModelPreview(JSON.stringify(o||{}));},"
-                            "hide:function(o){return window.__prismaUI_hideModelPreview(JSON.stringify(o||{}));},"
-                            "onStatus:function(cb){window.__prismaUI_onModelPreviewStatus="
-                            "function(s){try{cb(JSON.parse(s));}catch(e){}};}"
-                            "});";
-                        Invoke(id, apiInit, nullptr);
                     }
                     {
                         RegisterJSListener(id, "__prismaUI_showTextureOverlay",
                                            [id](std::string args) { TextureOverlay::Show(id, args); });
                         RegisterJSListener(id, "__prismaUI_hideTextureOverlay",
                                            [id](std::string args) { TextureOverlay::Hide(id, args); });
-                        std::string texInit =
-                            "window.__prismaUI_onTextureOverlayStatus=window.__prismaUI_onTextureOverlayStatus||"
-                            "function(){};"
-                            "window.__prismaUI_textureOverlay=Object.assign(window.__prismaUI_textureOverlay||{},{"
-                            "version:" +
-                            std::to_string(TextureOverlay::kApiVersion) +
-                            ","
-                            "show:function(o){return window.__prismaUI_showTextureOverlay(JSON.stringify(o||{}));},"
-                            "hide:function(o){return window.__prismaUI_hideTextureOverlay(JSON.stringify(o||{}));},"
-                            "onStatus:function(cb){window.__prismaUI_onTextureOverlayStatus="
-                            "function(s){try{cb(JSON.parse(s));}catch(e){}};}"
-                            "});";
-                        Invoke(id, texInit, nullptr);
                     }
                     if (onDomReady) onDomReady(id);
                 }};
@@ -113,11 +85,10 @@ namespace PrismaUI::WebRuntime {
             logger::warn("[WebRuntime] refusing to destroy framework system view {}", view);
             return;
         }
-#ifndef PRISMAUI_FO4VR
         GameThreadDispatcher::DropView(view);
         VirtualPointer::DiscardHeldClick(view);
-#endif
         ModelPreview::OnViewDestroyed(view);
+        PapyrusBridge::ForgetViewOwner(view);
         TextureOverlay::OnViewDestroyed(view);
         if (st.focusedView.load() == view) {
             Unfocus(view);
@@ -138,6 +109,10 @@ namespace PrismaUI::WebRuntime {
         static std::atomic<bool> done{false};
         if (done.exchange(true, std::memory_order_acq_rel)) return;
         logger::info("[WebRuntime] orderly framework shutdown on window/render thread (WM_NCDESTROY)");
+        const auto windowThread = ::GetCurrentThreadId();
+        logger::info("[ThreadProbe] WM_NCDESTROY on thread {} (present threads={}, resize threads={})", windowThread, PresentThreads().Count(), ResizeThreads().Count());
+        if (PresentThreads().Count() != 0 && !PresentThreads().Contains(windowThread))
+            logger::warn("[ThreadProbe] WM_NCDESTROY thread {} is not a thread Present ran on", windowThread);
         const auto inspectorOwner = st.localInspectorOwner.load(std::memory_order_acquire);
         if (inspectorOwner) OnInspectorBackendStateChanged(inspectorOwner, false);
         const auto pendingTeardown = st.inspectorTeardownPending.load(std::memory_order_acquire);
@@ -147,9 +122,7 @@ namespace PrismaUI::WebRuntime {
         st.inspectorTeardownPending.store(0, std::memory_order_release);
         st.inspectorTeardownRetryAt.store(0, std::memory_order_release);
         st.inspectorMouseTarget.store(0, std::memory_order_release);
-#ifndef PRISMAUI_FO4VR
         ModelPreview::Shutdown();
-#endif
         if (st.backend) st.backend->Shutdown();
     }
     void Show(ViewId view) {
@@ -184,9 +157,7 @@ namespace PrismaUI::WebRuntime {
         if (!view || !st.backend) return;
         if (offscreen && !IsValid(view)) return;
         if (offscreen && st.focusedView.load(std::memory_order_acquire) == view) {
-#ifndef PRISMAUI_FO4VR
             VirtualPointer::CancelHeldClick();
-#endif
         }
         if (offscreen) {
             OffscreenFrames::Track(view);

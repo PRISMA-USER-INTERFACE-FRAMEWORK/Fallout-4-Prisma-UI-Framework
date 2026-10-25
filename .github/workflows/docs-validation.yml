@@ -53,8 +53,8 @@ jobs:
         run: |
           set -euo pipefail
           flat_expected="02f6584829063ca59662d135c6910cc87d5bb2ee"
-          modern_expected="9784daab39bf66bb179e6ef12bba63c75e50d3b7"
-          vr_expected="012f810a98bfa274563c9eb8102881549ab2c9c6"
+          modern_expected="d7fcdb3abab6345f0246a83a9e0dccff5caba804"
+          vr_expected="79cbe2c2ce0294c9b088424422885b922c674d20"
           pex_expected="329b0895ef0c9a74ec4dc8b7150854ccc0bd287a"
 
           verify_blob() {

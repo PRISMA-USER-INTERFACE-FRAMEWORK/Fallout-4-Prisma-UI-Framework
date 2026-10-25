@@ -18,6 +18,7 @@ typedef uint64_t PrismaView;
 
 namespace PRISMA_UI_FLAT_API {
     constexpr const auto PrismaUIPluginName = "PrismaUI_F4";
+    enum class RuntimeState : uint32_t { Unavailable = 0, Waiting = 1, Starting = 2, Ready = 3, Failed = 4 };
     using OnDomReadyCallback = void (*)(PrismaView);
     using JSCallback = void (*)(const char*);
     using JSListenerCallback = void (*)(const char*);
@@ -412,6 +413,12 @@ namespace PRISMA_UI_FLAT_API {
         if (!module) return false;
         const auto fn = reinterpret_cast<GetAPIProc>(GetProcAddress(module, "PrismaUI_F4_GetAPI"));
         return fn ? fn(feature, version, table, tableSize) : false;
+    }
+    inline RuntimeState GetRuntimeState() noexcept {
+        const auto module = GetPrismaProviderModule();
+        if (!module) return RuntimeState::Unavailable;
+        const auto query = reinterpret_cast<uint32_t (*)() noexcept>(GetProcAddress(module, "PrismaUI_F4_GetRuntimeState"));
+        return query ? static_cast<RuntimeState>(query()) : RuntimeState::Unavailable;
     }
     template <ApiFeature Feature>
     inline bool Discover(uint32_t minimumVersion, FeatureTableT<Feature>& table) noexcept {

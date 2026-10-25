@@ -80,13 +80,13 @@
     {
         std::lock_guard lock{s_hookLifecycleMutex};
 
-        auto* rendererData = RE::BSGraphics::GetRendererData();
-        if (!rendererData || !rendererData->renderWindow[0].swapChain) {
+        auto* window = ::PrismaUI::Engine::MainRendererWindow();
+        if (!window || !window->swapChain) {
             logger::critical("D3DHooks::Install: Failed to get IDXGISwapChain from BSGraphics!");
             return;
         }
 
-        REX::W32::IDXGISwapChain* swapChain = rendererData->renderWindow[0].swapChain;
+        REX::W32::IDXGISwapChain* swapChain = window->swapChain;
         const auto plan = ::PrismaUI::ConflictChecker::BuildHookInstallPlan(
             reinterpret_cast<IDXGISwapChain*>(swapChain), reinterpret_cast<void*>(&HookPresentA),
             reinterpret_cast<void*>(&HookPresentB), reinterpret_cast<void*>(&HookResizeBuffersA),
@@ -158,13 +158,11 @@
             return;
         }
 
-        if (MH_Uninitialize() != MH_OK) {
-            logger::warn("D3DHooks::Uninstall: MH_Uninitialize failed.");
-        }
         s_hookedPresentTarget.store(nullptr, std::memory_order_release);
         s_hookedResizeTarget.store(nullptr, std::memory_order_release);
         s_installStrategy.store(PrismaUI::Hooks::HookInstallStrategy::Reject, std::memory_order_release);
-        logger::info("D3D hooks uninstalled.");
+        logger::info("D3D hooks uninstalled: every Present and ResizeBuffers trampoline stays quarantined and "
+                     "MinHook stays initialized for the life of the process");
     }
 
     PrismaUI::Hooks::HookCoverage D3DHooks::CurrentCoverage()
@@ -184,6 +182,29 @@
         return presentSlot == resizeSlot && ChainOwnsDispatch(presentSlot, swapChain);
     }
 
+    bool D3DHooks::OriginalSwapchainSlots(IDXGISwapChain* swapChain, void** present, void** resize)
+    {
+        if (!swapChain || !present || !resize) return false;
+        for (int slot = 0; slot < 2; ++slot) {
+            const auto seq = s_chainInstallSeq[slot].load(std::memory_order_acquire);
+            if (s_chainState[slot].load(std::memory_order_acquire) != ChainRetirementState::Active) continue;
+            // the three loads sit between the state+seq checks; the seq bump precedes the Active store
+            const auto shadow = ChainShadowVtable(slot).load(std::memory_order_acquire);
+            const auto previousPresent = ChainPreviousPresent(slot).load(std::memory_order_acquire);
+            const auto previousResize = ChainPreviousResize(slot).load(std::memory_order_acquire);
+            if (s_chainState[slot].load(std::memory_order_acquire) != ChainRetirementState::Active ||
+                s_chainInstallSeq[slot].load(std::memory_order_acquire) != seq) continue;
+            const auto originals = PrismaUI::Hooks::SelectChainSlotOriginals(
+                *reinterpret_cast<void***>(swapChain), shadow,
+                reinterpret_cast<void*>(previousPresent), reinterpret_cast<void*>(previousResize));
+            if (!originals.present || !originals.resize) continue;
+            *present = originals.present;
+            *resize = originals.resize;
+            return true;
+        }
+        return false;
+    }
+
     bool D3DHooks::Reattach(void* newPresentTarget, void* newResizeTarget, int64_t nowMs,
                             uint32_t expectedGeneration)
     {
@@ -194,8 +215,8 @@
             return false;
         }
 
-        auto* rendererData = RE::BSGraphics::GetRendererData();
-        auto* swapChain = rendererData ? rendererData->renderWindow[0].swapChain : nullptr;
+        auto* window = ::PrismaUI::Engine::MainRendererWindow();
+        auto* swapChain = window ? window->swapChain : nullptr;
         if (!swapChain) return false;
         const auto activeCoverage = CaptureCoverage();
         const auto activeStrategy = activeCoverage.strategy;
@@ -320,4 +341,113 @@
         logger::warn("D3DHooks::Reattach: Present hook moved to new target {} (slot {}, generation {})",
                      newPresentTarget, newPresentSlot, generation);
         return true;
+    }
+
+    namespace {
+
+        void DiscardUnpublishedHook(PrismaUI::Hooks::TrampolineQuarantine& quarantine, void* target,
+                                    const char* label) {
+            const MH_STATUS removed = MH_RemoveHook(target);
+            quarantine.Forget(reinterpret_cast<uintptr_t>(target));
+            if (removed != MH_OK && removed != MH_ERROR_NOT_CREATED) {
+                logger::warn("D3DHooks: could not discard the never-enabled {} entry at {} (MinHook status {})",
+                             label, target, static_cast<int>(removed));
+            }
+        }
+
+        bool ReleaseDrainedEntry(PrismaUI::Hooks::TrampolineQuarantine& quarantine, void* target,
+                                 const char* label) {
+            const MH_STATUS removed = MH_RemoveHook(target);
+            if (removed != MH_OK && removed != MH_ERROR_NOT_CREATED) {
+                logger::warn("D3DHooks: could not release the drained {} entry at {} owned by the other slot "
+                             "(MinHook status {}); keeping it", label, target, static_cast<int>(removed));
+                return false;
+            }
+            quarantine.Forget(reinterpret_cast<uintptr_t>(target));
+            logger::warn("D3DHooks: released the drained {} entry at {} owned by the other slot so this slot "
+                         "can re-create it", label, target);
+            return true;
+        }
+
+        RetirementResult RemoveRetiredSlot(void* target, const unsigned char* expected, std::atomic<int>& inFlight,
+                                            PrismaUI::Hooks::TrampolineQuarantine& quarantine, const char* label,
+                                            int slot) {
+            if (!target) return RetirementResult::Removed;
+            if (!PrologueOwnedBy(target, expected)) {
+                logger::warn("D3DHooks: {} slot {} target {} is externally owned; leaving MinHook entry orphaned",
+                             label, slot, target);
+                D3DHooks::s_minHookOrphaned.store(true, std::memory_order_release);
+                return RetirementResult::Orphaned;
+            }
+
+            const MH_STATUS disabled = MH_DisableHook(target);
+            if (!IsDisableSuccess(disabled)) {
+                logger::warn("D3DHooks: could not disable retired {} slot {} target {} (MinHook status {})",
+                             label, slot, target, static_cast<int>(disabled));
+                return RetirementResult::Deferred;
+            }
+
+            const auto targetKey = reinterpret_cast<uintptr_t>(target);
+            if (disabled == MH_ERROR_NOT_CREATED) {
+                quarantine.Forget(targetKey);
+            } else {
+                quarantine.MarkEnabled(targetKey, false);
+            }
+
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(250);
+            while (inFlight.load(std::memory_order_acquire) != 0) {
+                if (std::chrono::steady_clock::now() >= deadline) {
+                    logger::warn("D3DHooks: retired {} slot {} still has an invocation in flight; its trampoline "
+                                 "stays quarantined", label, slot);
+                    break;
+                }
+                std::this_thread::yield();
+            }
+            if (disabled != MH_ERROR_NOT_CREATED && inFlight.load(std::memory_order_acquire) == 0)
+                quarantine.MarkDrained(targetKey, true);
+            return RetirementResult::Removed;
+        }
+
+        bool RemoveRetiredPresentSlot(int slot) {
+            if (PresentOrphaned(slot).load(std::memory_order_acquire)) return false;
+            void* target = PresentTarget(slot).load(std::memory_order_acquire);
+            const auto result = RemoveRetiredSlot(target, PresentPatch(slot), PresentInFlight(slot),
+                                                  PresentQuarantine(), "Present", slot);
+            if (result == RetirementResult::Deferred) return false;
+            if (result == RetirementResult::Orphaned) {
+                PresentOrphaned(slot).store(true, std::memory_order_release);
+                return false;
+            }
+            PresentTarget(slot).store(nullptr, std::memory_order_release);
+            return true;
+        }
+
+        void QuarantinePresentSlot(int slot, void* target, D3DHooks::PresentFunc trampoline) {
+            PresentTrampoline(slot).store(trampoline, std::memory_order_release);
+            PresentTarget(slot).store(target, std::memory_order_release);
+            PresentOrphaned(slot).store(true, std::memory_order_release);
+            D3DHooks::s_minHookOrphaned.store(true, std::memory_order_release);
+        }
+
+        void QuarantineResizeSlot(int slot, void* target, D3DHooks::ResizeBuffersFunc trampoline) {
+            ResizeTrampoline(slot).store(trampoline, std::memory_order_release);
+            ResizeTarget(slot).store(target, std::memory_order_release);
+            ResizeOrphaned(slot).store(true, std::memory_order_release);
+            D3DHooks::s_minHookOrphaned.store(true, std::memory_order_release);
+        }
+
+        bool RemoveRetiredResizeSlot(int slot) {
+            if (ResizeOrphaned(slot).load(std::memory_order_acquire)) return false;
+            void* target = ResizeTarget(slot).load(std::memory_order_acquire);
+            const auto result = RemoveRetiredSlot(target, ResizePatch(slot), ResizeInFlight(slot),
+                                                  ResizeQuarantine(), "ResizeBuffers", slot);
+            if (result == RetirementResult::Deferred) return false;
+            if (result == RetirementResult::Orphaned) {
+                ResizeOrphaned(slot).store(true, std::memory_order_release);
+                return false;
+            }
+            ResizeTarget(slot).store(nullptr, std::memory_order_release);
+            return true;
+        }
+
     }

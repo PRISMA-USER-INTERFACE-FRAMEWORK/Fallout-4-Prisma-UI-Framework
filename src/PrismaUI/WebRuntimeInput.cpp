@@ -1,8 +1,6 @@
 #include "WebRuntime.h"
 #include "WebRuntimeInternal.h"
-#ifndef PRISMAUI_FO4VR
 #include "VirtualPointer.h"
-#endif
 #include "GameThreadDispatcher.h"
 #include "InputOwnershipPolicy.h"
 #include "InputRouting.h"
@@ -29,9 +27,7 @@ namespace PrismaUI::WebRuntime {
                                           static_cast<uint32_t>(inputState.regions.size()));
             logger::info("[WebInput] activation focus restore {} (view={})", restored ? "succeeded" : "failed", view);
         };
-#ifndef PRISMAUI_FO4VR
         if (GameThreadDispatcher::Dispatch(restore, view)) return;
-#endif
         logger::warn("[WebInput] activation focus restore dropped (verified dispatcher rejected it, view={})", view);
     }
     bool OnWindowActivation(bool active) {
@@ -39,18 +35,14 @@ namespace PrismaUI::WebRuntime {
         const ViewId owner = st.localInspectorOwner.load(std::memory_order_acquire);
         if (owner && st.backend->IsInspectorVisible(owner)) {
             EndInspectorGesture();
-#ifndef PRISMAUI_FO4VR
             VirtualPointer::CancelHeldClick();
-#endif
             WebInput::SetCaptureActive(active, active);
             SyncVanillaCursorVisibility();
             logger::info("[WebInput] inspector capture {} with window activation", active ? "resumed" : "suspended");
             return true;
         }
         if (!active) {
-#ifndef PRISMAUI_FO4VR
             VirtualPointer::CancelHeldClick();
-#endif
             const ViewId focused = st.focusedView.load(std::memory_order_acquire);
             if (focused) {
                 std::lock_guard lock(st.inputRegionMutex);
@@ -248,7 +240,7 @@ namespace PrismaUI::WebRuntime {
         const ViewId target = inspector ? inspector : st.inputTargetView.load(std::memory_order_acquire);
         InputRouting::DispatchScroll(*st.backend, target, {deltaX, deltaY});
     }
-    void SendKey(int keyType, int windowsKeyCode, int nativeKeyCode, uint32_t modifiers, uint16_t character,
+    void SendKey(int keyType, int windowsKeyCode, int nativeKeyCode, uint32_t modifiers, char32_t character,
                  bool systemKey) {
         (void)modifiers;
         if (!st.backend) return;
@@ -293,9 +285,7 @@ namespace PrismaUI::WebRuntime {
         st.dockVisible.store(false);
         if (st.focusedView.load() == 0 && st.localInspectorOwner.load(std::memory_order_acquire) == 0) {
             SetInputTargetView(0);
-#ifndef PRISMAUI_FO4VR
             VirtualPointer::CancelHeldClick();
-#endif
             WebInput::SetCaptureActive(false, false);
             SyncVanillaCursorVisibility();
         }
@@ -303,9 +293,7 @@ namespace PrismaUI::WebRuntime {
     bool SetNativeGamepad(ViewId view, bool enabled) {
         if (!st.backend || !st.active.load() || !HasFocus(view) || !IsValid(view) ||
             st.backend->VisibleInspectorView()) return false;
-#ifndef PRISMAUI_FO4VR
         VirtualPointer::CancelHeldClick();
-#endif
         return st.backend->SetNativeGamepad(view, enabled);
     }
     bool UsesNativeGamepad(ViewId view) {

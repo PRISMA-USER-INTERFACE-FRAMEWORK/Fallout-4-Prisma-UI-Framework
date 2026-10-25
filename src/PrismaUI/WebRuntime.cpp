@@ -1,8 +1,6 @@
 #include "WebRuntime.h"
 #include "WebRuntimeInternal.h"
-#ifndef PRISMAUI_FO4VR
 #include "VirtualPointer.h"
-#endif
 #include <Windows.h>
 #include "InputOwnershipPolicy.h"
 #include "WebInput.h"
@@ -86,9 +84,7 @@ namespace PrismaUI::WebRuntime {
     }
     void Internal::ForgetViewShell(ViewId view) {
         if (!view) return;
-#ifndef PRISMAUI_FO4VR
         VirtualPointer::DiscardHeldClick(view);
-#endif
         {
             std::lock_guard<std::mutex> lock(st.cbMutex);
             for (auto it = st.domReadyByToken.begin(); it != st.domReadyByToken.end();) {
