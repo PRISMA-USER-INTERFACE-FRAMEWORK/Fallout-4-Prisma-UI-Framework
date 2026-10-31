@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Prisma localization acceptance</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font:
+          18px Consolas,
+          monospace;
+      }
+      body {
+        margin: 24px;
+        color: #e8f1ff;
+        background: rgba(8, 14, 24, 0.94);
+      }
+      h1 {
+        color: #8bd5ff;
+        font-size: 24px;
+      }
+      #status {
+        color: #a8f0b0;
+        margin-bottom: 18px;
+      }
+      pre {
+        white-space: pre-wrap;
+        line-height: 1.55;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>PrismaUI V4 localization acceptance</h1>
+    <div id="status">Waiting for window.PrismaL10N...</div>
+    <pre id="results"></pre>
+    <script>
+      (function () {
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+        let shown = false;
+        function render() {
+          const l10n = window.PrismaL10N;
+          const registration = window.PrismaLocalizationAcceptance;
+          if (!l10n) {
+            status.textContent =
+              'V4 localization object unavailable; registration=' +
+              (registration ? registration.registration : 'pending');
+            results.textContent = JSON.stringify(
+              { registration: registration ? registration.registration : null },
+              null,
+              2
+            );
+            return;
+          }
+          const rows = {
+            registration: registration ? registration.registration : null,
+            locale: l10n.locale,
+            sentinel: l10n.t('sentinel'),
+            nested: l10n.t('nested.sentinel'),
+            fallbackOnly: l10n.t('fallbackOnly'),
+            selectedOnly: l10n.t('selectedOnly'),
+            greeting: l10n.t('greeting', { name: 'Vault Dweller' }),
+            missing: l10n.t('missing.key'),
+          };
+          status.textContent =
+            'V4 localization object installed; registration=' + rows.registration;
+          results.textContent = JSON.stringify(rows, null, 2);
+          if (!shown) {
+            shown = true;
+            console.log('LOCALIZATION_ACCEPTANCE ' + JSON.stringify(rows));
+          }
+        }
+        render();
+        setInterval(render, 250);
+      })();
+    </script>
+  </body>
+</html>

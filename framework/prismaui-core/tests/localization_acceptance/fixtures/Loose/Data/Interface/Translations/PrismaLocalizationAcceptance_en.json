@@ -1,0 +1,1 @@
+{"sentinel":"FROM_LOOSE_ENGLISH","nested":{"sentinel":"NESTED_LOOSE_ENGLISH"},"greeting":"Hello {{name}}","fallbackOnly":"FROM_LOOSE_ENGLISH","selectedOnly":"ENGLISH_ONLY_LOOSE"}

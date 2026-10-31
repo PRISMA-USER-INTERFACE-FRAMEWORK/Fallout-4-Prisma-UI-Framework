@@ -1,0 +1,1 @@
+{"sentinel":"FROM_BA2_ENGLISH","nested":{"sentinel":"NESTED_BA2_ENGLISH"},"greeting":"BA2 hello {{name}}","fallbackOnly":"FROM_BA2_ENGLISH","selectedOnly":"ENGLISH_ONLY_BA2"}

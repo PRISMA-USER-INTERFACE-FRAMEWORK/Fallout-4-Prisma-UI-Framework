@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://qconsulting.ca/fo3/ModConfig5.0.xsd">
+  <moduleName>PrismaUI F4 @VERSION@</moduleName>
+  <installSteps order="Explicit">
+    <installStep name="Welcome to Prisma">
+      <optionalFileGroups>
+        <group name="PrismaUI @VERSION@" type="SelectAll">
+          <plugins order="Explicit">
+            <plugin name="Welcome to Prisma">
+              <description>Welcome to PrismaUI @VERSION@. Use the OG-AE archive for OG 1.10.163 or AE 1.11.137 onward, including later 1.x minor versions, with matching F4SE and Address Library support. Compatibility with future executables remains unverified. NG 1.10.984 supported (static RE; not yet live-tested). NG versions other than 1.10.984 are unsupported. Use the separate VR archive for Fallout 4 VR. The core framework installs automatically. Continue to the next page to optionally install developer headers; leave them unchecked unless you are developing Prisma mods. Guide: https://prisma-user-interface-framework.github.io/Fallout-4-Prisma-UI-Framework/</description>
+              <image path="fomod/screenshot.png" />
+              <files>
+                <folder source="Data" destination="" priority="0" />
+              </files>
+              <typeDescriptor><type name="Required" /></typeDescriptor>
+            </plugin>
+          </plugins>
+        </group>
+      </optionalFileGroups>
+    </installStep>
+    <installStep name="Optional files">
+      <optionalFileGroups>
+        <group name="Developer and test files" type="SelectAny">
+          <plugins order="Explicit">
+            <plugin name="Install developer headers">
+              <description>Only needed if you are developing Prisma mods. Guide: https://prisma-user-interface-framework.github.io/Fallout-4-Prisma-UI-Framework/</description>
+              <files>
+                <folder source="Developer" destination="" priority="0" />
+              </files>
+              <typeDescriptor><type name="Optional" /></typeDescriptor>
+            </plugin>
+            <plugin name="Install SVG raster test mod">
+              <description>Optional in-game test for the Ultralight SVG raster comparison. Installs the PrismaUI SVG Test mod, which opens with F8 and lets you compare image, mask, and inline SVG rendering. Use F12 to inspect the test view.</description>
+              <files>
+                <folder source="TestMod" destination="" priority="0" />
+              </files>
+              <typeDescriptor><type name="Optional" /></typeDescriptor>
+            </plugin>
+            <plugin name="Install V4 localization test mod">
+              <description>Optional in-game V4 localization test. Installs the acceptance consumer, test page, and loose English/French fixtures. It opens after loading a save and reports the active locale and resolved strings.</description>
+              <files>
+                <folder source="LocalizationTestMod" destination="" priority="0" />
+              </files>
+              <typeDescriptor><type name="Optional" /></typeDescriptor>
+            </plugin>
+            <plugin name="Install controller test mod">
+              <description>Optional in-game probe for Prisma controller input. Installs PrismaControllerTest_F4, which opens its own test page and logs every controller action, converted browser key, and native Gamepad state change so you can confirm what the framework delivers. Flat OG/AE only.</description>
+              <files>
+                <folder source="ControllerTestMod" destination="" priority="0" />
+              </files>
+              <typeDescriptor><type name="Optional" /></typeDescriptor>
+            </plugin>
+          </plugins>
+        </group>
+      </optionalFileGroups>
+    </installStep>
+  </installSteps>
+</config>

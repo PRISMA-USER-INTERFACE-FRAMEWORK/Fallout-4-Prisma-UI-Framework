@@ -1,0 +1,57 @@
+#pragma once
+
+#include "QueueLatencyStats.h"
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <functional>
+#include <mutex>
+#include <queue>
+#include <thread>
+
+namespace PrismaUI::WebRuntimeUltralight {
+
+    class UltralightDispatchQueue final {
+    public:
+        using Task = std::function<void()>;
+
+        void Start() noexcept;
+        void Stop() noexcept;
+        [[nodiscard]] bool IsStopping() const noexcept;
+        [[nodiscard]] bool IsOwnerThread() const noexcept;
+        void SetOwnerThread() noexcept;
+
+        [[nodiscard]] bool Dispatch(Task task);
+        [[nodiscard]] bool DispatchDeferred(Task task);
+        void DrainAbandoned();
+
+        void WaitForWork();
+        [[nodiscard]] bool TryPop(Task& task);
+        [[nodiscard]] std::size_t QueuedCount() const noexcept;
+        void RecordPassDepth();
+        [[nodiscard]] bool FrameRequested() const noexcept;
+        [[nodiscard]] bool ConsumeFrameRequest() noexcept;
+        void RequestFrame() noexcept;
+        void NotifyOne() noexcept;
+        void NotifyAll() noexcept;
+
+    private:
+        [[nodiscard]] bool Enqueue(Task task);
+
+        struct Entry {
+            Task task;
+            std::chrono::steady_clock::time_point enqueuedAt;
+        };
+
+        mutable std::mutex mutex_;
+        std::condition_variable condition_;
+        std::queue<Entry> tasks_;
+        QueueLatency::Stats ownerWait_;
+        QueueLatency::Stats ownerDepth_;
+        std::thread::id ownerId_;
+        std::atomic_bool stopping_{false};
+        std::atomic_bool frameRequested_{false};
+    };
+
+}

@@ -1,0 +1,210 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>PrismaUI SVG Test</title>
+<style>
+  :root {
+    color-scheme: dark;
+    font-family: sans-serif;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    padding: 24px;
+    background: rgba(8, 10, 14, 0.82);
+    color: #edf2f7;
+  }
+  .panel {
+    width: min(900px, 100%);
+    margin: 0 auto;
+    padding: 22px 24px;
+    border: 1px solid #526173;
+    border-radius: 12px;
+    background: #141a23;
+    box-shadow: 0 18px 50px #000b;
+  }
+  h1 {
+    margin: 0 0 6px;
+    font-size: 24px;
+  }
+  p {
+    margin: 0 0 16px;
+    color: #b4c0ce;
+  }
+  code {
+    color: #9fe3ff;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    color: #aebccc;
+    font-size: 13px;
+  }
+  .legend span::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: #64d58b;
+  }
+  .legend span:last-child::before {
+    background: #f4bd5e;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 66px repeat(4, minmax(110px, 1fr));
+    border: 1px solid #3d4b5e;
+    border-radius: 8px;
+  }
+  .grid > div {
+    min-height: 78px;
+    padding: 10px 8px;
+    border-right: 1px solid #303c4c;
+    border-bottom: 1px solid #303c4c;
+    text-align: center;
+  }
+  .grid > div:nth-child(5n) {
+    border-right: 0;
+  }
+  .grid > div:nth-last-child(-n + 5) {
+    border-bottom: 0;
+  }
+  .head {
+    min-height: 38px !important;
+    background: #202a38;
+    color: #cad6e3;
+    font-size: 12px;
+  }
+  .size {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9fe3ff;
+    font-weight: 700;
+  }
+  .sample {
+    display: flex;
+    min-height: 58px;
+    align-items: center;
+    justify-content: center;
+  }
+  .raster {
+    display: block;
+    flex: none;
+  }
+  .mask {
+    background: #fff;
+  }
+  .unsupported {
+    color: #f4bd5e;
+    font-size: 12px;
+  }
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    color: #aebccc;
+    font-size: 13px;
+  }
+  .key {
+    color: #fff;
+    font-weight: 700;
+  }
+  button {
+    border: 1px solid #63748a;
+    border-radius: 6px;
+    padding: 8px 12px;
+    background: #263448;
+    color: #fff;
+    cursor: pointer;
+  }
+  button:hover {
+    background: #334862;
+  }
+</style>
+<section class="panel">
+  <h1>PrismaUI SVG raster test</h1>
+  <p>
+    This is the thin SVG comparison from the proof: the same asset rendered as an image, two masks,
+    and inline SVG.
+  </p>
+  <div class="legend">
+    <span>green = supported/rendered</span>
+    <span>yellow = unsupported by this runtime</span>
+  </div>
+  <div class="grid" id="cases">
+    <div class="head">size</div>
+    <div class="head">img</div>
+    <div class="head">mask-image</div>
+    <div class="head">-webkit-mask</div>
+    <div class="head">inline</div>
+  </div>
+  <div class="footer">
+    <span
+      ><span class="key">F8</span> show/hide this test view · <span class="key">F12</span> open the
+      inspector</span
+    >
+    <button id="flash">Flash the samples</button>
+  </div>
+</section>
+<script>
+  const sizes = [13, 16, 20, 24];
+  const standardSupported = CSS.supports('mask-image', 'url("hairline.svg")');
+  const webkitSupported = CSS.supports('-webkit-mask-image', 'url("hairline.svg")');
+  const cases = document.getElementById('cases');
+
+  function inlineSvg(size) {
+    return `<svg class="raster" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M8 12h8M12 8v8"/></svg>`;
+  }
+
+  function maskSample(size, kind, supported) {
+    if (!supported) return '<span class="unsupported">unsupported</span>';
+    const property = kind === 'mask' ? 'mask' : 'webkit';
+    return `<span class="raster mask ${property}" style="width:${size}px;height:${size}px"></span>`;
+  }
+
+  for (const size of sizes) {
+    cases.insertAdjacentHTML(
+      'beforeend',
+      `
+      <div class="size">${size}px</div>
+      <div class="sample"><img class="raster" src="hairline.svg" width="${size}" height="${size}"></div>
+      <div class="sample">${maskSample(size, 'mask', standardSupported)}</div>
+      <div class="sample">${maskSample(size, 'webkit', webkitSupported)}</div>
+      <div class="sample">${inlineSvg(size)}</div>
+    `
+    );
+  }
+
+  for (const element of document.querySelectorAll('.mask')) {
+    element.style[element.classList.contains('webkit') ? 'webkitMaskImage' : 'maskImage'] =
+      'url("hairline.svg")';
+    element.style.maskPosition = 'center';
+    element.style.maskRepeat = 'no-repeat';
+    element.style.maskSize = 'contain';
+    element.style.webkitMaskPosition = 'center';
+    element.style.webkitMaskRepeat = 'no-repeat';
+    element.style.webkitMaskSize = 'contain';
+  }
+
+  document.getElementById('flash').addEventListener('click', () => {
+    document.querySelectorAll('.raster').forEach((element, index) => {
+      element.animate([{ opacity: 1 }, { opacity: 0.2 }, { opacity: 1 }], {
+        duration: 500,
+        delay: index * 30,
+      });
+    });
+  });
+</script>

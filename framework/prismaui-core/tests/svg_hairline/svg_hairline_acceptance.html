@@ -1,0 +1,131 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Prisma Ultralight SVG Hairline Acceptance</title>
+<style>
+  :root {
+    font-family: sans-serif;
+    color-scheme: dark;
+  }
+  body {
+    margin: 16px;
+    background: rgb(16, 16, 16);
+    color: #eee;
+  }
+  h1 {
+    font-size: 18px;
+    margin: 0 0 6px;
+  }
+  p {
+    margin: 0 0 12px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 62px;
+  }
+  .size {
+    width: 44px;
+  }
+  .sample {
+    width: 116px;
+    text-align: center;
+    font-size: 11px;
+  }
+  .slot {
+    width: 48px;
+    height: 40px;
+    margin: 2px auto 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .raster-case {
+    display: block;
+    flex: none;
+  }
+  .mask {
+    background: white;
+  }
+</style>
+<h1>SVG hairline / mask acceptance</h1>
+<p>Direct image, standard mask, WebKit mask, and inline SVG at identical physical sizes.</p>
+<div id="cases"></div>
+<script>
+  const sizes = [13, 16, 20, 24];
+  const standardMaskSupported = CSS.supports('mask-image', 'url("svg_hairline.svg")');
+  const webkitMaskSupported = CSS.supports('-webkit-mask-image', 'url("svg_hairline.svg")');
+  const root = document.getElementById('cases');
+  const pendingImages = [];
+
+  function inlineSvg(size) {
+    return `<svg class="raster-case" data-kind="inline" data-size="${size}" data-supported="1" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M8 12h8M12 8v8"/></svg>`;
+  }
+
+  for (const size of sizes) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+    <strong class="size">${size}px</strong>
+    <div class="sample">img<div class="slot"><img class="raster-case" data-kind="img" data-size="${size}" data-supported="1" src="svg_hairline.svg" width="${size}" height="${size}"></div></div>
+    <div class="sample">mask-image<div class="slot"><div class="raster-case mask standard-mask" data-kind="mask" data-size="${size}" data-supported="${standardMaskSupported ? 1 : 0}" style="width:${size}px;height:${size}px"></div></div></div>
+    <div class="sample">-webkit-mask<div class="slot"><div class="raster-case mask webkit-mask" data-kind="webkit-mask" data-size="${size}" data-supported="${webkitMaskSupported ? 1 : 0}" style="width:${size}px;height:${size}px"></div></div></div>
+    <div class="sample">inline<div class="slot">${inlineSvg(size)}</div></div>
+  `;
+    root.appendChild(row);
+  }
+
+  for (const el of document.querySelectorAll('.standard-mask')) {
+    if (standardMaskSupported) {
+      el.style.maskImage = 'url("svg_hairline.svg")';
+      el.style.maskPosition = 'center';
+      el.style.maskRepeat = 'no-repeat';
+      el.style.maskSize = 'contain';
+    } else {
+      el.style.visibility = 'hidden';
+    }
+  }
+  for (const el of document.querySelectorAll('.webkit-mask')) {
+    if (webkitMaskSupported) {
+      el.style.webkitMaskImage = 'url("svg_hairline.svg")';
+      el.style.webkitMaskPosition = 'center';
+      el.style.webkitMaskRepeat = 'no-repeat';
+      el.style.webkitMaskSize = 'contain';
+    } else {
+      el.style.visibility = 'hidden';
+    }
+  }
+  for (const img of document.querySelectorAll('img.raster-case')) {
+    if (!img.complete)
+      pendingImages.push(
+        new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        })
+      );
+  }
+
+  function publishCases() {
+    const entries = [];
+    for (const el of document.querySelectorAll('.raster-case')) {
+      const r = el.getBoundingClientRect();
+      entries.push(
+        [
+          el.dataset.kind,
+          el.dataset.size,
+          el.dataset.supported,
+          Math.round(r.left),
+          Math.round(r.top),
+          Math.round(r.width),
+          Math.round(r.height),
+        ].join(',')
+      );
+    }
+    window.__prisma_raster_cases = entries.join('|');
+    window.__prisma_raster_ready = true;
+  }
+
+  Promise.all(pendingImages).then(() =>
+    requestAnimationFrame(() => requestAnimationFrame(publishCases))
+  );
+</script>

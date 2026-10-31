@@ -1,0 +1,27 @@
+{
+  "artifact": "framework/prismaui-core/release-assets/test-mod/F4SE/Plugins/PrismaUI_SVG_Test.dll",
+  "size": 539136,
+  "sha256": "f7ceeff9d82062ebb84ee39534650b79f3d07f1c2dcdf3137b8e77714a556e76",
+  "git_blob_sha1": "6d96f861534cf6f5e5e3367d2b228274b54a9518",
+  "source_repository": "not available in the checked-in tree",
+  "source_path": "not available; binary recovered from the Alpha 2 live test-mod deployment",
+  "source_commit": "not available",
+  "artifact_commit": "1ca00a12c1df7c981b1d03397de1751cb43d76a2",
+  "target_runtime": "Fallout 4 flat OG/AE",
+  "vr_compatibility": "not claimed; the payload is excluded from the VR archive",
+  "build": {
+    "command": "not available from the recovered deployment",
+    "toolchain": "not available from the recovered deployment",
+    "reproducible": false
+  },
+  "contract": {
+    "exports": [
+      "F4SEPlugin_Load",
+      "F4SEPlugin_Query",
+      "F4SEPlugin_Version"
+    ],
+    "prismaui_api": "RequestPluginAPI resolved from the installed PrismaUI provider",
+    "view": "PrismaUI_F4/views/PrismaSVGTest/svg.html",
+    "toggle": "F8"
+  }
+}

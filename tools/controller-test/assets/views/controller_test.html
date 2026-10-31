@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prisma Controller Probe</title>
+    <base href="../../" />
+    <link rel="stylesheet" href="prisma_controller_glyphs.css" />
+    <link rel="stylesheet" href="prisma_osk.css" />
+    <link rel="stylesheet" href="Interface/PrismaControllerTest_F4/controller_test.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Prisma Controller Probe</h1>
+      <p class="hint">
+        Hold Back for 650 ms to open. Normal mode: right stick moves the pointer, A is a virtual
+        left click, B and D-pad stay native converted keys, and X/Y, bumpers, triggers, Start, and
+        stick-clicks are bound action probes. The OSK section below rebinds A, B and the D-pad while
+        the keyboard is open. Native Gamepad mode replaces all of that with the
+        navigator.getGamepads path.
+      </p>
+      <div class="buttons">
+        <button id="release">Release focus</button>
+        <button id="native">Toggle native Gamepad</button>
+        <button id="reload">Reload document</button>
+        <button id="recreate">Destroy and recreate</button>
+        <button id="close">Close</button>
+      </div>
+      <section class="state">
+        <div>focus: <output id="focus">unknown</output></div>
+        <div>device: <output id="device">unknown</output></div>
+        <div>style: <output id="style">unknown</output></div>
+        <div>native: <output id="native-state">off</output></div>
+        <div>events: <output id="count">0</output></div>
+      </section>
+      <section>
+        <h2>On-screen keyboard</h2>
+        <p class="hint">
+          A on a Keyboard button opens the shared OSK. While it is open, A, B and the D-pad are
+          bound as actions for the OSK and stop acting as click and browser keys. LB/RB change
+          layout, B cancels, Done commits, Paste reads the clipboard.
+        </p>
+        <div class="buttons">
+          <button id="osk-open-input">Keyboard: input</button>
+          <button id="osk-open-area">Keyboard: textarea</button>
+          <button id="osk-open-rich">Keyboard: contenteditable</button>
+        </div>
+        <div class="osk-targets">
+          <input id="osk-input" maxlength="24" placeholder="input (maxlength 24)" />
+          <textarea id="osk-area" rows="2" placeholder="textarea"></textarea>
+          <div id="osk-rich" contenteditable="true"></div>
+        </div>
+        <div>osk: <output id="osk-state">closed</output></div>
+        <div id="osk-host" class="osk-host" hidden></div>
+      </section>
+      <section>
+        <h2>Live glyphs</h2>
+        <div id="glyphs" class="glyphs" aria-live="polite"></div>
+      </section>
+      <pre id="events" aria-live="polite"></pre>
+    </main>
+    <script src="prisma_controller_glyphs.js"></script>
+    <script src="prisma_input.js"></script>
+    <script src="prisma_osk.js"></script>
+    <script src="Interface/PrismaControllerTest_F4/controller_test.js"></script>
+  </body>
+</html>
