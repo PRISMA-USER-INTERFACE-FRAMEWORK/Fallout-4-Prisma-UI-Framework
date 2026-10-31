@@ -1,0 +1,513 @@
+name: prisma-ci
+
+on:
+  push:
+    branches: ["ci/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prisma-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRIVATE_REPO: PRISMA-USER-INTERFACE-FRAMEWORK/Prisma-Matrix
+  SDK_PATH: framework/prismaui-core/external/ultralight-1.4.0
+  ULTRALIGHT_RUNTIME_RELEASE: framework-v2.1.0
+  ULTRALIGHT_DEV_SOURCE_REPO: NomadsReach/framework-F4-Conversion
+  ULTRALIGHT_DEV_SOURCE_COMMIT: 21562c901519205a621157165678682f2cc6c9eb
+  ULTRALIGHT_DEV_BLOB_SHA: 5c2276f8053c73cd727100daee7680f6121cbd0a
+  ULTRALIGHT_DEV_ARCHIVE_SIZE: 18467246
+  ULTRALIGHT_DEV_ARCHIVE_SHA256: 4fa7aadd1e4ba4a7dc04d17b1d82b37b141c6e4e7196501150486fa6ac1635c5
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: safe.directory
+  GIT_CONFIG_VALUE_0: ${{ github.workspace }}
+
+jobs:
+  framework:
+    name: Build ${{ matrix.name }}
+    runs-on: windows-latest
+    # PUBLIC_CI_TOKEN is an environment secret this environment only releases to ci/* branches.
+    environment: prisma-ci
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: PrismaUI_F4, target: PrismaUI_F4, flags: "", smoke: true }
+          - { name: PrismaUI_F4VR, target: PrismaUI_F4VR, flags: "", smoke: false }
+          - { name: accelerated acceptance, target: PrismaUI_F4, flags: "-AcceleratedAcceptance", smoke: false }
+          - { name: diagnostics, target: PrismaUI_F4, flags: "-Diagnostics", smoke: false }
+          - { name: controller test, target: PrismaUI_F4, flags: "-ControllerTest", smoke: false }
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Fetch the Ultralight SDK from the private repository
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.PUBLIC_CI_TOKEN }}
+        run: .github/public-ci-fetch-sdk.sh
+
+      - name: Initialize CommonLib
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: .\scripts\init-windows-commonlib.ps1
+
+      - uses: xmake-io/github-action-setup-xmake@3a1a5dddfc7fa625d9a698738334bf55655a861a # v1
+        with:
+          xmake-version: '3.0.4'
+
+      - name: Setup clang-cl toolchain
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: .\scripts\setup-windows-clang-toolchain.ps1
+
+      - name: Build ${{ matrix.name }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        env:
+          PRISMA_TARGET: ${{ matrix.target == 'PrismaUI_F4VR' && 'vr' || '' }}
+          TARGET: ${{ matrix.target }}
+          FLAGS: ${{ matrix.flags }}
+        run: |
+          $extra = @($env:FLAGS -split ' ' | Where-Object { $_ })
+          .\scripts\build-windows-framework.ps1 -Target $env:TARGET @extra
+          if ($LASTEXITCODE -ne 0) { throw "build failed" }
+
+      - name: Load the built provider the way the game does
+        if: matrix.smoke
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: |
+          python .github\scripts\flat-load-smoke.py 'build-windows-prismaui_f4\windows\x64\release\PrismaUI_F4.dll'
+          if ($LASTEXITCODE -ne 0) { throw 'the built provider failed to load' }
+
+  unit-gate:
+    name: Framework static + unit gate
+    runs-on: windows-latest
+    environment: prisma-ci
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Fetch the Ultralight SDK from the private repository
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.PUBLIC_CI_TOKEN }}
+        run: .github/public-ci-fetch-sdk.sh
+
+      - name: Initialize CommonLib
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: .\scripts\init-windows-commonlib.ps1
+
+      - name: Setup clang-cl toolchain
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: .\scripts\setup-windows-clang-toolchain.ps1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.21.0'
+
+      - name: Run the framework static + unit gate
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: |
+          python framework/prismaui-core/tests/ci_windows_gate.py
+          if ($LASTEXITCODE -ne 0) { throw 'framework static/unit gate failed' }
+
+  network-acceptance:
+    name: Ultralight Free network acceptance
+    runs-on: windows-latest
+    environment: prisma-ci
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Fetch the Ultralight SDK from the private repository
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.PUBLIC_CI_TOKEN }}
+        run: .github/public-ci-fetch-sdk.sh
+
+      - name: Build network harness with native MSVC
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsRoot = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsRoot) { throw "Visual Studio C++ tools were not found" }
+          $devCmd = Join-Path $vsRoot 'Common7\Tools\VsDevCmd.bat'
+          $root = (Resolve-Path '.').Path
+          $source = Join-Path $root 'framework\prismaui-core\tests\ultralight_free_network_acceptance.cpp'
+          $ultralightInclude = Join-Path $root 'framework\prismaui-core\external\ultralight-1.4.0\include'
+          $sourceInclude = Join-Path $root 'framework\prismaui-core\src'
+          $libDir = Join-Path $root 'framework\prismaui-core\external\ultralight-1.4.0\lib'
+          $outDir = Join-Path $env:RUNNER_TEMP 'prisma-network-runtime'
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $exe = Join-Path $outDir 'PrismaUI_UltralightFreeNetworkAcceptance.exe'
+          $compile = @(
+            'call', ('"' + $devCmd + '"'), '-no_logo', '-arch=x64', '-host_arch=x64', '&&',
+            'cl.exe', '/nologo', '/std:c++latest', '/EHsc', '/MD', '/DWIN32_LEAN_AND_MEAN', '/DNOMINMAX',
+            ('/I"' + $ultralightInclude + '"'), ('/I"' + $sourceInclude + '"'), ('"' + $source + '"'),
+            ('/Fe:"' + $exe + '"'), '/link', ('/LIBPATH:"' + $libDir + '"'),
+            'AppCore.lib', 'Ultralight.lib', 'UltralightCore.lib', 'WebCore.lib', 'ws2_32.lib'
+          ) -join ' '
+          & cmd.exe /d /s /c $compile
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $exe)) { throw "native MSVC network harness build failed" }
+          "NETWORK_HARNESS_EXE=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Stage pinned Ultralight runtime
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_CI_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $downloadDir = Join-Path $env:RUNNER_TEMP 'prisma-ultralight-release'
+          $extractDir = Join-Path $env:RUNNER_TEMP 'prisma-ultralight-runtime'
+          New-Item -ItemType Directory -Force -Path $downloadDir, $extractDir | Out-Null
+          gh release download $env:ULTRALIGHT_RUNTIME_RELEASE --repo $env:PRIVATE_REPO --pattern 'PrismaUI_F4-2.1.0-Fallout4-OG-AE.zip' --dir $downloadDir
+          if ($LASTEXITCODE -ne 0) { throw "failed to download the pinned Ultralight runtime package" }
+          Expand-Archive -Path (Join-Path $downloadDir 'PrismaUI_F4-2.1.0-Fallout4-OG-AE.zip') -DestinationPath $extractDir -Force
+          $runtimeRoot = Join-Path $extractDir 'Data\PrismaUI_F4'
+          python framework/prismaui-core/scripts/validate-ultralight-runtime.py $runtimeRoot
+          if ($LASTEXITCODE -ne 0) { throw "downloaded runtime does not match the pinned Ultralight 1.4.0 manifest" }
+          "ULTRALIGHT_RUNTIME_ROOT=$runtimeRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Execute network acceptance on native Windows
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:PRISMA_ULTRALIGHT_FREE_RUNTIME = '1'
+          $env:PATH = (Join-Path $env:ULTRALIGHT_RUNTIME_ROOT 'libs') + ';' + $env:PATH
+          Push-Location $env:ULTRALIGHT_RUNTIME_ROOT
+          try {
+            $ErrorActionPreference = 'Continue'
+            $output = @(& $env:NETWORK_HARNESS_EXE 2>&1 | ForEach-Object { "$_" })
+            $exitCode = $LASTEXITCODE
+            $ErrorActionPreference = 'Stop'
+            $output | ForEach-Object { Write-Host $_ }
+          } finally {
+            Pop-Location
+          }
+          if ($exitCode -ne 0) { throw "Ultralight Free native network acceptance failed with exit code $exitCode" }
+          if (-not ($output -match 'ultralight free network acceptance passed')) {
+            throw "Ultralight Free native network acceptance did not report a real pass"
+          }
+
+  svg-candidate-provenance:
+    name: Recover and hash Ultralight 1.4.1-dev candidate
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Recover immutable historical SDK blob
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $archive = "ultralight-free-sdk-1.4.1-dev-win-x64.7z"
+          $archivePath = "external/$archive"
+          foreach ($tool in @('gh', 'python', '7z')) {
+            if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "missing tool: $tool" }
+          }
+          $treeSha = gh api "/repos/$env:ULTRALIGHT_DEV_SOURCE_REPO/git/commits/$env:ULTRALIGHT_DEV_SOURCE_COMMIT" --jq '.tree.sha'
+          if ($LASTEXITCODE -ne 0) { throw "failed to resolve the historical source tree" }
+          $tree = gh api "/repos/$env:ULTRALIGHT_DEV_SOURCE_REPO/git/trees/$($treeSha)?recursive=1" | ConvertFrom-Json
+          $sourceBlob = @($tree.tree | Where-Object { $_.path -eq $archivePath }).sha
+          if ($LASTEXITCODE -ne 0 -or $sourceBlob -ne $env:ULTRALIGHT_DEV_BLOB_SHA) {
+            throw "historical source commit no longer resolves the pinned SDK blob"
+          }
+          $url = "https://api.github.com/repos/$env:ULTRALIGHT_DEV_SOURCE_REPO/git/blobs/$env:ULTRALIGHT_DEV_BLOB_SHA"
+          curl.exe --fail --location --silent --show-error `
+            -H "Authorization: Bearer $env:GH_TOKEN" `
+            -H "Accept: application/vnd.github.raw+json" `
+            --output $archive $url
+          if ($LASTEXITCODE -ne 0) { throw "failed to recover pinned historical SDK blob" }
+          $actualSize = (Get-Item -LiteralPath $archive).Length
+          if ($actualSize -ne [long]$env:ULTRALIGHT_DEV_ARCHIVE_SIZE) {
+            throw "historical SDK blob size mismatch: expected $env:ULTRALIGHT_DEV_ARCHIVE_SIZE, got $actualSize"
+          }
+          $actualBlob = (git hash-object $archive).Trim()
+          if ($actualBlob -ne $env:ULTRALIGHT_DEV_BLOB_SHA) {
+            throw "historical SDK Git blob mismatch: expected $env:ULTRALIGHT_DEV_BLOB_SHA, got $actualBlob"
+          }
+          $actualSha256 = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualSha256 -ne $env:ULTRALIGHT_DEV_ARCHIVE_SHA256) {
+            throw "historical SDK SHA-256 mismatch: expected $env:ULTRALIGHT_DEV_ARCHIVE_SHA256, got $actualSha256"
+          }
+          Write-Host "verified source commit: $env:ULTRALIGHT_DEV_SOURCE_COMMIT"
+          Write-Host "verified historical Git blob: $actualBlob ($actualSize bytes)"
+          Write-Host "verified archive SHA-256: $actualSha256"
+
+      - name: Validate SDK and emit byte-level provenance
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: |
+          $ErrorActionPreference = "Stop"
+          python framework/prismaui-core/tests/svg_hairline/tools/prepare-ultralight-svg-sdk.py `
+            ultralight-free-sdk-1.4.1-dev-win-x64.7z `
+            --output .ultralight-svg-candidate/sdk `
+            --provenance .ultralight-svg-candidate/provenance.json
+          if ($LASTEXITCODE -ne 0) { throw "candidate SDK intake failed" }
+          Get-Content -LiteralPath .ultralight-svg-candidate/provenance.json
+
+  svg-raster-compile:
+    name: Compile Ultralight SVG raster harness (clang-cl/xwin)
+    runs-on: windows-latest
+    environment: prisma-ci
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Fetch the Ultralight SDK from the private repository
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.PUBLIC_CI_TOKEN }}
+        run: .github/public-ci-fetch-sdk.sh
+
+      - uses: xmake-io/github-action-setup-xmake@3a1a5dddfc7fa625d9a698738334bf55655a861a # v1
+        with:
+          xmake-version: '3.0.4'
+
+      - name: Setup clang-cl toolchain
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: .\scripts\setup-windows-clang-toolchain.ps1
+
+      - name: Compile SVG raster harness with clang-cl/xwin
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($tool in @('clang-cl.exe', 'lld-link.exe', 'llvm-ar.exe', 'llvm-rc.exe', 'llvm-dlltool.exe', 'xmake.exe', 'cmake.exe')) {
+            if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "missing native tool: $tool" }
+          }
+          xmake config --file=xmake-svg-raster.lua --plat=windows --arch=x64 --mode=release `
+            --builddir=build-xwin-svg-raster --yes
+          if ($LASTEXITCODE -ne 0) { throw 'SVG raster harness configure failed' }
+          xmake build --file=xmake-svg-raster.lua --jobs=2 PrismaUI_UltralightSvgRasterAcceptance
+          if ($LASTEXITCODE -ne 0) { throw 'SVG raster harness compilation failed' }
+          $exe = Get-ChildItem -LiteralPath build-xwin-svg-raster -Recurse -File -Filter PrismaUI_UltralightSvgRasterAcceptance.exe | Select-Object -First 1
+          if (-not $exe) { throw 'SVG raster acceptance harness was not produced' }
+          python .github/scripts/validate-pe-x64.py $exe.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'SVG raster harness PE validation failed' }
+
+  svg-baseline-raster:
+    name: Characterize pinned Ultralight 1.4.0 SVG raster baseline (Windows)
+    runs-on: windows-latest
+    environment: prisma-ci
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - name: Fetch the Ultralight SDK from the private repository
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.PUBLIC_CI_TOKEN }}
+        run: .github/public-ci-fetch-sdk.sh
+
+      - uses: xmake-io/github-action-setup-xmake@3a1a5dddfc7fa625d9a698738334bf55655a861a # v1
+        with:
+          xmake-version: '3.0.4'
+
+      - name: Setup clang-cl toolchain
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: .\scripts\setup-windows-clang-toolchain.ps1
+
+      - name: Stage pinned Ultralight 1.4.0 runtime
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_CI_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path .svg-raster-baseline | Out-Null
+          gh release download $env:ULTRALIGHT_RUNTIME_RELEASE --repo $env:PRIVATE_REPO `
+            --pattern 'PrismaUI_F4-2.1.0-Fallout4-OG-AE.zip' --dir .svg-raster-baseline
+          if ($LASTEXITCODE -ne 0) { throw "failed to download pinned Ultralight 1.4.0 runtime package" }
+          Expand-Archive -LiteralPath .svg-raster-baseline/PrismaUI_F4-2.1.0-Fallout4-OG-AE.zip `
+            -DestinationPath .svg-raster-baseline/extracted -Force
+          $runtime = (Resolve-Path .svg-raster-baseline/extracted/Data/PrismaUI_F4).Path
+          python framework/prismaui-core/scripts/validate-ultralight-runtime.py $runtime
+          if ($LASTEXITCODE -ne 0) { throw "downloaded baseline runtime does not match the pinned Ultralight 1.4.0 manifest" }
+          "ULTRALIGHT_RUNTIME_DIR=$runtime" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build, measure, and confirm current baseline characterization
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: |
+          $ErrorActionPreference = "Stop"
+          $sdk = (Resolve-Path framework/prismaui-core/external/ultralight-1.4.0).Path
+          $runtime = $env:ULTRALIGHT_RUNTIME_DIR
+          $env:ULTRALIGHT_SDK_DIR = $sdk
+          $env:PRISMA_ULTRALIGHT_RUNTIME_LABEL = "1.4.0"
+          $env:PATH = (Join-Path $runtime "libs") + ";" + $env:PATH
+          xmake config --file=xmake-svg-raster.lua --plat=windows --arch=x64 --mode=release `
+            --builddir=build-windows-svg-raster --yes
+          if ($LASTEXITCODE -ne 0) { throw "failed to configure native SVG raster baseline" }
+          xmake build --file=xmake-svg-raster.lua --jobs=2 PrismaUI_UltralightSvgRasterAcceptance
+          if ($LASTEXITCODE -ne 0) { throw "failed to build native SVG raster baseline" }
+          $exe = Get-ChildItem build-windows-svg-raster -Recurse -Filter PrismaUI_UltralightSvgRasterAcceptance.exe |
+            Select-Object -First 1
+          if (-not $exe) { throw "native SVG raster baseline executable was not produced" }
+          $ErrorActionPreference = 'Continue'
+          $lines = @(& $exe.FullName framework/prismaui-core/tests/svg_hairline 2>&1 | ForEach-Object { "$_" })
+          $exitCode = $LASTEXITCODE
+          $ErrorActionPreference = 'Stop'
+          $lines | ForEach-Object { Write-Host $_ }
+          [IO.File]::WriteAllLines((Join-Path (Get-Location) 'svg-raster-baseline.txt'), [string[]]$lines)
+          if ($exitCode -ne 0) { throw "native SVG raster baseline measurement failed" }
+          python framework/prismaui-core/tests/svg_hairline/tools/compare-svg-raster-results.py `
+            --expect-no-repro svg-raster-baseline.txt
+          if ($LASTEXITCODE -ne 0) { throw "baseline no-reproduction characterization changed" }
+
+  svg-candidate-raster:
+    name: Measure pinned Ultralight 1.4.1-dev raster candidate (Windows)
+    needs: svg-candidate-provenance
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: false
+          persist-credentials: false
+
+      - uses: xmake-io/github-action-setup-xmake@3a1a5dddfc7fa625d9a698738334bf55655a861a # v1
+        with:
+          xmake-version: '3.0.4'
+
+      - name: Setup clang-cl toolchain
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: .\scripts\setup-windows-clang-toolchain.ps1
+
+      - name: Recover and validate pinned SDK
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $archive = "ultralight-free-sdk-1.4.1-dev-win-x64.7z"
+          $url = "https://api.github.com/repos/$env:ULTRALIGHT_DEV_SOURCE_REPO/git/blobs/$env:ULTRALIGHT_DEV_BLOB_SHA"
+          curl.exe --fail --location --silent --show-error `
+            -H "Authorization: Bearer $env:GH_TOKEN" `
+            -H "Accept: application/vnd.github.raw+json" `
+            --output $archive $url
+          if ($LASTEXITCODE -ne 0) { throw "failed to recover pinned historical SDK blob" }
+          $size = (Get-Item -LiteralPath $archive).Length
+          if ($size -ne [long]$env:ULTRALIGHT_DEV_ARCHIVE_SIZE) {
+            throw "historical SDK blob size mismatch: expected $env:ULTRALIGHT_DEV_ARCHIVE_SIZE, got $size"
+          }
+          $blob = (git hash-object $archive).Trim()
+          if ($blob -ne $env:ULTRALIGHT_DEV_BLOB_SHA) {
+            throw "historical SDK Git blob mismatch: expected $env:ULTRALIGHT_DEV_BLOB_SHA, got $blob"
+          }
+          $sha256 = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($sha256 -ne $env:ULTRALIGHT_DEV_ARCHIVE_SHA256) {
+            throw "historical SDK SHA-256 mismatch: expected $env:ULTRALIGHT_DEV_ARCHIVE_SHA256, got $sha256"
+          }
+          python framework/prismaui-core/tests/svg_hairline/tools/prepare-ultralight-svg-sdk.py $archive `
+            --output .ultralight-svg-candidate/sdk `
+            --provenance .ultralight-svg-candidate/provenance.json
+          if ($LASTEXITCODE -ne 0) { throw "candidate SDK intake failed" }
+
+      - name: Build and measure candidate rasterization
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -command ". '{0}'"
+        run: |
+          $ErrorActionPreference = "Stop"
+          $sdk = (Resolve-Path .ultralight-svg-candidate/sdk).Path
+          $env:ULTRALIGHT_SDK_DIR = $sdk
+          $env:ULTRALIGHT_RUNTIME_DIR = $sdk
+          $env:PRISMA_ULTRALIGHT_RUNTIME_LABEL = "1.4.1-dev"
+          $env:PATH = (Join-Path $sdk "bin") + ";" + $env:PATH
+          xmake config --file=xmake-svg-raster.lua --plat=windows --arch=x64 --mode=release `
+            --builddir=build-windows-svg-candidate --yes
+          if ($LASTEXITCODE -ne 0) { throw "failed to configure 1.4.1-dev raster candidate" }
+          xmake build --file=xmake-svg-raster.lua --jobs=2 PrismaUI_UltralightSvgRasterAcceptance
+          if ($LASTEXITCODE -ne 0) { throw "failed to build 1.4.1-dev raster candidate" }
+          $exe = Get-ChildItem build-windows-svg-candidate -Recurse -Filter PrismaUI_UltralightSvgRasterAcceptance.exe |
+            Select-Object -First 1
+          if (-not $exe) { throw "1.4.1-dev raster executable was not produced" }
+          $ErrorActionPreference = 'Continue'
+          $lines = @(& $exe.FullName framework/prismaui-core/tests/svg_hairline 2>&1 | ForEach-Object { "$_" })
+          $exitCode = $LASTEXITCODE
+          $ErrorActionPreference = 'Stop'
+          $lines | ForEach-Object { Write-Host $_ }
+          [IO.File]::WriteAllLines((Join-Path (Get-Location) 'svg-raster-candidate.txt'), [string[]]$lines)
+          if ($exitCode -ne 0) { throw "1.4.1-dev raster measurement failed" }
+          $candidate = Get-Content -LiteralPath svg-raster-candidate.txt -Raw
+          foreach ($required in @(
+            "raster_case kind=img size=13 supported=1 lit_pixels=65 energy=26.388",
+            "raster_case kind=mask size=13 supported=0 lit_pixels=0 energy=0.000",
+            "raster_case kind=webkit-mask size=13 supported=1 lit_pixels=65 energy=26.200",
+            "raster_case kind=inline size=13 supported=1 lit_pixels=65 energy=26.388"
+          )) {
+            if (-not $candidate.Contains($required)) {
+              throw "1.4.1-dev characterization changed: missing $required"
+            }
+          }
+          Write-Host "candidate mask-image regression characterization confirmed"
+
+  report:
+    name: Report to the private PR
+    needs: [framework, unit-gate, network-acceptance, svg-candidate-provenance, svg-raster-compile, svg-baseline-raster, svg-candidate-raster]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    environment: prisma-ci
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Post the result as a commit status on the private commit
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_CI_TOKEN }}
+          NEEDS: ${{ toJSON(needs) }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          source=$(git log -1 --format=%B | sed -n 's/^Source-Commit: \([0-9a-f]\{40\}\)$/\1/p')
+          [ -n "$source" ] || { echo "::error::no Source-Commit trailer"; exit 1; }
+          failed=$(jq -r 'to_entries | map(select(.value.result != "success") | .key) | join(", ")' <<<"$NEEDS")
+          if [ -z "$failed" ]; then state=success; description="all jobs passed"; else state=failure; description="failed: $failed"; fi
+          gh api "repos/$PRIVATE_REPO/statuses/$source" -f state="$state" -f context="public-ci" \
+            -f target_url="$RUN_URL" -f description="${description:0:140}" >/dev/null
+          echo "$state posted to $PRIVATE_REPO@$source ($description)"
+
+  cleanup:
+    name: Delete superseded and closed-PR runs
+    needs: report
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Delete completed runs that are superseded or whose branch is gone
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          live=" $(gh api "repos/$REPO/branches" --paginate --jq '.[].name' | tr '\n' ' ') "
+          declare -A newest=(["$BRANCH"]=1)
+          gh api "repos/$REPO/actions/workflows/prisma-ci.yml/runs?status=completed&per_page=100" --paginate \
+            --jq '.workflow_runs[] | "\(.id) \(.head_branch)"' > runs.txt
+          while read -r id branch; do
+            if [[ "$live" == *" $branch "* && -z "${newest[$branch]:-}" ]]; then
+              newest[$branch]=1
+              continue
+            fi
+            gh api -X DELETE "repos/$REPO/actions/runs/$id"
+            echo "deleted run $id ($branch)"
+          done < runs.txt

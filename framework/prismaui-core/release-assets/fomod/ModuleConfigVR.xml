@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://qconsulting.ca/fo3/ModConfig5.0.xsd">
+  <moduleName>PrismaUI F4 @VERSION@</moduleName>
+  <installSteps order="Explicit">
+    <installStep name="Welcome to Prisma">
+      <optionalFileGroups>
+        <group name="PrismaUI @VERSION@" type="SelectAll">
+          <plugins order="Explicit">
+            <plugin name="Welcome to Prisma">
+              <description>Welcome to PrismaUI @VERSION@. Use the OG-AE archive for OG 1.10.163 or AE 1.11.137 onward, including later 1.x minor versions, with matching F4SE and Address Library support. Compatibility with future executables remains unverified. Intermediate Next-Gen 1.10.980-1.10.984 is unsupported. Use the separate VR archive for Fallout 4 VR. This VR archive requires the official VR Address Library (Nexus mod 64879) release 1.14.0 or newer, installed as Data/F4SE/plugins/version-1-2-72-0.csv; PrismaUI does not ship that file, so remove the copy that an older PrismaUI VR archive installed and let the VR Address Library mod own the path. If the installed library is missing or older than 1.14.0, PrismaUI logs the exact requirement and does not load. The core framework installs automatically. Continue to the next page to optionally install developer headers; leave them unchecked unless you are developing Prisma mods. Guide: https://prisma-user-interface-framework.github.io/Fallout-4-Prisma-UI-Framework/ (see official docs for the guide).</description>
+              <image path="fomod/screenshot.png" />
+              <files>
+                <folder source="Data" destination="" priority="0" />
+              </files>
+              <typeDescriptor><type name="Required" /></typeDescriptor>
+            </plugin>
+          </plugins>
+        </group>
+      </optionalFileGroups>
+    </installStep>
+    <installStep name="Optional files">
+      <optionalFileGroups>
+        <group name="Developer files" type="SelectAny">
+          <plugins order="Explicit">
+            <plugin name="Install developer headers">
+              <description>Only needed if you are developing Prisma mods. Guide: https://prisma-user-interface-framework.github.io/Fallout-4-Prisma-UI-Framework/</description>
+              <files>
+                <folder source="Developer" destination="" priority="0" />
+              </files>
+              <typeDescriptor><type name="Optional" /></typeDescriptor>
+            </plugin>
+          </plugins>
+        </group>
+      </optionalFileGroups>
+    </installStep>
+  </installSteps>
+</config>
