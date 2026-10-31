@@ -1,0 +1,23 @@
+build/
+dist/
+*.user
+*.suo
+.vs/
+.idea/
+.xmake/
+*.pdb
+build_out.txt
+build_err.txt
+build.log
+node_modules/
+TestCompile/
+build-wine/
+build-vr/
+build-wine-vr/
+build-wine-cfgflip/
+build-wine-vr-cfgflip/
+.xwin-shim/
+# Stale build/xmake dirs created by interrupted builds (renamed out of .xmake/ so the
+# existing .xmake/ rule misses them)
+*.stale-*/
+tests/__pycache__/

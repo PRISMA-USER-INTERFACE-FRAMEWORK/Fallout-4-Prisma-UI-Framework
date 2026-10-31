@@ -1,0 +1,5 @@
+Ultralight
+Copyright (c) 2024 Ultralight, Inc. All rights reserved.
+Ultralight is a trademark of Ultralight, Inc.
+
+Please see the accompanying NOTICES.txt for full text.

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fomod>
+  <Name>PrismaUI F4 @VERSION@</Name>
+  <Author>PrismaUI</Author>
+  <Version MachineVersion="@VERSION@">@VERSION@</Version>
+  <Description>PrismaUI framework for Fallout 4. Developer headers are optional and disabled by default.</Description>
+  <Website>https://www.nexusmods.com/fallout4/mods/105454</Website>
+  <Id>PrismaUI_F4</Id>
+</fomod>

@@ -1,0 +1,1 @@
+{"sentinel":"FROM_FALLBACK_BA2_ENGLISH","nested":{"sentinel":"NESTED_FALLBACK_BA2_ENGLISH"},"greeting":"Fallback BA2 hello {{name}}","fallbackOnly":"FROM_FALLBACK_BA2_ENGLISH","selectedOnly":"ENGLISH_ONLY_FALLBACK_BA2"}
