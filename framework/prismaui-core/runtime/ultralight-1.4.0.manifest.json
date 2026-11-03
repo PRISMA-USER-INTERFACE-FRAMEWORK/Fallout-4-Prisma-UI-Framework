@@ -1,0 +1,34 @@
+{
+  "runtime": "ultralight",
+  "version": "1.4.0",
+  "required_directories": [
+    "libs",
+    "resources"
+  ],
+  "files": {
+    "libs/AppCore.dll": {
+      "size": 333312,
+      "sha256": "3e3cac95297470699811070fc0248712aeb3dc3cc3788d8347bab42ce76ea239"
+    },
+    "libs/Ultralight.dll": {
+      "size": 557568,
+      "sha256": "9c319e18b2f69cf12e2bf992b076079a6e4ffae482634dff3f61343d2c3919a7"
+    },
+    "libs/UltralightCore.dll": {
+      "size": 2554880,
+      "sha256": "ac782df832b528e030a1e8ae25ce6c66abc52888a0fbeff6191e0d76c21edfff"
+    },
+    "libs/WebCore.dll": {
+      "size": 42222592,
+      "sha256": "d62ecca4226f5ecbeb5dc13fa095b48be7336304fc24376da9329b906448436e"
+    },
+    "resources/cacert.pem": {
+      "size": 219265,
+      "sha256": "91f37c55b354111137dd456aacb3a57592d5135478d81554f9c87ea37deaedb4"
+    },
+    "resources/icudt67l.dat": {
+      "size": 6463504,
+      "sha256": "454ea0ba9b8cf87a4a6f801e8a51eefae77e4ad6fc5183c3b7544b920bbbd591"
+    }
+  }
+}

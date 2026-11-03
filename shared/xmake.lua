@@ -1,0 +1,12 @@
+--
+-- CommonLibF4/ is a git submodule pinned to a specific commit of the public
+-- https://github.com/G-A-R-D-E-N/commonlibf4-nomad repository (see .gitmodules and the
+-- submodule's checked-out commit for the exact pin). Included as source, matching how
+-- framework/prismaui-core links its own (separately pinned, pre-existing) copy -- there
+-- is currently no working private xmake-repo package definition for "commonlibf4" that
+-- resolves outside the original developer's machine, so add_requires("commonlibf4")
+-- alone is not reproducible; this submodule is.
+--
+-- Never push Prisma-specific changes into this submodule -- see the CommonLib direction
+-- in docs/ARCHITECTURE.md. Prisma-only engine knowledge belongs in Prisma-owned code.
+includes("CommonLibF4")

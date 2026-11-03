@@ -1,0 +1,8 @@
+{
+  "name": "Authored Mod",
+  "author": "Someone",
+  "version": "1.0.0",
+  "description": "A mod that ships its own dock page.",
+  "image": "art/banner.png",
+  "nexus": "https://www.nexusmods.com/fallout4/mods/12345"
+}

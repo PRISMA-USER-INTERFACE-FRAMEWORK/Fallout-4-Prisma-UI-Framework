@@ -1,0 +1,15 @@
+{
+  "file_count": 1366,
+  "license": "Ultralight Free V2",
+  "source": "Ultralight 1.4.0.1b4b800",
+  "upstream_tree_sha256": "5633b89e88cb940111a325bd8d42b72d74f247c47b75613aba91c17ad9395b9a",
+  "tree_sha256": "f5e5ee4b61f251ebf8deeeca2b4908e0278c70febf50fbaadf7a0a7d48600c88",
+  "patched_files": [
+    "Base/BrowserInspectorFrontendHost.js",
+    "Base/Main.js",
+    "Main.html",
+    "Models/FontStyles.js",
+    "Views/Layers3DContentView.js",
+    "Views/Main.css"
+  ]
+}
