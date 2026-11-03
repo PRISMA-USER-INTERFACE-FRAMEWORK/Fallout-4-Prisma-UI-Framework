@@ -1,0 +1,5 @@
+.toolbarRow {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 0 2px;
+}

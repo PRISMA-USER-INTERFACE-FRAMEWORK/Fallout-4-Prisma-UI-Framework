@@ -1,0 +1,321 @@
+/* ── hero ───────────────────────────────────────────────────── */
+.hero {
+  padding: 64px 24px 48px;
+  text-align: center;
+}
+
+.heroInner {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.eyebrow {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ifm-color-primary);
+  margin-bottom: 12px;
+}
+
+.heroTitle {
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 800;
+  margin: 0 0 16px;
+  letter-spacing: -0.02em;
+}
+
+.heroSub {
+  color: var(--ifm-color-content-secondary);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0 auto;
+  max-width: 520px;
+}
+
+/* ── layout ─────────────────────────────────────────────────── */
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.gridSection {
+  padding: 24px 0 100px;
+}
+
+/* ── cards ──────────────────────────────────────────────────── */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  background: var(--ifm-card-background-color);
+  overflow: hidden;
+  text-decoration: none !important;
+  color: var(--ifm-color-content) !important;
+  transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s;
+}
+
+.card:hover {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.cardImageWrap {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+  background: var(--ifm-background-surface-color);
+}
+
+.cardImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cardBody {
+  padding: 24px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.tagRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  color: var(--ifm-color-content-secondary);
+}
+
+.cardTitle {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+  letter-spacing: -0.01em;
+}
+
+.cardDesc {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--ifm-color-content-secondary);
+  margin: 0 0 20px;
+  flex: 1;
+}
+
+.cardLink {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ifm-color-primary);
+}
+
+/* ── detail page hero ───────────────────────────────────────── */
+.detailHero {
+  padding: 64px 24px 40px;
+  text-align: center;
+}
+
+.detailHeroInner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.badgeRow {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  color: var(--ifm-color-content-secondary);
+}
+
+.detailTitle {
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  font-weight: 800;
+  margin: 0 0 14px;
+  letter-spacing: -0.02em;
+}
+
+.detailSub {
+  color: var(--ifm-color-content-secondary);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0 auto 32px;
+  max-width: 520px;
+}
+
+.heroCta {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.ctaPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  background: var(--ifm-color-primary);
+  color: #fff !important;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none !important;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.ctaPrimary:hover {
+  opacity: 0.87;
+  transform: translateY(-1px);
+}
+
+.ctaSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  color: var(--ifm-color-content) !important;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none !important;
+  transition: border-color 0.15s, color 0.15s, transform 0.15s;
+}
+
+.ctaSecondary:hover {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary) !important;
+  transform: translateY(-1px);
+}
+
+/* ── detail page sections ───────────────────────────────────── */
+.section {
+  padding: 56px 0;
+  border-top: 1px solid var(--ifm-color-emphasis-100);
+}
+
+.sectionTitle {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0 0 16px;
+  letter-spacing: -0.02em;
+}
+
+.bodyText {
+  color: var(--ifm-color-content-secondary);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  max-width: 720px;
+}
+
+.showcaseImgWrap {
+  margin: 32px 0 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+}
+
+.showcaseImg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ── guide steps ────────────────────────────────────────────── */
+.guideList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 720px;
+  margin-top: 24px;
+}
+
+.guideStep {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.guideNum {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.guideStepText {
+  padding-top: 2px;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--ifm-color-content);
+}
+
+.guideStepText strong {
+  color: var(--ifm-color-content);
+}
+
+/* ── callout ────────────────────────────────────────────────── */
+.callout {
+  margin-top: 28px;
+  padding: 18px 22px;
+  border-radius: 10px;
+  border: 1px dashed var(--ifm-color-emphasis-400);
+  background: var(--ifm-background-surface-color);
+  max-width: 720px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--ifm-color-content-secondary);
+}
+
+.callout strong {
+  color: var(--ifm-color-content);
+}
+
+/* ── back link ──────────────────────────────────────────────── */
+.backLink {
+  display: inline-block;
+  margin: 48px 0 64px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
