@@ -2,8 +2,8 @@
   "manifest_version": "0.2",
   "name": "prisma-mcp",
   "version": "1.1.0",
-  "description": "PrismaUI_F4 2.2.0 modern/legacy/VR API, release metadata, guides, search, and plugin scaffolding for MCP-compatible assistants.",
-  "long_description": "Gives an MCP client verified access to the PrismaUI_F4 2.2.0 release contract, byte-pinned modern, V1-V12 compatibility, and VR SDK headers, modern feature-table introspection, current developer guides, and modern-first plugin scaffolding.",
+  "description": "PrismaUI_F4 2.2.0.4 modern/legacy/VR API, release metadata, guides, search, and plugin scaffolding for MCP-compatible assistants.",
+  "long_description": "Gives an MCP client verified access to the PrismaUI_F4 2.2.0.4 release contract, byte-pinned modern, V1-V12 compatibility, and VR SDK headers, modern feature-table introspection, current developer guides, and modern-first plugin scaffolding.",
   "author": {
     "name": "NomadsReach",
     "url": "https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK"
@@ -46,7 +46,7 @@
   "tools": [
     {
       "name": "get_framework_release",
-      "description": "Get the pinned PrismaUI_F4 2.2.0 release identity, desktop/controller runtime boundaries, release artifacts, modern feature list, and verified SDK provenance."
+      "description": "Get the pinned PrismaUI_F4 2.2.0.4 release identity, desktop/controller runtime boundaries, release artifacts, modern feature list, and verified SDK provenance."
     },
     {
       "name": "list_modern_features",

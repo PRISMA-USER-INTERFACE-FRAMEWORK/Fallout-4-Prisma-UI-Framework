@@ -53,8 +53,7 @@ PrismaUI_F4:
 
 - uses Ultralight 1.4.0 in-process;
 - uses the rewritten D3D11 GPU-accelerated presentation path, with CPU BitmapSurface retained as a controlled fallback;
-- supports Fallout 4 `1.10.163` (OG) and `1.11.137+` (AE) with matching Address Library data;
-- deliberately rejects the intermediate `1.10.980-1.10.984` runtime line;
+- supports Fallout 4 `1.10.163` (OG), `1.10.984` (NG), and `1.11.137+` (AE) with matching runtime data;
 - keeps the V1-V10 ABI prefix frozen;
 - adds V11 and V12 by deriving from the previous interface and appending new methods;
 - exposes V11/V12 on the flat Fallout provider only;

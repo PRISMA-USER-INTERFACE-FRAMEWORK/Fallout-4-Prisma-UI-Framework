@@ -3,16 +3,16 @@ export const REPO_NAME = "Fallout-4-Prisma-UI-Framework";
 export const REPO_BRANCH = process.env.PRISMA_DOCS_BRANCH || "main";
 
 export const FRAMEWORK_REPO = "Prisma-Matrix";
-export const FRAMEWORK_VERSION = "2.2.0";
-export const FRAMEWORK_RELEASE_TAG = "framework-v2.2.0";
-export const FRAMEWORK_RELEASE_SOURCE_COMMIT = "1b32eb1fef28802b35cc9d43ad44152d769bebd5";
-export const FRAMEWORK_API_SOURCE_COMMIT = "1b32eb1fef28802b35cc9d43ad44152d769bebd5";
+export const FRAMEWORK_VERSION = "2.2.0.4";
+export const FRAMEWORK_RELEASE_TAG = "framework-v2.2.0.4";
+export const FRAMEWORK_RELEASE_SOURCE_COMMIT = "9ec05e957a5a78895f7190dabe90f833c8a25294";
+export const FRAMEWORK_API_SOURCE_COMMIT = "9ec05e957a5a78895f7190dabe90f833c8a25294";
 export const FRAMEWORK_HEADER_PATH = "src/PrismaUI_F4_API.h";
 export const FRAMEWORK_HEADER_BLOB_SHA = "02f6584829063ca59662d135c6910cc87d5bb2ee";
 export const FRAMEWORK_MODERN_HEADER_PATH = "src/PrismaUI_F4_Modern_API.h";
-export const FRAMEWORK_MODERN_HEADER_BLOB_SHA = "9784daab39bf66bb179e6ef12bba63c75e50d3b7";
+export const FRAMEWORK_MODERN_HEADER_BLOB_SHA = "d7fcdb3abab6345f0246a83a9e0dccff5caba804";
 export const FRAMEWORK_VR_HEADER_PATH = "src/PrismaUI_F4VR_API.h";
-export const FRAMEWORK_VR_HEADER_BLOB_SHA = "012f810a98bfa274563c9eb8102881549ab2c9c6";
+export const FRAMEWORK_VR_HEADER_BLOB_SHA = "79cbe2c2ce0294c9b088424422885b922c674d20";
 export const FRAMEWORK_PUBLIC_DOWNLOAD_URL = "https://www.nexusmods.com/fallout4/mods/105454";
 
 export const GUIDE_FILES: Record<string, string> = {

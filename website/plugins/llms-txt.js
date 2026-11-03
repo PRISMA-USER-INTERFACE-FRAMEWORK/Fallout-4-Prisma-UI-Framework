@@ -59,11 +59,10 @@ module.exports = function llmsTxtPlugin(context) {
       const lines = [
         '# PrismaUI F4',
         '',
-        '> Current public framework: PrismaUI_F4 2.2.0.',
+        '> Current public framework: PrismaUI_F4 2.2.0.4.',
         '> Production web runtime: in-process Ultralight 1.4.0.',
         '> Shipping renderer: validated D3D11 GPU acceleration with CPU BitmapSurface fallback. The legacy host/subprocess runtime is retired.',
-        '> Desktop support: Fallout 4 OG 1.10.163 and AE 1.11.137+ with matching Address Library data.',
-        '> Intermediate 1.10.980-1.10.984 Next-Gen runtimes are deliberately unsupported.',
+        '> Desktop support: Fallout 4 OG 1.10.163, NG 1.10.984, and AE 1.11.137+ with matching runtime data.',
         '> Public C++ API: preferred feature tables plus the stable IVPrismaUI1 through IVPrismaUI12 compatibility ABI.',
         '> ModelPreview bridge is `window.__prismaUI_modelPreview` API v4 and accepts NIF paths.',
         '> Current builds include the packaged in-game Ultralight DevTools inspector on F12 when enabled.',
@@ -90,7 +89,7 @@ module.exports = function llmsTxtPlugin(context) {
       ];
 
       fs.writeFileSync(path.join(outDir, 'llms.txt'), lines.join('\n'));
-      console.log('[llms-txt] generated llms.txt for PrismaUI_F4 2.2.0');
+      console.log('[llms-txt] generated llms.txt for PrismaUI_F4 2.2.0.4');
     },
   };
 };

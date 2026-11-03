@@ -71,14 +71,15 @@ The V1 inspector methods are compatibility ABI; they are not how you control the
 Supported desktop runtimes:
 
 - Old-Gen **1.10.163**;
+- Next-Gen **1.10.984**;
 - Anniversary Edition **1.11.137 and newer**, with matching game support data installed.
 
-The 1.10.980–1.10.984 line is deliberately rejected. Features that need version-specific engine data fail closed when that data is missing instead of guessing.
+Features that need version-specific engine data fail closed when that data is missing instead of guessing.
 
 Some helper calls are narrower than the general framework:
 
 - `SuppressHUDWidget` needs a supported runtime with matching data, and returns `false` otherwise;
-- native controller conversion is validated only for Old-Gen 1.10.163 and Anniversary Edition 1.11.240;
+- native controller conversion targets Old-Gen 1.10.163, Next-Gen 1.10.984, and Anniversary Edition 1.11.240;
 - game-thread dispatch (V11) and controller actions (V12) exist on the flat provider, not on VR.
 
 Check the specific API page when the runtime matters.

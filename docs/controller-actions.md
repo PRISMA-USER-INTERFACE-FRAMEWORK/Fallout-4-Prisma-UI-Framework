@@ -153,7 +153,7 @@ g_prisma->ClearControllerActions(g_view);        // all buttons on this view
 
 ## Runtime limits
 
-Native controller conversion is validated for **Old-Gen 1.10.163** and **Anniversary Edition 1.11.240**. Other runtimes fail closed rather than installing guessed conversion hooks.
+Native controller conversion targets **Old-Gen 1.10.163**, **Next-Gen 1.10.984**, and **Anniversary Edition 1.11.240**. Other runtimes fail closed rather than installing guessed conversion hooks.
 
 Fallout 4 VR does not advertise V11 or V12, so this interface does not exist there.
 

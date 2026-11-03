@@ -21,7 +21,7 @@ You need this only if a mod page says it requires PrismaUI.
 
 That is it. Mod pages that require PrismaUI will now find it.
 
-**Version rule:** install the version of PrismaUI that matches your game version. Old-Gen 1.10.163 and Anniversary Edition 1.11.137+ are supported. The 1.10.980–1.10.984 line is intentionally not supported, and PrismaUI will refuse to load rather than half-work.
+**Version rule:** install the version of PrismaUI that matches your game version. Old-Gen 1.10.163, Next-Gen 1.10.984, and Anniversary Edition 1.11.137+ are supported.
 
 **VR:** Fallout 4 VR uses a separate PrismaUI package. Do not mix the flat and VR files.
 

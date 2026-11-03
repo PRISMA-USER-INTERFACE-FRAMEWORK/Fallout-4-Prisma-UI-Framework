@@ -14,7 +14,7 @@ export const FAQ_DATA: FaqEntry[] = [
     id: 'what-is-prismaui',
     question: 'What is PrismaUI F4?',
     answer:
-      'A native F4SE framework that lets Fallout 4 mods build UI with HTML, CSS, and JavaScript instead of editing Scaleform SWFs. PrismaUI_F4 2.2.0 uses Ultralight 1.4.0 in-process; the old legacy-runtime host and subprocess are retired.',
+      'A native F4SE framework that lets Fallout 4 mods build UI with HTML, CSS, and JavaScript instead of editing Scaleform SWFs. PrismaUI_F4 2.2.0.4 uses Ultralight 1.4.0 in-process; the old legacy-runtime host and subprocess are retired.',
     keywords: ['what', 'prismaui', 'framework', 'about', 'overview', 'ultralight'],
     link: '/docs/what-is-prismaui',
     linkLabel: 'What is PrismaUI F4?',
@@ -140,7 +140,7 @@ export const FAQ_DATA: FaqEntry[] = [
     id: 'hud-suppression-not-working',
     question: 'Vanilla HUD widget suppression is not working',
     answer:
-      'SuppressHUDWidget supports OG 1.10.163 and AE 1.11.137+ when matching Address Library data is available. Intermediate 1.10.980-1.10.984 Next-Gen is not a supported PrismaUI runtime.',
+      'SuppressHUDWidget supports OG 1.10.163, NG 1.10.984, and AE 1.11.137+ when matching runtime data is available. It fails closed when the required hook cannot be validated.',
     keywords: ['hud suppression', 'suppress hud', 'hide widget', 'og', 'ae', 'address library'],
     link: '/docs/vanilla-ui-suppression',
     linkLabel: 'Vanilla UI suppression',
@@ -167,8 +167,8 @@ export const FAQ_DATA: FaqEntry[] = [
     id: 'game-versions',
     question: 'Which Fallout 4 versions does PrismaUI_F4 support?',
     answer:
-      'The desktop provider supports OG 1.10.163 and the AE 1.11.137+ family when matching Address Library data is available. The intermediate 1.10.980-1.10.984 Next-Gen line is deliberately rejected.',
-    keywords: ['next-gen', 'ng', 'ae', 'og', 'runtime', 'game version', '1.10.163', '1.11'],
+      'The desktop provider supports OG 1.10.163, NG 1.10.984, and AE 1.11.137+ when matching runtime data is available.',
+    keywords: ['next-gen', 'ng', 'ae', 'og', 'runtime', 'game version', '1.10.163', '1.10.984', '1.11'],
     link: '/docs/1.0-vs-2.0',
     linkLabel: '1.0 vs current',
   },

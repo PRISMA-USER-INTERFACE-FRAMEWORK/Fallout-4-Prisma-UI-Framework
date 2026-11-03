@@ -26,7 +26,7 @@ function errorResult(message: string) {
 
 server.tool(
   "get_framework_release",
-  "Get the pinned PrismaUI_F4 2.2.0 release contract: version, source commit, renderer, general desktop runtimes, " +
+  "Get the pinned PrismaUI_F4 2.2.0.4 release contract: version, source commit, renderer, general desktop runtimes, " +
     "native-controller runtimes, rejected runtime line, released modern feature tables, and verified " +
     "modern, V1-V12 compatibility, and VR SDK provenance. Call this before setup or compatibility guidance.",
   {},

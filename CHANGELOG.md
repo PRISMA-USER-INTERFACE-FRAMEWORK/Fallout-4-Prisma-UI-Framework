@@ -482,12 +482,12 @@ PrismaUI remains a local game-interface framework, not a general web browser.
 
 ### Standard Fallout 4
 
-Supported runtime families for the current public framework:
+Supported runtime families for the 2.2.0 release:
 
 - **Fallout 4 1.10.163**
 - **Fallout 4 1.11.137+** where matching Address Library/runtime data exists
 
-The intermediate Fallout 4 **1.10.980-1.10.984** Next-Gen line is not part of the current standard runtime policy.
+For current runtime support, see the framework README.
 
 ### Fallout 4 VR
 

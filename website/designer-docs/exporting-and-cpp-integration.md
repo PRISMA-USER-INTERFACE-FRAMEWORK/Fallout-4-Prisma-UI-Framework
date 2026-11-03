@@ -103,6 +103,6 @@ Designer exports are deliberately self-contained. Keep that property when extend
 - do not add required CDN/Google Fonts dependencies;
 - put required HTTP/WebSocket/server work in C++ and bridge the data into the view.
 
-For current framework behavior see the main [PrismaUI_F4 2.2.0 docs](/docs/2.2.0-release), [API reference](/docs/api-reference), and [view lifecycle](/docs/view-lifecycle).
+For current framework behavior see the [API reference](/docs/api-reference) and [view lifecycle](/docs/view-lifecycle).
 
 For the Designer Bridge and live preview workflow, see [Live Game Preview with PrismaDesignerBridge](./live-game-preview).

@@ -1,8 +1,8 @@
 # prisma-mcp
 
-`prisma-mcp` 1.1 gives an MCP-compatible client structured access to the current **PrismaUI_F4 2.2.0** modern, compatibility, and VR developer surfaces.
+`prisma-mcp` 1.1 gives an MCP-compatible client structured access to the **PrismaUI_F4 2.2.0.4** modern, compatibility, and VR developer surfaces.
 
-The current framework uses **Ultralight 1.4.0 in-process**. New desktop integrations should prefer the `PrismaUI_F4_Modern_API.h` feature-table surface; the canonical `PrismaUI_F4_API.h` V1-V12 header remains the compatibility ABI. Desktop support covers OG 1.10.163 plus AE 1.11.137+ with matching Address Library data; the intermediate 1.10.980-1.10.984 line is deliberately unsupported.
+The current framework uses **Ultralight 1.4.0 in-process**. New desktop integrations should prefer the `PrismaUI_F4_Modern_API.h` feature-table surface; the canonical `PrismaUI_F4_API.h` V1-V12 header remains the compatibility ABI. Desktop support covers OG 1.10.163, NG 1.10.984, and AE 1.11.137+ with matching runtime data.
 
 ## Requirements
 
@@ -17,17 +17,17 @@ The public contract is:
 
 - **Fallout-4-Prisma-UI-Framework `main`** for guides, method documentation, examples, and distributable SDK mirrors.
 - `src/PrismaUI_F4_Modern_API.h` is the preferred feature-table header for new desktop integrations.
-- Its pinned Git blob is `9784daab39bf66bb179e6ef12bba63c75e50d3b7`.
+- Its pinned Git blob is `d7fcdb3abab6345f0246a83a9e0dccff5caba804`.
 - `src/PrismaUI_F4_API.h` contains the stable `IVPrismaUI1` through `IVPrismaUI12` compatibility ABI.
 - Its pinned Git blob is `02f6584829063ca59662d135c6910cc87d5bb2ee`.
-- Its maintainer-side API source is Prisma-Matrix release commit `1b32eb1fef28802b35cc9d43ad44152d769bebd5`.
-- The 2.2.0 release source is `1b32eb1fef28802b35cc9d43ad44152d769bebd5`; the public SDK mirrors are pinned to that release contract.
-- The VR header mirror remains Git blob `012f810a98bfa274563c9eb8102881549ab2c9c6`.
+- Its maintainer-side API source is Prisma-Matrix release commit `9ec05e957a5a78895f7190dabe90f833c8a25294`.
+- The 2.2.0.4 release source is `9ec05e957a5a78895f7190dabe90f833c8a25294`; the public SDK mirrors are pinned to that release contract.
+- The VR header mirror is Git blob `79cbe2c2ce0294c9b088424422885b922c674d20`.
 - Repository CI checks the public SDK blob identities before documentation changes can merge.
 
 `get_modern_header`, `get_header`, and `get_vr_header` download the preferred modern, V1-V12 compatibility, and VR SDK mirrors and recompute their Git blob SHAs locally. All fail closed on drift.
 
-`get_framework_release` verifies all three SDK snapshots before returning the 2.2.0 release identity, renderer, general desktop runtimes, narrower native-controller runtimes, modern feature list, public download URL, and SDK provenance.
+`get_framework_release` verifies all three SDK snapshots before returning the 2.2.0.4 release identity, renderer, general desktop runtimes, narrower native-controller runtimes, modern feature list, public download URL, and SDK provenance.
 
 Public framework download:
 
@@ -35,7 +35,7 @@ https://www.nexusmods.com/fallout4/mods/105454
 
 Maintainer provenance, when Matrix access is available:
 
-https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Prisma-Matrix/releases/tag/framework-v2.2.0
+https://github.com/PRISMA-USER-INTERFACE-FRAMEWORK/Prisma-Matrix/releases/tag/framework-v2.2.0.4
 
 ## Install
 
@@ -60,14 +60,14 @@ The MCP server reads the public Fallout-4-Prisma-UI-Framework repository at runt
 Call this first when version, backend, renderer, Fallout runtime support, or compatibility matters. It returns:
 
 - framework version and release tag;
-- 2.2.0 release source commit;
+- 2.2.0.4 release source commit;
 - current canonical API source commit;
 - Ultralight/renderer identity;
 - supported desktop runtime families;
 - deliberately rejected runtime line;
 - public release URL plus maintainer provenance;
 - preferred modern, compatibility, and VR API-header mirror URLs and pinned Git blob SHAs;
-- native-controller runtime boundary for OG 1.10.163 and AE 1.11.240;
+- native-controller runtime boundary for OG 1.10.163, NG 1.10.984, and AE 1.11.240;
 - released modern feature tables;
 
 ### `get_modern_header`
@@ -122,7 +122,7 @@ For a new PrismaUI task:
 6. search or fetch the relevant guide, including `translations` for V4 localization;
 7. use `get_api_method` for legacy methods with lifecycle/runtime caveats;
 8. scaffold only after the user confirms the destination path and prefer the default modern style;
-9. do not invent retired CEF/subprocess setup, unsupported NG compatibility, or remote browser features.
+9. do not invent retired CEF/subprocess setup, runtime compatibility beyond the supported versions, or remote browser features.
 
 ## Development
 

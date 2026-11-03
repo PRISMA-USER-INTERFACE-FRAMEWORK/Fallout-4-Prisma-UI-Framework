@@ -12,7 +12,7 @@ For a full mod, usually yes: a native plugin creates the view, controls it and b
 
 ## Which Fallout 4 versions work?
 
-Old-Gen 1.10.163 and Anniversary Edition 1.11.137 and newer, when the matching runtime data is installed. The 1.10.980–1.10.984 Next-Gen line is intentionally not supported. Fallout 4 VR uses a separate package.
+Old-Gen 1.10.163, Next-Gen 1.10.984, and Anniversary Edition 1.11.137 and newer, when the matching runtime data is installed. Fallout 4 VR uses a separate package.
 
 ## I installed it and nothing appears. What do I check first?
 

@@ -1,15 +1,14 @@
 # PrismaUI Example Plugin
 
-This is the reference consumer project for **PrismaUI_F4 2.2.0**. It demonstrates how an F4SE plugin requests the Prisma API, creates an HTML/CSS/JS view, exchanges data with JavaScript, and handles input/lifecycle events.
+This is the reference consumer project for **PrismaUI_F4 2.2.0.4**. It demonstrates how an F4SE plugin requests the Prisma API, creates an HTML/CSS/JS view, exchanges data with JavaScript, and handles input/lifecycle events.
 
 ## Supported desktop runtimes
 
 The current PrismaUI_F4 desktop provider supports:
 
 - Fallout 4 `1.10.163` (OG)
+- Fallout 4 `1.10.984` (NG)
 - Fallout 4 `1.11.137+` (AE) when matching Address Library data is available
-
-The framework deliberately rejects the intermediate `1.10.980-1.10.984` Next-Gen line. Do not publish a consumer as supporting that line merely because a CommonLib build can compile runtime slots for it.
 
 Your HTML/CSS/JS assets are runtime-independent. The native plugin must still be built and tested for every Fallout runtime family you claim to support.
 

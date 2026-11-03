@@ -1,12 +1,12 @@
-# PrismaUI_F4 2.2.0
+# PrismaUI_F4 2.2.0.4
 
-PrismaUI_F4 is an F4SE framework for building Fallout 4 interfaces with HTML, CSS, and JavaScript. Version 2.2.0 uses an in-process Ultralight 1.4.0 runtime, the stable V1-V12 ABI, and a preferred modern feature-table API for menus, HUDs, settings panels, terminals, inventory interfaces, and other mod UI.
+PrismaUI_F4 is an F4SE framework for building Fallout 4 interfaces with HTML, CSS, and JavaScript. Version 2.2.0.4 uses an in-process Ultralight 1.4.0 runtime, the stable V1-V12 ABI, and a preferred modern feature-table API for menus, HUDs, settings panels, terminals, inventory interfaces, and other mod UI.
 
 ## Runtime support
 
 - Fallout 4 1.10.163
+- Fallout 4 1.10.984
 - Fallout 4 1.11.137+ with matching Address Library data
-- The intermediate 1.10.980-1.10.984 runtime line is not supported
 
 ## Developer surface
 
@@ -47,7 +47,7 @@ https://prisma-user-interface-framework.github.io/Fallout-4-Prisma-UI-Framework/
 - `docs/modern-api.md` - current feature-table API and discovery guide
 - `docs/api-reference.md` - V1-V12 compatibility API overview
 - `docs/api-extensions.md` - V11/V12 contract and ABI notes
-- `docs/2.2.0-release.md` - current release changes
+- `docs/2.2.0-release.md` - 2.2.0 release changes
 - `docs/controller-actions.md` - V12 controller support guide
 - `docs/model-preview.md` - ModelPreview API v4
 - `docs/papyrus-bridge.md` - page-to-Papyrus bridge

@@ -48,9 +48,8 @@ There is no separate browser process and no host program to ship. `PrismaUI_F4.d
 
 - Fallout 4 **1.10.163** (Old-Gen)
 - Fallout 4 **1.11.137 and newer** (Anniversary Edition family) when the matching runtime data is installed
+- Fallout 4 **1.10.984** (Next-Gen)
 - Fallout 4 **VR** uses its own package and its own provider DLL
-
-The 1.10.980–1.10.984 Next-Gen line is deliberately not supported. If the framework refuses to load there, that is working as intended. These boundaries match the framework README (source: README.md).
 
 ## The two ways to call it
 

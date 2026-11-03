@@ -62,7 +62,7 @@ if (!g_api->SuppressHUDWidget("HUDCompass", true)) {
 
 - Unknown class names return `false`.
 - The HUD path needs supported runtime data; when it cannot resolve safely, the call fails closed rather than patching a guessed address.
-- Supported: Old-Gen 1.10.163 and Anniversary Edition 1.11.137+ with the matching runtime data.
+- Supported: Old-Gen 1.10.163, Next-Gen 1.10.984, and Anniversary Edition 1.11.137+ with the matching runtime data.
 
 Always check the return value. A "suppression" that silently did nothing is worse than an honest failure.
 
@@ -129,8 +129,7 @@ if (g_closingForReplacement) {
 
 ## Runtime notes
 
-- Old-Gen **1.10.163** and Anniversary Edition **1.11.137+** with matching runtime data are supported.
-- The 1.10.980–1.10.984 line is rejected by the current framework.
+- Old-Gen **1.10.163**, Next-Gen **1.10.984**, and Anniversary Edition **1.11.137+** with matching runtime data are supported.
 - Engine-hook-backed helpers should be tested on each runtime family you claim. A method existing in the header does not promise every engine feature works everywhere.
 
 ## Where to go next

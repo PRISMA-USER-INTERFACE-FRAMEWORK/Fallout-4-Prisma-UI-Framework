@@ -182,7 +182,7 @@ window.addEventListener("prisma-controller-action", function(event) {
 const MODERN_README = [
   "# " + EXAMPLE_TOKEN,
   "",
-  "This scaffold uses the preferred PrismaUI_F4 2.2.0 modern feature-table API.",
+  "This scaffold uses the preferred PrismaUI_F4 2.2.0.4 modern feature-table API.",
   "",
   "It discovers View, Interop, and Controller independently through PrismaUI_F4_Modern_API.h. Add other tables only when needed:",
   "",

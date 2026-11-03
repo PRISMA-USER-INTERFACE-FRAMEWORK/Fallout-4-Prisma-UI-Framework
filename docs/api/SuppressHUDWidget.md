@@ -17,12 +17,11 @@ Hides or restores a supported vanilla HUD widget by class name, for example `"HU
 
 Returns `false` when the class name is unknown or the loaded runtime cannot resolve and validate the required HUD hook authority.
 
-## Runtime support in 2.1.0
+## Current runtime support
 
 - Fallout 4 OG `1.10.163`
+- Fallout 4 NG `1.10.984`
 - Fallout 4 AE `1.11.137+` when matching Address Library data is available
-
-The intermediate `1.10.980-1.10.984` Next-Gen line is not a supported PrismaUI_F4 2.1.0 runtime.
 
 The framework resolves named CommonLib VTABLE authorities through the loaded Address Library database and validates the hook site before applying the suppression. It fails closed rather than patching a guessed address.
 

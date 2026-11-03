@@ -74,7 +74,9 @@ async function main(): Promise<void> {
   if (release.vrApiHeaderBlob !== FRAMEWORK_VR_HEADER_BLOB_SHA) {
     throw new Error(`Framework VR SDK blob mismatch: ${release.vrApiHeaderBlob}`);
   }
-  if (!release.controllerRuntimes.includes("Fallout 4 AE 1.11.240") ||
+  if (!release.desktopRuntimes.includes("Fallout 4 NG 1.10.984") ||
+      !release.controllerRuntimes.includes("Fallout 4 NG 1.10.984") ||
+      !release.controllerRuntimes.includes("Fallout 4 AE 1.11.240") ||
       !release.modernFeatures.includes("Localization")) {
     throw new Error("Framework release metadata is missing current controller or modern-feature boundaries");
   }
