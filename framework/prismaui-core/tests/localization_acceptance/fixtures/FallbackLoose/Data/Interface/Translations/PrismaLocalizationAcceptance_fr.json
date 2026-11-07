@@ -1,0 +1,1 @@
+{"sentinel":"FROM_LOOSE_SELECTED","nested":{"sentinel":"NESTED_LOOSE_SELECTED"},"greeting":"Bonjour {{name}}","selectedOnly":"FROM_LOOSE_SELECTED"}

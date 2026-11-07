@@ -1,0 +1,23 @@
+.prisma-osk-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin: 6px 0;
+}
+
+.prisma-osk-key {
+  min-width: 30px;
+  padding: 7px 9px;
+  border: 1px solid currentColor;
+  text-align: center;
+  user-select: none;
+}
+
+.prisma-osk-key-wide {
+  min-width: 76px;
+}
+
+.prisma-osk-key.focused {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}

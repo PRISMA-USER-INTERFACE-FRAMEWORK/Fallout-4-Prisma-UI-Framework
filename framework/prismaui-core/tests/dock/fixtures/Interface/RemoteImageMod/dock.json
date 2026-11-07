@@ -1,0 +1,5 @@
+{
+  "name": "Remote Image Mod",
+  "description": "Tries to pull its banner off the internet.",
+  "image": "https://example.com/banner.png"
+}

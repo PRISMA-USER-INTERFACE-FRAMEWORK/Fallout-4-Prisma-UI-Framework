@@ -1,0 +1,6 @@
+[submodule "shared/CommonLibF4"]
+	path = shared/CommonLibF4
+	url = https://github.com/G-A-R-D-E-N/commonlibf4-nomad.git
+[submodule "framework/prismaui-core/lib/commonlibf4vr"]
+	path = framework/prismaui-core/lib/commonlibf4vr
+	url = https://github.com/G-A-R-D-E-N/CommonLibF4VR.git
