@@ -1,0 +1,553 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>layout editor harness</title>
+  </head>
+  <body style="margin: 0; overflow: hidden">
+    <iframe id="page" style="position: fixed; left: 0; top: 0; width: 1920px; height: 1080px; border: 0"></iframe>
+    <pre id="result"></pre>
+    <script>
+      (function () {
+        var calls = [];
+        var steps = [];
+        var iw = null;
+        var doc = null;
+        window.__rec = function (m) {
+          calls.push(m);
+        };
+
+        function read(url) {
+          var x = new XMLHttpRequest();
+          x.open('GET', url, false);
+          x.send();
+          if (!x.responseText) throw new Error('cannot read ' + url);
+          return x.responseText;
+        }
+        function loadPage() {
+          var dir = new URL(location.hash ? location.hash.slice(1) : '../../../assets/views/system/', location.href).href;
+          var html = read(dir + 'layout.html');
+          var core = read(dir + 'layoutCore.js');
+          var tag = '<script src="layoutCore.js"><\/script>';
+          if (html.indexOf(tag) < 0 || html.indexOf('<head>') < 0) throw new Error('layout.html structure changed');
+          var hook =
+            '<script>window.__prismaLayoutNative=function(m){parent.__rec(m);};' +
+            'var __now=1000;Date.now=function(){return __now;};window.__tick=function(){__now+=500;};<\/script>';
+          html = html
+            .replace('<head>', function () {
+              return '<head>' + hook;
+            })
+            .replace(tag, function () {
+              return '<script>' + core + '<\/script>';
+            });
+          var frameEl = document.getElementById('page');
+          frameEl.getBoundingClientRect();
+          frameEl.contentDocument.open();
+          frameEl.contentDocument.write(html);
+          frameEl.contentDocument.close();
+          iw = frameEl.contentWindow;
+          doc = iw.document;
+        }
+
+        var $ = function (s) { return doc.querySelector(s); };
+        var $$ = function (s) { return Array.prototype.slice.call(doc.querySelectorAll(s)); };
+        var text = function (s) { var e = $(s); return e ? e.textContent : null; };
+        var texts = function (s) { return $$(s).map(function (e) { return e.textContent; }); };
+        var attrIds = function (s, a) { return $$(s).map(function (e) { return Number(e.getAttribute(a)); }); };
+        var frame = function (id) { return $('.frame[data-id="' + id + '"]'); };
+        var row = function (id) { return $('.row[data-id="' + id + '"]'); };
+        var eye = function (id) { return $('.eye[data-eye="' + id + '"]'); };
+        var sel = function () { var e = $('.frame.selected'); return e ? Number(e.getAttribute('data-id')) : null; };
+        var grid = function () { return $('#stage').classList.contains('grid'); };
+        var tick = function () { iw.__tick(); };
+        var vis = function (id) {
+          return {
+            frame: frame(id).classList.contains('hidden'),
+            row: row(id).classList.contains('off'),
+            eye: eye(id).classList.contains('off'),
+            aria: eye(id).getAttribute('aria-label'),
+          };
+        };
+        var rectOf = function (id) {
+          var f = frame(id);
+          var sx = iw.innerWidth / 1920;
+          var sy = iw.innerHeight / 1080;
+          return [f.style.left, f.style.top, f.style.width, f.style.height].map(function (v, i) {
+            return Math.round((parseFloat(v) / (i % 2 ? sy : sx)) * 1000) / 1000;
+          });
+        };
+        var take = function () {
+          var out = calls.map(function (m) {
+            var i = m.indexOf('\n');
+            return m.slice(0, i) + '|' + m.slice(i + 1);
+          });
+          calls = [];
+          return out;
+        };
+        var SHIFT = { shift: true };
+        var CTRL = { ctrl: true };
+        var CTRL_SHIFT = { ctrl: true, shift: true };
+
+        function key(k, mods) {
+          var e = new iw.KeyboardEvent('keydown', {
+            key: k,
+            bubbles: true,
+            cancelable: true,
+            shiftKey: !!(mods && mods.shift),
+            ctrlKey: !!(mods && mods.ctrl),
+          });
+          doc.dispatchEvent(e);
+          return e.defaultPrevented;
+        }
+        function mouse(type, target, x, y) {
+          target.dispatchEvent(new iw.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, view: iw }));
+        }
+        function drag(target, dx, dy, during) {
+          var x = 500 + dx * (iw.innerWidth / 1920);
+          var y = 400 + dy * (iw.innerHeight / 1080);
+          mouse('mousedown', target, 500, 400);
+          mouse('mousemove', doc, x, y);
+          if (during) during();
+          mouse('mouseup', doc, x, y);
+        }
+        function view(id, title, owner, rect, extra) {
+          var v = { id: id, title: title, owner: owner, registered: true, hidden: false, rect: rect.slice(), default: rect.slice() };
+          for (var k in extra) v[k] = extra[k];
+          return v;
+        }
+        function base() {
+          return [
+            view(1, 'Phosphor HUD', 'PhosphorHUD.dll', [100, 100, 400, 300], { default: [0, 0, 1920, 1080] }),
+            view(2, 'Ashfall Meters', 'Ashfall.dll', [600, 50, 300, 200]),
+            view(3, 'Ashfall Map', 'Ashfall.dll', [1000, 500, 500, 400]),
+            view(4, 'QuickLoot', 'QuickLoot.dll', [1400, 100, 300, 300], { hidden: true, registered: false }),
+            view(5, 'Compass', '', [1500, 800, 200, 200]),
+          ];
+        }
+        function push(views, extra) {
+          var p = { views: views, snap: 10, grid: false };
+          for (var k in extra) p[k] = extra[k];
+          iw.setLayout(JSON.stringify(p));
+        }
+        function fresh() {
+          while (!/^Select/.test(text('#mode'))) key('Escape');
+          push([]);
+          push(base());
+          take();
+        }
+        function step(name, fn) {
+          var bad = [];
+          var n = 0;
+          var t = {
+            eq: function (actual, expected, what) {
+              n++;
+              var a = JSON.stringify(actual);
+              var e = JSON.stringify(expected);
+              if (a !== e) bad.push(what + ': expected ' + e + ' got ' + a);
+            },
+          };
+          try {
+            fn(t);
+          } catch (err) {
+            bad.push('threw ' + ((err && err.stack) || err));
+            mouse('mouseup', doc, 0, 0);
+          }
+          steps.push({ name: name, ok: !bad.length, detail: bad.length ? bad.join(' | ') : n + ' checks' });
+        }
+
+        function scenario() {
+          step('viewport is the 1920x1080 stage (harness precondition: a wrong iframe size would skew every drag)', function (t) {
+            t.eq([iw.innerWidth, iw.innerHeight], [1920, 1080], 'iframe viewport');
+          });
+
+          step('page sends ready during load and shows the empty notice until native sends a layout (regression: native never learns the editor is up)', function (t) {
+            t.eq(take(), ['ready|'], 'messages during load');
+            t.eq(text('#empty'), 'No Prisma views are open right now.', 'empty notice');
+            t.eq($$('.frame').length + $$('.row').length, 0, 'no frames or rows');
+          });
+
+          step('first setLayout renders one frame, row and eye per view with titles, owners, handles and first view selected (regression: a mod view missing or mislabelled)', function (t) {
+            push(base());
+            t.eq(take(), [], 'setLayout sends nothing');
+            t.eq(attrIds('.frame', 'data-id'), [1, 2, 3, 4, 5], 'frame ids');
+            t.eq(attrIds('.row', 'data-id'), [1, 2, 3, 4, 5], 'row ids');
+            t.eq(attrIds('.eye', 'data-eye'), [1, 2, 3, 4, 5], 'eye ids');
+            t.eq(texts('.row .name b'), ['Phosphor HUD', 'Ashfall Meters', 'Ashfall Map', 'QuickLoot', 'Compass'], 'row titles');
+            t.eq(texts('.frame .tag'), ['Phosphor HUD', 'Ashfall Meters', 'Ashfall Map', 'QuickLoot', 'Compass'], 'frame tags');
+            t.eq(
+              texts('.row .name span'),
+              ['PhosphorHUD.dll  400x300', 'Ashfall.dll  300x200', 'Ashfall.dll  500x400', 'QuickLoot.dll  300x300', 'unknown  200x200'],
+              'owner and size'
+            );
+            t.eq($$('.frame[data-id="1"] .handle').map(function (h) { return h.getAttribute('data-handle'); }), ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'], 'handles');
+            t.eq(rectOf(3), [1000, 500, 500, 400], 'frame rect');
+            t.eq([sel(), attrIds('.row.selected', 'data-id')], [1, [1]], 'first view selected');
+            t.eq([$('#undo').disabled, $('#redo').disabled, $('#reset').disabled], [true, true, false], 'undo, redo, reset state');
+            t.eq([vis(1), vis(4)], [
+              { frame: false, row: false, eye: false, aria: 'Hide Phosphor HUD' },
+              { frame: true, row: true, eye: true, aria: 'Show QuickLoot' },
+            ], 'hidden view look');
+            t.eq([text('#snap'), grid(), $('#empty')], ['Snap 10', false, null], 'defaults');
+          });
+
+          step('later setLayout adds a third mod view, drops two, skips bad entries and clears history (regression: editor only shows the views present at first paint)', function (t) {
+            fresh();
+            eye(2).click();
+            $('.row[data-id="4"] .name b').click();
+            take();
+            t.eq([sel(), $('#undo').disabled], [4, false], 'precondition');
+            var next = base().slice(0, 3).concat([
+              view(6, 'Vigilance Radar', 'VigilanceMod.dll', [20, 20, 300, 150]),
+              view(7, '', '', [700, 700, 100, 100]),
+              { id: 'x', rect: [0, 0, 10, 10] },
+              { id: 9, rect: [0, 0, 'q', 1] },
+              { id: 10, rect: [1, 2, 3] },
+            ]);
+            push(next, { snap: 5, grid: true });
+            t.eq(attrIds('.frame', 'data-id'), [1, 2, 3, 6, 7], 'frame ids');
+            t.eq(attrIds('.row', 'data-id'), [1, 2, 3, 6, 7], 'row ids');
+            t.eq(attrIds('.eye', 'data-eye'), [1, 2, 3, 6, 7], 'eye ids');
+            t.eq(texts('.row .name b'), ['Phosphor HUD', 'Ashfall Meters', 'Ashfall Map', 'Vigilance Radar', 'View 7'], 'titles');
+            t.eq(texts('.row .name span').slice(3), ['VigilanceMod.dll  300x150', 'unknown  100x100'], 'new owners');
+            t.eq([frame(4), row(5)], [null, null], 'removed views gone');
+            t.eq(sel(), 1, 'selection moved to a live view');
+            t.eq([$('#undo').disabled, $('#redo').disabled], [true, true], 'history cleared for a new id set');
+            t.eq([text('#snap'), grid(), $('#grid').checked], ['Snap 5', true, true], 'snap and grid from payload');
+            push(base(), { snap: 7 });
+            t.eq(attrIds('.frame', 'data-id'), [1, 2, 3, 4, 5], 'views restored');
+            t.eq([text('#snap'), grid()], ['Snap 10', false], 'bad snap falls back');
+          });
+
+          step('empty views list shows the empty notice and disables Reset view (regression: blank panel or crash when no views are open)', function (t) {
+            fresh();
+            push([]);
+            t.eq(text('#empty'), 'No Prisma views are open right now.', 'empty notice');
+            t.eq([$$('.frame').length, $$('.row').length, $$('.eye').length], [0, 0, 0], 'no controls');
+            t.eq([$('#reset').disabled, $('#undo').disabled], [true, true], 'buttons');
+            push(base());
+            t.eq([$('#empty'), $$('.frame').length, sel()], [null, 5, 1], 'views come back');
+          });
+
+          step('malformed payloads are ignored and the previous layout stays (regression: one bad native message blanks the editor)', function (t) {
+            fresh();
+            eye(2).click();
+            take();
+            ['{not json', '{"views":"x"}', '[]', 'null', 'undefined'].forEach(function (p) {
+              iw.setLayout(p);
+            });
+            t.eq(attrIds('.frame', 'data-id'), [1, 2, 3, 4, 5], 'frames kept');
+            t.eq([vis(2).frame, $('#undo').disabled, take()], [true, false, []], 'state and history kept');
+          });
+
+          step('row click selects and eye click toggles hidden with classes, aria-label and hidden message; a refresh that still says hidden keeps it hidden (regression: eye does nothing or a refresh un-hides)', function (t) {
+            fresh();
+            $('.row[data-id="3"] .name b').click();
+            t.eq([sel(), attrIds('.row.selected', 'data-id'), take()], [3, [3], []], 'row click selects silently');
+            eye(2).click();
+            t.eq(take(), ['hidden|2,1'], 'hide message');
+            t.eq(vis(2), { frame: true, row: true, eye: true, aria: 'Show Ashfall Meters' }, 'hidden look');
+            t.eq([sel(), $('#undo').disabled], [2, false], 'eye selects and enables undo');
+            eye(2).click();
+            t.eq(take(), ['hidden|2,0'], 'show message');
+            t.eq(vis(2), { frame: false, row: false, eye: false, aria: 'Hide Ashfall Meters' }, 'shown look');
+            eye(2).click();
+            take();
+            var again = base();
+            again[1].hidden = true;
+            push(again);
+            t.eq(vis(2), { frame: true, row: true, eye: true, aria: 'Show Ashfall Meters' }, 'still hidden after refresh');
+            t.eq($('#undo').disabled, false, 'history kept for the same id set');
+            eye(4).click();
+            t.eq([take(), sel(), vis(4).frame], [['hidden|4,0'], 4, false], 'eye of an unselected hidden view shows it');
+          });
+
+          step('dragging a frame body moves it snapped to the grid, sends rect after the drag and enables Undo (regression: frame follows the mouse unsnapped or native never told)', function (t) {
+            fresh();
+            drag(frame(2), 47, 33, function () {
+              t.eq(rectOf(2), [650, 80, 300, 200], 'live preview snapped');
+              t.eq(take(), [], 'no native message mid-drag');
+              push([]);
+              t.eq($$('.frame').length, 5, 'refresh ignored mid-drag');
+            });
+            var msgs = take();
+            t.eq(msgs.length > 0 && msgs.every(function (m) { return m.indexOf('rect|') === 0; }), true, 'only rect messages');
+            t.eq(msgs[msgs.length - 1], 'rect|2,650,80,300,200', 'final rect message');
+            t.eq([sel(), rectOf(2), texts('.row .name span')[1]], [2, [650, 80, 300, 200], 'Ashfall.dll  300x200'], 'selection and rect');
+            t.eq([$('#undo').disabled, $('#redo').disabled], [false, true], 'undo enabled');
+          });
+
+          step('each of the 8 resize handles changes only its own edges, snapped (regression: a handle moves the wrong edge)', function (t) {
+            var want = {
+              nw: [1040, 520, 460, 380],
+              n: [1000, 520, 500, 380],
+              ne: [1000, 520, 540, 380],
+              e: [1000, 500, 540, 400],
+              se: [1000, 500, 540, 420],
+              s: [1000, 500, 500, 420],
+              sw: [1040, 500, 460, 420],
+              w: [1040, 500, 460, 400],
+            };
+            fresh();
+            Object.keys(want).forEach(function (name) {
+              push(base());
+              take();
+              drag($('.frame[data-id="3"] .handle.' + name), 37, 23);
+              var msgs = take();
+              t.eq(rectOf(3), want[name], name + ' frame rect');
+              t.eq(msgs[msgs.length - 1], 'rect|3,' + want[name].join(','), name + ' native rect');
+            });
+          });
+
+          step('resizing past the opposite edge stops at the 32 unit minimum on every side (regression: negative or collapsed width/height)', function (t) {
+            var cases = [
+              ['e', -2000, 0, [1000, 500, 32, 400]],
+              ['w', 2000, 0, [1468, 500, 32, 400]],
+              ['n', 0, 2000, [1000, 868, 500, 32]],
+              ['s', 0, -2000, [1000, 500, 500, 32]],
+            ];
+            fresh();
+            cases.forEach(function (c) {
+              push(base());
+              take();
+              drag($('.frame[data-id="3"] .handle.' + c[0]), c[1], c[2]);
+              t.eq(rectOf(3), c[3], c[0] + ' minimum');
+              var msgs = take();
+              t.eq(msgs[msgs.length - 1], 'rect|3,' + c[3].join(','), c[0] + ' native minimum');
+            });
+          });
+
+          step('#undo and #redo restore rect and hidden, send the matching messages and toggle their enabled state (regression: undo restores the model but native never hears)', function (t) {
+            fresh();
+            drag(frame(1), 50, 30);
+            eye(1).click();
+            take();
+            t.eq([$('#undo').disabled, $('#redo').disabled], [false, true], 'before undo');
+            $('#undo').click();
+            t.eq(take(), ['hidden|1,0', 'rect|1,150,130,400,300'], 'undo hide');
+            t.eq([vis(1).frame, rectOf(1), $('#undo').disabled, $('#redo').disabled], [false, [150, 130, 400, 300], false, false], 'after undo 1');
+            $('#undo').click();
+            t.eq(take(), ['rect|1,100,100,400,300'], 'undo move');
+            t.eq([rectOf(1), $('#undo').disabled, $('#redo').disabled], [[100, 100, 400, 300], true, false], 'after undo 2');
+            $('#redo').click();
+            t.eq(take(), ['rect|1,150,130,400,300'], 'redo move');
+            $('#redo').click();
+            t.eq(take(), ['hidden|1,1', 'rect|1,150,130,400,300'], 'redo hide');
+            t.eq([vis(1).frame, $('#undo').disabled, $('#redo').disabled], [true, false, true], 'after redo');
+          });
+
+          step('#reset restores the default rect, clears hidden, sends reset and can be undone (regression: reset leaves the view moved or hidden)', function (t) {
+            fresh();
+            drag(frame(1), 50, 30);
+            eye(1).click();
+            take();
+            $('#reset').click();
+            t.eq(take(), ['reset|1'], 'reset message');
+            t.eq([rectOf(1), vis(1).frame, texts('.row .name span')[0]], [[0, 0, 1920, 1080], false, 'PhosphorHUD.dll  1920x1080'], 'default restored');
+            $('#undo').click();
+            t.eq(take(), ['hidden|1,1', 'rect|1,150,130,400,300'], 'undo reset');
+          });
+
+          step('#reset-all sends resetAll, reports the status and clears undo history (regression: Reset all silent or leaves stale undo)', function (t) {
+            fresh();
+            drag(frame(1), 50, 30);
+            take();
+            $('#status').textContent = '';
+            $('#reset-all').click();
+            t.eq(take(), ['resetAll|'], 'message');
+            t.eq(text('#status'), 'All views restored', 'status');
+            t.eq($('#undo').disabled, true,'Undo button disabled at once');
+            t.eq([key('z', CTRL), take()], [true, []], 'history cleared: Ctrl+Z has nothing to undo');
+          });
+
+          step('#snap cycles 10, 20, off, 5, 10 with label and settings message (regression: snap stuck or label out of sync)', function (t) {
+            fresh();
+            [['Snap 20', 'settings|20,0'], ['Snap off', 'settings|0,0'], ['Snap 5', 'settings|5,0'], ['Snap 10', 'settings|10,0']].forEach(function (c) {
+              $('#snap').click();
+              t.eq([text('#snap'), take()], [c[0], [c[1]]], c[0]);
+            });
+          });
+
+          step('#grid toggles the stage grid class and sends settings with the current snap (regression: grid checkbox not wired)', function (t) {
+            fresh();
+            $('#grid').click();
+            t.eq([grid(), $('#grid').checked, take()], [true, true, ['settings|10,1']], 'grid on');
+            $('#snap').click();
+            t.eq(take(), ['settings|20,1'], 'snap keeps grid flag');
+            $('#grid').click();
+            t.eq([grid(), $('#grid').checked, take()], [false, false, ['settings|20,0']], 'grid off');
+          });
+
+          step('#side flips the panel between left and right without native traffic (regression: dock side button dead)', function (t) {
+            fresh();
+            var side = function () { return $('#panel').classList.contains('left') ? 'left' : $('#panel').classList.contains('right') ? 'right' : '?'; };
+            t.eq(side(), 'left', 'initial');
+            $('#side').click();
+            t.eq([side(), take()], ['right', []], 'to right');
+            $('#side').click();
+            t.eq(side(), 'left', 'back to left');
+          });
+
+          step('#save sends save and reports Layout saved; #close sends close (regression: footer buttons dead)', function (t) {
+            fresh();
+            $('#status').textContent = '';
+            $('#save').click();
+            t.eq([take(), text('#status')], [['save|'], 'Layout saved'], 'save');
+            $('#close').click();
+            t.eq(take(), ['close|'], 'close');
+          });
+
+          step('Tab, Shift+Tab and Up/Down choose views with wrap and ignore unrelated keys (regression: keyboard cannot reach every view)', function (t) {
+            fresh();
+            t.eq(key('Tab'), true, 'Tab handled');
+            t.eq(sel(), 2, 'Tab next');
+            key('Tab');
+            t.eq(sel(), 3, 'Tab again');
+            key('Tab', SHIFT);
+            t.eq(sel(), 2, 'Shift+Tab previous');
+            key('ArrowDown');
+            t.eq(sel(), 3, 'Down');
+            key('ArrowUp');
+            key('ArrowUp');
+            t.eq(sel(), 1, 'Up to first');
+            key('ArrowUp');
+            t.eq(sel(), 5, 'Up wraps to last');
+            key('Tab');
+            t.eq([sel(), attrIds('.row.selected', 'data-id')], [1, [1]], 'Tab wraps to first');
+            t.eq([key('x'), take(), $('#undo').disabled], [false, [], true], 'unrelated key ignored');
+          });
+
+          step('Left hides and Right shows in select mode, once per change (regression: arrows hide in the wrong direction or spam native)', function (t) {
+            fresh();
+            key('ArrowLeft');
+            t.eq([take(), vis(1)], [['hidden|1,1'], { frame: true, row: true, eye: true, aria: 'Show Phosphor HUD' }], 'Left hides');
+            key('ArrowLeft');
+            t.eq(take(), [], 'Left on hidden is silent');
+            key('ArrowRight');
+            t.eq([take(), vis(1).frame], [['hidden|1,0'], false], 'Right shows');
+            key('ArrowRight');
+            t.eq([take(), $('#undo').disabled], [[], false], 'Right on shown is silent');
+          });
+
+          step('H and Space toggle the eye of the selected view (regression: hide shortcut dead)', function (t) {
+            fresh();
+            [['h', 'hidden|1,1'], [' ', 'hidden|1,0'], ['H', 'hidden|1,1'], [' ', 'hidden|1,0']].forEach(function (c) {
+              t.eq([key(c[0]), take()], [true, [c[1]]], JSON.stringify(c[0]));
+            });
+          });
+
+          step('Enter cycles select, move, resize, select; arrows move or resize by the snap step and Shift by ten (regression: mode text or arrow steps wrong)', function (t) {
+            fresh();
+            var modes = function () { return text('#mode').split(':')[0]; };
+            t.eq(modes(), 'Select', 'start');
+            key('Enter');
+            t.eq(modes(), 'Move', 'move mode');
+            [
+              ['ArrowRight', null, 'rect|1,110,100,400,300'],
+              ['ArrowDown', SHIFT, 'rect|1,110,200,400,300'],
+              ['ArrowLeft', null, 'rect|1,100,200,400,300'],
+              ['ArrowUp', null, 'rect|1,100,190,400,300'],
+            ].forEach(function (c) {
+              tick();
+              key(c[0], c[1]);
+              t.eq(take(), [c[2]], 'move ' + c[0]);
+            });
+            key('Enter');
+            t.eq(modes(), 'Resize', 'resize mode');
+            [
+              ['ArrowRight', null, 'rect|1,100,190,410,300'],
+              ['ArrowDown', SHIFT, 'rect|1,100,190,410,400'],
+              ['ArrowLeft', null, 'rect|1,100,190,400,400'],
+              ['ArrowUp', null, 'rect|1,100,190,400,390'],
+            ].forEach(function (c) {
+              tick();
+              key(c[0], c[1]);
+              t.eq(take(), [c[2]], 'resize ' + c[0]);
+            });
+            t.eq(rectOf(1), [100, 190, 400, 390], 'frame rect');
+            key('Enter');
+            t.eq(modes(), 'Select', 'back to select');
+          });
+
+          step('Escape leaves move and resize mode first and only then sends close (regression: Escape closes the editor mid-edit)', function (t) {
+            fresh();
+            key('Enter');
+            key('Escape');
+            t.eq([text('#mode').split(':')[0], take()], ['Select', []], 'move to select');
+            key('Enter');
+            key('Enter');
+            t.eq(text('#mode').split(':')[0], 'Resize', 'resize mode');
+            key('Escape');
+            t.eq([text('#mode').split(':')[0], take()], ['Select', []], 'resize to select');
+            key('Escape');
+            t.eq(take(), ['close|'], 'close from select');
+          });
+
+          step('Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z undo and redo, Ctrl+S saves, other Ctrl keys pass through (regression: keyboard history or save shortcut broken)', function (t) {
+            fresh();
+            key('Enter');
+            tick();
+            key('ArrowRight');
+            tick();
+            key('ArrowDown', SHIFT);
+            tick();
+            key('h');
+            key('Enter');
+            key('Enter');
+            take();
+            t.eq(key('z', CTRL), true, 'Ctrl+Z handled');
+            t.eq(take(), ['hidden|1,0', 'rect|1,110,200,400,300'], 'undo hide');
+            t.eq($('#redo').disabled, false, 'redo enabled');
+            key('z', CTRL);
+            t.eq(take(), ['rect|1,110,100,400,300'], 'undo move');
+            key('Z', CTRL_SHIFT);
+            t.eq(take(), ['rect|1,110,200,400,300'], 'Ctrl+Shift+Z redoes');
+            key('y', CTRL);
+            t.eq(take(), ['hidden|1,1', 'rect|1,110,200,400,300'], 'Ctrl+Y redoes');
+            t.eq([key('y', CTRL), take(), $('#redo').disabled], [true, [], true], 'empty redo is silent');
+            $('#status').textContent = '';
+            t.eq([key('s', CTRL), take(), text('#status')], [true, ['save|'], 'Layout saved'], 'Ctrl+S');
+            t.eq([key('q', CTRL), take()], [false, []], 'other Ctrl key ignored');
+          });
+
+          step('rapid arrow nudges of one view coalesce into a single undo (regression: holding an arrow floods the undo stack)', function (t) {
+            fresh();
+            key('Enter');
+            key('ArrowRight');
+            key('ArrowRight');
+            t.eq(rectOf(1), [120, 100, 400, 300], 'moved twice');
+            take();
+            key('z', CTRL);
+            t.eq([take(), rectOf(1), $('#undo').disabled], [['rect|1,100,100,400,300'], [100, 100, 400, 300], true], 'one undo');
+          });
+
+          step('R and Delete reset the selected view and clear hidden, and the reset is undoable (regression: reset shortcut dead or leaves view hidden)', function (t) {
+            fresh();
+            key('Enter');
+            tick();
+            key('ArrowRight');
+            key('Escape');
+            tick();
+            key('h');
+            take();
+            t.eq([key('r'), take()], [true, ['reset|1']], 'R');
+            t.eq([rectOf(1), vis(1).frame], [[0, 0, 1920, 1080], false], 'defaults after R');
+            key('z', CTRL);
+            t.eq([take(), vis(1).frame], [['hidden|1,1', 'rect|1,110,100,400,300'], true], 'undo reset');
+            t.eq([key('Delete'), take()], [true, ['reset|1']], 'Delete');
+            t.eq([rectOf(1), vis(1).frame], [[0, 0, 1920, 1080], false], 'defaults after Delete');
+          });
+        }
+
+        var fatal = null;
+        try {
+          loadPage();
+          scenario();
+        } catch (err) {
+          fatal = String((err && err.stack) || err);
+        }
+        var out = { steps: steps, done: !fatal, fatal: fatal };
+        document.getElementById('result').textContent = btoa(unescape(encodeURIComponent(JSON.stringify(out))));
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prisma Layout</title>
+    <style>
+      :root {
+        color-scheme: dark light;
+        --accent: #c850ff;
+        --accent-soft: rgba(200, 80, 255, 0.4);
+        --ink: #f3ecfa;
+        --ink-dim: #b7a8c8;
+        --panel: rgba(18, 8, 28, 0.9);
+        --panel-edge: rgba(200, 80, 255, 0.35);
+        --scrim: rgba(8, 4, 14, 0.34);
+        --grid: rgba(255, 255, 255, 0.07);
+        --warn: #ff9f5a;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --ink: #24122f;
+          --ink-dim: #5d4a70;
+          --panel: rgba(250, 246, 255, 0.94);
+          --panel-edge: rgba(130, 40, 190, 0.4);
+          --scrim: rgba(240, 232, 250, 0.3);
+          --grid: rgba(60, 20, 90, 0.1);
+          --accent: #9a2fd0;
+          --accent-soft: rgba(154, 47, 208, 0.4);
+        }
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+        cursor: none;
+        font-family: 'Segoe UI', sans-serif;
+        color: var(--ink);
+        user-select: none;
+      }
+      #stage {
+        position: fixed;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--scrim);
+      }
+      #stage.grid {
+        background-image:
+          linear-gradient(to right, var(--grid) 1px, transparent 1px),
+          linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+      }
+      .frame {
+        position: absolute;
+        box-sizing: border-box;
+        border: 1px dashed var(--accent-soft);
+        background: rgba(200, 80, 255, 0.05);
+        cursor: move;
+      }
+      .frame.selected {
+        border: 2px solid var(--accent);
+        background: rgba(200, 80, 255, 0.12);
+      }
+      .frame.hidden {
+        opacity: 0.5;
+        border-style: dotted;
+        background: transparent;
+      }
+      .frame .tag {
+        position: absolute;
+        left: 6px;
+        top: 6px;
+        padding: 2px 8px;
+        border-radius: 8px;
+        font-size: 12px;
+        background: var(--panel);
+        border: 1px solid var(--panel-edge);
+        white-space: nowrap;
+        max-width: 80%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .handle {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        box-sizing: border-box;
+        background: var(--accent);
+        border: 2px solid var(--panel);
+        border-radius: 50%;
+        display: none;
+      }
+      .frame.selected .handle {
+        display: block;
+      }
+      .handle.nw { left: -7px; top: -7px; cursor: nwse-resize; }
+      .handle.n { left: calc(50% - 6px); top: -7px; cursor: ns-resize; }
+      .handle.ne { right: -7px; top: -7px; cursor: nesw-resize; }
+      .handle.e { right: -7px; top: calc(50% - 6px); cursor: ew-resize; }
+      .handle.se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+      .handle.s { left: calc(50% - 6px); bottom: -7px; cursor: ns-resize; }
+      .handle.sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
+      .handle.w { left: -7px; top: calc(50% - 6px); cursor: ew-resize; }
+
+      #panel {
+        position: fixed;
+        top: 24px;
+        bottom: 24px;
+        width: 340px;
+        display: flex;
+        flex-direction: column;
+        background: var(--panel);
+        border: 1px solid var(--panel-edge);
+        border-radius: 18px;
+        box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+        cursor: default;
+        transition: opacity 0.18s ease;
+      }
+      #panel.left { left: 24px; }
+      #panel.right { right: 24px; }
+      #panel header {
+        padding: 14px 16px 10px;
+        border-bottom: 1px solid var(--panel-edge);
+      }
+      #panel h1 {
+        margin: 0;
+        font-size: 17px;
+        letter-spacing: 0.04em;
+      }
+      #panel .sub {
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--ink-dim);
+      }
+      #list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 1px solid transparent;
+      }
+      .row.selected {
+        border-color: var(--accent);
+        background: rgba(200, 80, 255, 0.12);
+      }
+      .row .name {
+        flex: 1;
+        min-width: 0;
+      }
+      .row .name b {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .row .name span {
+        display: block;
+        font-size: 11px;
+        color: var(--ink-dim);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .row.off .name b {
+        text-decoration: line-through;
+        color: var(--ink-dim);
+      }
+      .eye,
+      .btn {
+        font: inherit;
+        color: var(--ink);
+        background: transparent;
+        border: 1px solid var(--panel-edge);
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      .eye {
+        width: 34px;
+        height: 30px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .eye svg {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .eye.off {
+        color: var(--warn);
+        border-color: var(--warn);
+      }
+      .eye:hover,
+      .btn:hover:not(:disabled) {
+        border-color: var(--accent);
+        background: rgba(200, 80, 255, 0.14);
+      }
+      .btn {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .btn.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      #foot {
+        padding: 10px 12px 14px;
+        border-top: 1px solid var(--panel-edge);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+      #foot label {
+        font-size: 12px;
+        color: var(--ink-dim);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      #status {
+        width: 100%;
+        font-size: 12px;
+        color: var(--ink-dim);
+        min-height: 16px;
+      }
+      #empty {
+        padding: 18px 12px;
+        font-size: 13px;
+        color: var(--ink-dim);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <aside id="panel" class="left">
+      <header>
+        <h1>Layout editor</h1>
+        <div class="sub" id="mode">Select: Up/Down choose, Left/Right hide or show, Enter to move</div>
+      </header>
+      <div id="list"></div>
+      <div id="foot">
+        <button class="btn" id="undo" type="button">Undo</button>
+        <button class="btn" id="redo" type="button">Redo</button>
+        <button class="btn" id="reset" type="button">Reset view</button>
+        <button class="btn" id="reset-all" type="button">Reset all</button>
+        <button class="btn" id="snap" type="button">Snap 10</button>
+        <label><input type="checkbox" id="grid" /> Grid</label>
+        <button class="btn" id="side" type="button">Dock side</button>
+        <button class="btn primary" id="save" type="button">Save</button>
+        <button class="btn" id="close" type="button">Close</button>
+        <div id="status"></div>
+      </div>
+    </aside>
+    <script src="layoutCore.js"></script>
+    <script>
+      (function () {
+        'use strict';
+        var core = window.PrismaLayoutCore;
+        var views = [];
+        var snap = 10;
+        var grid = false;
+        var selected = null;
+        var mode = 'select';
+        var history = core.createHistory(100);
+        var drag = null;
+        var pending = null;
+        var stage = document.getElementById('stage');
+        var list = document.getElementById('list');
+        var panel = document.getElementById('panel');
+        var statusEl = document.getElementById('status');
+        var HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+        var MODE_TEXT = {
+          select: 'Select: Up/Down choose, Left/Right hide or show, Enter to move',
+          move: 'Move: arrows move, Enter to resize, Escape to go back',
+          resize: 'Resize: arrows resize, Enter to select, Escape to go back',
+        };
+        var EYE_ON =
+          '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+        var EYE_OFF =
+          '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7c2 0 3.7.7 5.2 1.6M22 12s-3.6 7-10 7c-2 0-3.7-.7-5.2-1.6"/><path d="M4 4l16 16"/></svg>';
+
+        function native(channel, payload) {
+          if (window.__prismaLayoutNative) window.__prismaLayoutNative(core.message(channel, payload));
+        }
+        function scale() {
+          return { x: window.innerWidth / core.STAGE_W, y: window.innerHeight / core.STAGE_H };
+        }
+        function find(id) {
+          for (var i = 0; i < views.length; i++) if (views[i].id === id) return views[i];
+          return null;
+        }
+        function say(text) {
+          statusEl.textContent = text || '';
+        }
+        function snapshot(view) {
+          return { rect: { x: view.rect.x, y: view.rect.y, w: view.rect.w, h: view.rect.h }, hidden: view.hidden };
+        }
+        function place(el, rect) {
+          var s = scale();
+          el.style.left = rect.x * s.x + 'px';
+          el.style.top = rect.y * s.y + 'px';
+          el.style.width = rect.w * s.x + 'px';
+          el.style.height = rect.h * s.y + 'px';
+        }
+        function sendRect(view) {
+          native('rect', [view.id, view.rect.x, view.rect.y, view.rect.w, view.rect.h].join(','));
+        }
+        function flushRect() {
+          if (!pending) return;
+          var view = find(pending);
+          pending = null;
+          if (view) sendRect(view);
+        }
+        function queueRect(view) {
+          if (pending === null) window.requestAnimationFrame(flushRect);
+          pending = view.id;
+        }
+        function applyState(id, state) {
+          var view = find(id);
+          if (!view) return;
+          view.rect = { x: state.rect.x, y: state.rect.y, w: state.rect.w, h: state.rect.h };
+          if (view.hidden !== state.hidden) {
+            view.hidden = state.hidden;
+            native('hidden', id + ',' + (state.hidden ? 1 : 0));
+          }
+          sendRect(view);
+          render();
+        }
+        function commit(view, before, key) {
+          var after = snapshot(view);
+          if (core.rectsEqual(before.rect, after.rect) && before.hidden === after.hidden) return;
+          history.push({ id: view.id, key: key, before: before, after: after }, Date.now());
+          refreshButtons();
+        }
+        function setHidden(view, hidden) {
+          if (!view || view.hidden === hidden) return;
+          var before = snapshot(view);
+          view.hidden = hidden;
+          native('hidden', view.id + ',' + (hidden ? 1 : 0));
+          commit(view, before, null);
+          render();
+        }
+        function nudge(view, dx, dy, resizing) {
+          var before = snapshot(view);
+          var step = snap > 0 ? snap : 1;
+          view.rect = resizing
+            ? core.resizeRect(view.rect, 'se', dx * step, dy * step, snap)
+            : core.moveRect(view.rect, dx * step, dy * step, snap);
+          sendRect(view);
+          commit(view, before, resizing ? 'resize-key' : 'move-key');
+          render();
+        }
+        function choose(id) {
+          selected = id;
+          render();
+        }
+        function resetSelected() {
+          var view = find(selected);
+          if (!view) return;
+          var before = snapshot(view);
+          view.rect = { x: view.defaultRect.x, y: view.defaultRect.y, w: view.defaultRect.w, h: view.defaultRect.h };
+          view.hidden = false;
+          native('reset', String(view.id));
+          commit(view, before, null);
+          render();
+        }
+
+        function render() {
+          stage.className = grid ? 'grid' : '';
+          if (grid) {
+            var s = scale();
+            var step = (snap > 0 ? snap : 20) * s.x;
+            stage.style.backgroundSize = step + 'px ' + step + 'px';
+          }
+          stage.innerHTML = '';
+          list.innerHTML = '';
+          views.forEach(function (view) {
+            var frame = document.createElement('div');
+            frame.className = 'frame' + (view.id === selected ? ' selected' : '') + (view.hidden ? ' hidden' : '');
+            frame.setAttribute('data-id', String(view.id));
+            place(frame, view.rect);
+            var tag = document.createElement('div');
+            tag.className = 'tag';
+            tag.textContent = view.title;
+            frame.appendChild(tag);
+            HANDLES.forEach(function (name) {
+              var handle = document.createElement('div');
+              handle.className = 'handle ' + name;
+              handle.setAttribute('data-handle', name);
+              frame.appendChild(handle);
+            });
+            stage.appendChild(frame);
+
+            var row = document.createElement('div');
+            row.className = 'row' + (view.id === selected ? ' selected' : '') + (view.hidden ? ' off' : '');
+            row.setAttribute('data-id', String(view.id));
+            var eye = document.createElement('button');
+            eye.type = 'button';
+            eye.className = 'eye' + (view.hidden ? ' off' : '');
+            eye.setAttribute('data-eye', String(view.id));
+            eye.setAttribute('aria-label', (view.hidden ? 'Show ' : 'Hide ') + view.title);
+            eye.innerHTML = view.hidden ? EYE_OFF : EYE_ON;
+            var name = document.createElement('div');
+            name.className = 'name';
+            var title = document.createElement('b');
+            title.textContent = view.title;
+            var detail = document.createElement('span');
+            detail.textContent = (view.owner || 'unknown') + '  ' + Math.round(view.rect.w) + 'x' + Math.round(view.rect.h);
+            name.appendChild(title);
+            name.appendChild(detail);
+            row.appendChild(eye);
+            row.appendChild(name);
+            list.appendChild(row);
+          });
+          if (!views.length) {
+            var empty = document.createElement('div');
+            empty.id = 'empty';
+            empty.textContent = 'No Prisma views are open right now.';
+            list.appendChild(empty);
+          }
+          document.getElementById('snap').textContent = 'Snap ' + (snap || 'off');
+          document.getElementById('grid').checked = grid;
+          document.getElementById('mode').textContent = MODE_TEXT[mode];
+          refreshButtons();
+        }
+        function refreshButtons() {
+          document.getElementById('undo').disabled = !history.canUndo();
+          document.getElementById('redo').disabled = !history.canRedo();
+          var has = !!find(selected);
+          document.getElementById('reset').disabled = !has;
+        }
+
+        window.setLayout = function (payload) {
+          var parsed = core.parseLayout(payload);
+          if (!parsed || drag) return;
+          var before = views.map(function (v) { return v.id; }).join(',');
+          var after = parsed.views.map(function (v) { return v.id; }).join(',');
+          if (before !== after) history.clear();
+          views = parsed.views;
+          snap = parsed.snap;
+          grid = parsed.grid;
+          if (!find(selected)) selected = views.length ? views[0].id : null;
+          render();
+        };
+
+        stage.addEventListener('mousedown', function (e) {
+          var frameEl = e.target.closest ? e.target.closest('.frame') : null;
+          if (!frameEl) return;
+          var id = Number(frameEl.getAttribute('data-id'));
+          var view = find(id);
+          if (!view) return;
+          selected = id;
+          var handle = e.target.getAttribute ? e.target.getAttribute('data-handle') : null;
+          drag = {
+            id: id,
+            handle: handle,
+            startX: e.clientX,
+            startY: e.clientY,
+            start: snapshot(view),
+          };
+          render();
+          e.preventDefault();
+        });
+        document.addEventListener('mousemove', function (e) {
+          if (!drag) return;
+          var view = find(drag.id);
+          if (!view) return;
+          var s = scale();
+          var dx = (e.clientX - drag.startX) / s.x;
+          var dy = (e.clientY - drag.startY) / s.y;
+          view.rect = drag.handle
+            ? core.resizeRect(drag.start.rect, drag.handle, dx, dy, snap)
+            : core.moveRect(drag.start.rect, dx, dy, snap);
+          var frame = stage.querySelector('.frame[data-id="' + view.id + '"]');
+          if (frame) place(frame, view.rect);
+          queueRect(view);
+        });
+        document.addEventListener('mouseup', function () {
+          if (!drag) return;
+          var view = find(drag.id);
+          var before = drag.start;
+          drag = null;
+          if (view) {
+            flushRect();
+            sendRect(view);
+            commit(view, before, null);
+          }
+          render();
+        });
+        list.addEventListener('click', function (e) {
+          var eye = e.target.closest ? e.target.closest('.eye') : null;
+          if (eye) {
+            var view = find(Number(eye.getAttribute('data-eye')));
+            selected = view ? view.id : selected;
+            if (view) setHidden(view, !view.hidden);
+            return;
+          }
+          var row = e.target.closest ? e.target.closest('.row') : null;
+          if (row) choose(Number(row.getAttribute('data-id')));
+        });
+
+        function undoRedo(entry) {
+          if (!entry) return;
+          selected = entry.id;
+          applyState(entry.id, entry.state);
+        }
+        document.getElementById('undo').addEventListener('click', function () {
+          undoRedo(history.undo());
+          refreshButtons();
+        });
+        document.getElementById('redo').addEventListener('click', function () {
+          undoRedo(history.redo());
+          refreshButtons();
+        });
+        document.getElementById('reset').addEventListener('click', resetSelected);
+        document.getElementById('reset-all').addEventListener('click', function () {
+          history.clear();
+          refreshButtons();
+          native('resetAll', '');
+          say('All views restored');
+        });
+        document.getElementById('snap').addEventListener('click', function () {
+          snap = core.cycleSnap(snap);
+          native('settings', snap + ',' + (grid ? 1 : 0));
+          render();
+        });
+        document.getElementById('grid').addEventListener('change', function (e) {
+          grid = !!e.target.checked;
+          native('settings', snap + ',' + (grid ? 1 : 0));
+          render();
+        });
+        document.getElementById('side').addEventListener('click', function () {
+          panel.className = panel.className.indexOf('left') !== -1 ? 'right' : 'left';
+        });
+        document.getElementById('save').addEventListener('click', function () {
+          native('save', '');
+          say('Layout saved');
+        });
+        document.getElementById('close').addEventListener('click', function () {
+          native('close', '');
+        });
+
+        document.addEventListener('keydown', function (e) {
+          var key = e.key;
+          var view = find(selected);
+          var ids = views.map(function (v) {
+            return v.id;
+          });
+          var big = e.shiftKey ? 10 : 1;
+          if (e.ctrlKey || e.metaKey) {
+            if (key === 'z' || key === 'Z') {
+              undoRedo(e.shiftKey ? history.redo() : history.undo());
+            } else if (key === 'y' || key === 'Y') {
+              undoRedo(history.redo());
+            } else if (key === 's' || key === 'S') {
+              native('save', '');
+              say('Layout saved');
+            } else {
+              return;
+            }
+            refreshButtons();
+            e.preventDefault();
+            return;
+          }
+          if (key === 'Escape') {
+            if (mode !== 'select') {
+              mode = 'select';
+              render();
+            } else {
+              native('close', '');
+            }
+          } else if (key === 'Tab') {
+            choose(core.neighbour(ids, selected, e.shiftKey ? -1 : 1));
+          } else if (key === 'Enter') {
+            mode = mode === 'select' ? 'move' : mode === 'move' ? 'resize' : 'select';
+            render();
+          } else if (key === 'h' || key === 'H' || key === ' ') {
+            if (view) setHidden(view, !view.hidden);
+          } else if (key === 'r' || key === 'R' || key === 'Delete') {
+            resetSelected();
+          } else if (key.indexOf('Arrow') === 0) {
+            var dx = key === 'ArrowLeft' ? -1 : key === 'ArrowRight' ? 1 : 0;
+            var dy = key === 'ArrowUp' ? -1 : key === 'ArrowDown' ? 1 : 0;
+            if (mode === 'select') {
+              if (dy) choose(core.neighbour(ids, selected, dy));
+              else if (view) setHidden(view, dx < 0);
+            } else if (view) {
+              nudge(view, dx * big, dy * big, mode === 'resize');
+            }
+          } else {
+            return;
+          }
+          e.preventDefault();
+        });
+        window.addEventListener('resize', render);
+        window.addEventListener('prisma-layout-edit', function () {});
+        render();
+        native('ready', '');
+      })();
+    </script>
+  </body>
+</html>

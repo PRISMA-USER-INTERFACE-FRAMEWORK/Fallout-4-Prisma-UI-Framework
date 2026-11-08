@@ -1,0 +1,94 @@
+:root {
+  color-scheme: dark;
+  font:
+    18px system-ui,
+    sans-serif;
+}
+body {
+  margin: 0;
+  background: rgba(10, 14, 20, 0.94);
+  color: #e9f1ff;
+}
+main {
+  box-sizing: border-box;
+  width: min(900px, 100vw);
+  min-height: 100vh;
+  padding: 28px;
+  border: 2px solid #4fa8ff;
+}
+h1 {
+  margin-top: 0;
+  color: #73c8ff;
+}
+.hint {
+  line-height: 1.45;
+}
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px 0;
+}
+button {
+  padding: 10px 14px;
+  color: #06111d;
+  background: #9cdbff;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+}
+button:focus {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+.state {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+output {
+  color: #ffdc7a;
+}
+pre {
+  height: 55vh;
+  overflow: auto;
+  padding: 14px;
+  background: #020508;
+  border: 1px solid #31506b;
+  white-space: pre-wrap;
+}
+.glyphs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.glyph {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}
+.osk-targets {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.osk-targets input,
+.osk-targets textarea,
+#osk-rich {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  font: inherit;
+  color: #e9f1ff;
+  background: #020508;
+  border: 1px solid #31506b;
+}
+#osk-rich {
+  min-height: 2.2em;
+}
+.osk-host {
+  margin: 12px 0;
+  color: #9cdbff;
+}
